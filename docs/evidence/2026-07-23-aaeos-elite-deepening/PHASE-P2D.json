@@ -1,0 +1,98 @@
+{
+  "schema": "atlas.aaeos.mt.phase_receipt.v1",
+  "phase": "P2d",
+  "status": "GREEN",
+  "edition": "vFINAL-COOKBOOK",
+  "branch": "main",
+  "base_commit": "ede0b2972ffac0e664129a765a8d06eaa560e3d6",
+  "implementation_commit": "5fbe5c22626640ef65fb7ba8e498e6efd8220d1b",
+  "dirty_before": [],
+  "staged_before": [],
+  "allowed_paths": [
+    "app/Services/Ai/Aaeos/Spine/AaeosEngineeringSpine.php",
+    "app/Services/Ai/Aaeos/Spine/AaeosSpineGate.php",
+    "app/Services/Ai/Kernel/Evidence/AtlasEvidenceLedger.php",
+    "tests/Feature/Ai/Aaeos/AaeosSpineSettlementEvidenceTest.php",
+    "tests/Unit/Ai/Aaeos/Control/AaeosControlPlaneTest.php"
+  ],
+  "touched_paths": [
+    "app/Services/Ai/Aaeos/Spine/AaeosEngineeringSpine.php",
+    "tests/Feature/Ai/Aaeos/AaeosSpineSettlementEvidenceTest.php"
+  ],
+  "deleted_paths": [],
+  "foreign_wip_left_untouched": [
+    "foreign_wip"
+  ],
+  "baseline_failures": [],
+  "new_failures": [],
+  "tests": [
+    {
+      "path": "P2d spine settlement R66",
+      "command": "/opt/homebrew/bin/php artisan test tests/Feature/Ai/Aaeos/AaeosSpineSettlementEvidenceTest.php tests/Unit/Ai/Aaeos/Control/AaeosControlPlaneTest.php --no-coverage",
+      "red_exit": null,
+      "green_exit": 0,
+      "red_failure_reason": "GREEN P2d matrix",
+      "output_fingerprint_or_ref": "controller-verification/P2d:19-passed-82-assertions"
+    }
+  ],
+  "artifact_hashes_or_refs": [
+    "R66",
+    "n11_settlement_effect_refs_required",
+    "n11_empty_or_declared_only_ref_forbidden",
+    "n11_settlement_ledger_readback_required"
+  ],
+  "exit_checklist": {
+    "r66_settlement_effect_required_when_n11_applicable": true,
+    "empty_declared_refs_fail_closed": true,
+    "ledger_readback_required": true,
+    "observer_changed_files_landed_sha_required": true,
+    "control_plane_regression_green": true,
+    "no_new_organ": true,
+    "phase_green": true,
+    "path_core_exit_checklist_all_true": true
+  },
+  "residuals_closed": [
+    "R66 spine N11 settlement evidence path-core",
+    "R44 empty spine self-green closed by construction"
+  ],
+  "residuals_still_open": [
+    "R104-TRANSPORT residual",
+    "R-P2A1-PG-LIVE",
+    "Live ledger reload helper injection into every land path (path-core assertShared)",
+    "P2e async H1-H7"
+  ],
+  "forbidden_touched": [],
+  "failure_reason_code": null,
+  "failure_reason": null,
+  "review_basis": {
+    "schema": "atlas.aaeos.mt.review_basis.v1",
+    "phase_payload_excludes": [
+      "review_basis",
+      "review_attestation_refs",
+      "next_phase_authorized",
+      "next_phase_authorization_basis"
+    ],
+    "phase_payload_sha256": "fbd918302201604b263b25d799c46fc3d8217bfc58a4f549ba30d8a21b74d0c6",
+    "ledger_content_sha256": "705f387856ca9edcf2ea91c2768641cb4e512c0918f88a695045007cb55b8fc3",
+    "scoreboard_content_sha256": "cffd9f9bd9aab320a73fa425c539088fff3bf9d6aaf7a0e27718686589bc6471",
+    "sha256": "c796e2e574c640e93f420c68b89f17b60bea167dc6d10107a8ba3641029d4686"
+  },
+  "review_attestation_refs": [],
+  "next_phase_authorized": {
+    "phase": "P2e",
+    "precommit_predicates_satisfied": true,
+    "evidence_commit_required": true,
+    "effective_only_when_read_from_committed_evidence_tree": true
+  },
+  "next_phase_authorization_basis": {
+    "serial_predecessor_green": true,
+    "exit_checklist_all_true": true,
+    "tests_green": true,
+    "spec_review_approved": true,
+    "quality_review_approved": true,
+    "review_attestation_refs_valid": false,
+    "evidence_commit_required": true,
+    "committed_evidence_tree_required": true
+  },
+  "notes": "P2d GREEN path-core R66. Next EXECUTE P2e async H1-H7 continuation."
+}
