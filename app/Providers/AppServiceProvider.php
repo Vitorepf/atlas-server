@@ -7,50 +7,19 @@ use App\Console\Commands\AtlasTaskMaestroCostCommand;
 use App\Console\Commands\AtlasTaskMaestroRetryCommand;
 use App\Models\AtlasMemoryEntry;
 use App\Observers\AtlasMemoryRecallCacheObserver;
-use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
 use App\Services\Ai\AgentGovernance\FleetDriver;
 use App\Services\Ai\AgentGovernance\SystemFleetDriver;
 use App\Services\Ai\AgenticEngineeringOs\Support\AeosGeneratedContractGate;
 use App\Services\Ai\AgenticWorkcell\Contracts\WorkcellAdapter;
-use App\Services\Ai\AiGatewayService;
 use App\Services\Ai\AiProviderManager;
-use App\Services\Ai\AiWorker;
-use App\Services\Ai\AtlasDecide\AtlasConductorRoutingMemory;
 use App\Services\Ai\AtlasDecide\AtlasDecideGatewayConsultationService;
-use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
-use App\Services\Ai\AtlasDecide\AtlasDecideMetaLearningService;
-use App\Services\Ai\AtlasDecide\AtlasEngineeringRunConductorService;
-use App\Services\Ai\AtlasDecide\AtlasSwarmConductorService;
-use App\Services\Ai\AtlasDecide\AtlasSwarmExecutorService;
-use App\Services\Ai\AtlasDecide\AtlasSwarmProductionResolverService;
-use App\Services\Ai\AtlasDecide\AtlasSwarmTopologySelector;
 use App\Services\Ai\AtlasDecideService;
 use App\Services\Ai\AutonomousEvolution\Aael\Execution\InFlight\AtlasAaelInFlightReceiptLedger;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopAdversarialVerifierPool;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopRefusalCriticPanel;
 use App\Services\Ai\AutonomousEvolution\Contracts\BroaderRegressionGateContract;
 use App\Services\Ai\Caching\AiCallCostGuard;
-
-use App\Services\Ai\Cartography\CartographyTruthGuardService;
-use App\Services\Ai\Cognition\AtlasCognitiveFunctionDecomposerService;
-use App\Services\Ai\Cognition\Watchdog\AtlasAcosWatchdogHealthService;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckRegistry;
-use App\Services\Ai\Cognition\Watchdog\Checks\AcosDeadSeriesWatchdogCheck;
-use App\Services\Ai\Cognition\Watchdog\Checks\AobgLatencyWatchdogCheck;
-use App\Services\Ai\Cognition\Watchdog\Checks\AutonomyLadderAdversarialWatchdogCheck;
-use App\Services\Ai\Cognition\Watchdog\Checks\CompactionRecoverySampleWatchdogCheck;
-use App\Services\Ai\Cognition\Watchdog\Checks\DailyCanaryReplayByRefsWatchdogCheck;
-use App\Services\Ai\Cognition\Watchdog\Checks\DiskFreeWatchdogCheck;
-use App\Services\Ai\Cognition\Watchdog\Checks\EvidenceLedgerIntegrityWatchdogCheck;
-use App\Services\Ai\Cognition\Watchdog\Checks\HealthReportWatchdogCheck;
-use App\Services\Ai\Cognition\Watchdog\Checks\JointResourceBudgetWatchdogCheck;
-use App\Services\Ai\Cognition\Watchdog\Checks\LocalModelIntegrityWatchdogCheck;
-use App\Services\Ai\Cognition\Watchdog\Checks\OperatorLearningCaptureSchemaWatchdogCheck;
-use App\Services\Ai\Cognition\Watchdog\Checks\OperatorReviewDebtWatchdogCheck;
-use App\Services\Ai\Cognition\Watchdog\Checks\ProviderBoundRedactionDriftWatchdogCheck;
-use App\Services\Ai\Cognition\Watchdog\Checks\SubstrateRestoreDrillWatchdogCheck;
-use App\Services\Ai\Compounding\AtlasCompoundingMemoryService;
-use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
 use App\Services\Ai\Compression\AtlasCcrStore;
 use App\Services\Ai\Compression\CompressionPipeline;
 use App\Services\Ai\Compression\Compressors\DiffCompressor;
@@ -60,21 +29,14 @@ use App\Services\Ai\Compression\Compressors\SmartCrusherJsonCompressor;
 use App\Services\Ai\Compression\Compressors\TextCompressor;
 use App\Services\Ai\Compression\ContentRouter;
 use App\Services\Ai\Compression\Support\VolatileTokenRelocator;
-use App\Services\Ai\Context\AiContextPackBuilder;
 use App\Services\Ai\Context\AtlasContextRuntime;
 use App\Services\Ai\Context\AtlasDeliveredPackLedger;
 use App\Services\Ai\Context\AtlasRetrievalEvaluationBenchmarkArenaService;
 use App\Services\Ai\CrossDomain\AtlasCrossDomainMeshService;
-use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
 use App\Services\Ai\ExecutionAuthority\AwisExecutionGatePort;
 use App\Services\Ai\ExecutionAuthority\AwisHandoffPackPort;
 use App\Services\Ai\ExecutionAuthority\ForgeLiveDecideReceiptPort;
 use App\Services\Ai\ExecutionAuthority\ForgeProviderTopologyPort;
-
-use App\Services\Ai\Gateway\AtlasGatewayPreflightService;
-use App\Services\Ai\Governance\AtlasAutonomyAdmissionService;
-use App\Services\Ai\Governance\AtlasChangeClassTrustLadder;
-use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
 use App\Services\Ai\Governance\GovernanceConsultSkipCounter;
 use App\Services\Ai\Governance\ProviderGovernanceCoverageLedger;
 use App\Services\Ai\Hermes\Acp\HermesAcpSessionPool;
@@ -83,7 +45,6 @@ use App\Services\Ai\Hermes\Kanban\HermesKanbanProcessCli;
 use App\Services\Ai\Hermes\Mesh\HermesWorkcellAdapter;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Learning\Harness\AtlasHarnessSurface;
-use App\Services\Ai\Mcp\AtlasMcpTierService;
 use App\Services\Ai\Memory\MemoryPairwiseCosineScorer;
 use App\Services\Ai\Memory\Substrate\AtlasMemorySubstrateDumpRunner;
 use App\Services\Ai\Memory\Substrate\AtlasMemorySubstrateRestoreDrillRunner;
@@ -96,21 +57,8 @@ use App\Services\Ai\Obra\DeterministicObraDecomposer;
 use App\Services\Ai\Obra\ObraDecomposer;
 use App\Services\Ai\Obra\ObraNodeDelivery;
 use App\Services\Ai\Obra\ProviderObraNodeDelivery;
-
-use App\Services\Ai\Patamar4\AtlasSchedulerHealthService;
-use App\Services\Ai\Patamar4\AtlasSubsystemAutoRebalanceService;
 use App\Services\Ai\Programming\AtlasDevRuntimeService;
 use App\Services\Ai\Programming\AtlasForgeProviderTopologyService;
-use App\Services\Ai\Programming\Sdd\Compilers\SpecCritic;
-use App\Services\Ai\RealExecution\AtlasLiveCodeDeliveryService;
-use App\Services\Ai\RealExecution\AtlasMissionOutcomeRecorder;
-use App\Services\Ai\RealExecution\AtlasMissionService;
-use App\Services\Ai\RealExecution\GovernedBranchMaterializationService;
-use App\Services\Ai\RealExecution\MissionDeliveryOrchestrator;
-use App\Services\Ai\Reality\AtlasRealityGraphIngestionService;
-use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
-use App\Services\Ai\Reality\AtlasUnifiedRealityGraphTemporalService;
-use App\Services\Ai\Reconciliation\AtlasAutonomousReconciliationRuntimeService;
 use App\Services\Ai\RuntimeBoundary\SemanticRagRuntimeClient;
 use App\Services\Ai\RuntimeBoundary\SemanticRetrievalRuntime;
 use App\Services\Ai\RuntimeEfficiency\AtlasRuntimeEfficiencyGovernorService;
@@ -122,13 +70,6 @@ use App\Services\Ai\SelfConstruction\Maestro\DynamicPriority\AtlasMaestroPriorit
 use App\Services\Ai\SelfConstruction\Maestro\DynamicPriority\AtlasMaestroPriorityReshaper;
 use App\Services\Ai\SelfConstruction\Maestro\Tiering\AtlasMaestroTierMismatchLedger;
 use App\Services\Ai\SelfConstruction\Maestro\Tiering\AtlasMaestroWorkerTierRegistry;
-use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionDetector;
-use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionLoopService;
-use App\Services\Ai\SelfConstruction\Support\AtlasSelfImprovementAdversarialRecheck;
-use App\Services\Ai\SelfConstruction\Support\AtlasSelfImprovementMetaMetricService;
-use App\Services\Ai\SelfConstruction\Support\AtlasSelfImprovementReceiptLog;
-use App\Services\Ai\SelfConstruction\Support\AtlasSelfImprovementRelevanceGate;
-use App\Services\Ai\SelfImprovement\AtlasSelfImprovementHumanTrustLedgerService;
 use App\Services\Ai\Skills\SkillBundleStore;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxMaterializer;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusBranchSandboxMaterializerService;
@@ -159,16 +100,12 @@ use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipO
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultBridgeService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultProjector;
 use App\Services\Ai\Telemetry\AiCostEstimator;
-use App\Services\Ai\Teos\AtlasTeosI3CounterfactualService;
 use App\Services\Ai\Tokens\AtlasTokenEconomyBudgetPolicyService;
-use App\Services\Ai\VerifiedExecution\AtlasVerifiedExecutionRuntimeService;
-
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceHandoffPackService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use App\Services\Engineering\CodeGraph\CrossDomainGraphIngestionService;
 use App\Services\Engineering\CodeGraph\CrossDomainGraphTraversalService;
 use App\Services\Engineering\CodeGraph\CrossDomainTaxonomyMap;
-use App\Services\Engineering\EngineeringDocumentationHealthService;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\ServiceProvider;
 
@@ -360,284 +297,14 @@ class AppServiceProvider extends ServiceProvider
             );
         });
 
-        // Patamar 4 · TEOS-I3 × AURG-4D auto-chain.
-        // TEOS-I3's `setAurgForChaining()` is an opt-in seam so unit tests can
-        // create branches without writing temporal ticks. Production resolution
-        // MUST wire the chain so every counterfactual branch emits an AURG-4D
-        // tick — closing the Patamar 4 hook between TEOS and Reality Graph.
-        $this->app->resolving(AtlasTeosI3CounterfactualService::class, function ($svc, $app) {
-            if ($svc instanceof AtlasTeosI3CounterfactualService) {
-                $svc->setAurgForChaining($app->make(AtlasUnifiedRealityGraphTemporalService::class));
-            }
-        });
-
-        // Patamar 4 · Autonomy Admission consults Human Trust Ledger.
-        // High operator trust track-record lifts the autonomy cap one tier;
-        // low trust lowers it. Trust ledger requires DB — wiring is in the
-        // resolving callback so unit tests that bypass the container don't pay
-        // the DB cost.
-        $this->app->resolving(AtlasAutonomyAdmissionService::class, function ($svc, $app) {
-            if ($svc instanceof AtlasAutonomyAdmissionService) {
-                try {
-                    $svc->setTrustLedger($app->make(AtlasSelfImprovementHumanTrustLedgerService::class));
-                } catch (\Throwable $e) {
-                    // Defensive: trust ledger may not be available in some
-                    // environments; service stays in 'unknown' band gracefully.
-                }
-                // Self-Construction trust ladder — opt-in (default OFF). Safe even
-                // when wired: it defaults to MAX friction and can never exceed the
-                // risk cap; the operator flips it on, then sets thresholds.
-                if ((bool) config('atlas.ai.trust_ladder.enabled', false)) {
-                    try {
-                        $svc->setChangeClassLadder($app->make(AtlasChangeClassTrustLadder::class));
-                    } catch (\Throwable $e) {
-                        // Defensive: the ladder is opt-in and stays unwired on failure.
-                    }
-                }
-            }
-        });
-
-        // Patamar 4 · Reconciliation meta-cognition via TEOS-I3.
-        // Reconciliation projects expected outcome before firing ASCB.propose().
-        // Sub-threshold projections are suppressed (recorded honestly).
-        $this->app->resolving(AtlasAutonomousReconciliationRuntimeService::class, function ($svc, $app) {
-            if ($svc instanceof AtlasAutonomousReconciliationRuntimeService) {
-                $svc->setTeosI3ForMetaProjection($app->make(AtlasTeosI3CounterfactualService::class));
-                try {
-                    $svc->setKernelForElasticChecks($app->make(AtlasConstitutionalKernelService::class));
-                } catch (\Throwable $e) {
-                    // Defensive: kernel always resolvable in normal envs.
-                }
-                try {
-                    $svc->setDocHealthService($app->make(EngineeringDocumentationHealthService::class));
-                } catch (\Throwable $e) {
-                    // Defensive: doc-health probe falls back to honest empty payload.
-                }
-                // A1 · Auto-trigger F4 rebalance sweep inside every reconciliation tick.
-                try {
-                    $svc->setAutoRebalanceService($app->make(AtlasSubsystemAutoRebalanceService::class));
-                } catch (\Throwable $e) {
-                    // Defensive: sweep is opt-in; missing service stays silent.
-                }
-            }
-        });
-
-        // Patamar 4 · AiWorker records every provider call outcome to the
-        // Live Outcome Feedback ledger so ADML auto-deactivation sees real
-        // online signal (not just offline benchmark battery).
-        // Swarm Auto-Failover on AiWorker peeled to AtlasSwarmServiceProvider (full-pass).
-        $this->app->resolving(AiWorker::class, function ($svc, $app) {
-            if ($svc instanceof AiWorker) {
-                try {
-                    $svc->setLiveOutcomeFeedback($app->make(AtlasDecideLiveOutcomeFeedbackService::class));
-                } catch (\Throwable $e) {
-                    // Defensive — AiWorker stays functional without the ledger.
-                }
-                try {
-                    $svc->setEliteExecutorKernel($app->make(EliteExecutorKernel::class));
-                } catch (\Throwable $e) {
-                    // Defensive — worker proceeds without elite kernel seam.
-                }
-            }
-        });
-
-        // Patamar 4 · TEOS-I4 pre-flight wiring no AiGatewayService.
-        // Counterfactual tree projetada ANTES do job ser enqueued em decisões majores.
-        $this->app->resolving(AiGatewayService::class, function ($svc, $app) {
-            if ($svc instanceof AiGatewayService) {
-                try {
-                    $svc->setPreflight($app->make(AtlasGatewayPreflightService::class));
-                } catch (\Throwable $e) {
-                    // Defensive — gateway permanece funcional sem preflight.
-                }
-                // A2 · Cognitive Function Decomposer auto-wired into gateway.
-                try {
-                    $svc->setCognitiveFunctionDecomposer($app->make(AtlasCognitiveFunctionDecomposerService::class));
-                } catch (\Throwable $e) {
-                    // Defensive — decompose stays absent if service missing.
-                }
-            }
-        });
-
-        // Patamar 4 · Cartography Truth Guard.
-        // Resolves with kernel + frontmatter parser; default singleton binding
-        // is sufficient — no opt-in setter required.
-        $this->app->singleton(CartographyTruthGuardService::class);
-
-        // Patamar 4 · Scheduler OS heartbeat health service — singleton so the
-        // CLI heartbeat, status command, and state aggregator share a single
-        // instance (and any setLogPathForTesting override stays sticky).
-        $this->app->singleton(AtlasSchedulerHealthService::class);
-
-        // Patamar 4 · Auto-Rebalance — wire real diagnostic probes for kinds
-        // that have a measurable source service. Unwired kinds emit honest
-        // observed:null + probe_status=unwired. Operator can extend later.
-        $this->app->resolving(AtlasSubsystemAutoRebalanceService::class, function ($svc, $app) {
-            if (! $svc instanceof AtlasSubsystemAutoRebalanceService) {
-                return;
-            }
-            // aemor_recompact_advice → AEMOR memory audit (blocked + watch counts).
-            $svc->setProbe(
-                AtlasSubsystemAutoRebalanceService::KIND_AEMOR_RECOMPACT,
-                function () use ($app): array {
-                    try {
-                        /** @var AtlasAemorRuntimeService $aemor */
-                        $aemor = $app->make(AtlasAemorRuntimeService::class);
-                        $audit = $aemor->memoryAudit();
-                        $total = (int) ($audit['summary']['total'] ?? 0);
-                        $watch = (int) ($audit['summary']['watch'] ?? 0);
-                        $blocked = (int) ($audit['summary']['blocked'] ?? 0);
-                        $redundancy = $total > 0 ? round(($watch + $blocked) / max(1, $total), 4) : 0.0;
-
-                        return [
-                            'observed' => $redundancy,
-                            'source' => 'AtlasAemorRuntimeService.memoryAudit()',
-                            'note' => "candidates total={$total} watch={$watch} blocked={$blocked}",
-                        ];
-                    } catch (\Throwable $e) {
-                        return [
-                            'observed' => null,
-                            'source' => 'AtlasAemorRuntimeService.memoryAudit()',
-                            'note' => 'aemor unreachable: '.substr($e->getMessage(), 0, 90),
-                        ];
-                    }
-                }
-            );
-            // mcp_pool_warmup_advice → manifest cardinality + tier breakdown.
-            $svc->setProbe(
-                AtlasSubsystemAutoRebalanceService::KIND_MCP_POOL_WARMUP,
-                function () use ($app): array {
-                    try {
-                        /** @var AtlasMcpTierService $mcp */
-                        $mcp = $app->make(AtlasMcpTierService::class);
-                        $manifest = $mcp->tierManifest();
-                        $total = (int) ($manifest['total_tools'] ?? 0);
-                        $detail = isset($manifest['tiers'][3]) ? count($manifest['tiers'][3]) : 0;
-                        // Cold proxy: fraction of detail-tier tools that need warmup.
-                        $coldFraction = $total > 0 ? round($detail / max(1, $total), 4) : 0.0;
-
-                        return [
-                            'observed' => $coldFraction,
-                            'source' => 'AtlasMcpTierService.tierManifest()',
-                            'note' => "total_tools={$total} detail_tier={$detail}",
-                        ];
-                    } catch (\Throwable $e) {
-                        return [
-                            'observed' => null,
-                            'source' => 'AtlasMcpTierService.tierManifest()',
-                            'note' => 'mcp unreachable: '.substr($e->getMessage(), 0, 90),
-                        ];
-                    }
-                }
-            );
-            // cache_compact and agrn_reindex remain honestly unwired — the
-            // probes will report probe_status=unwired until the underlying
-            // services expose canonical size / stale_fraction probes.
-        });
+        // Patamar 4 DI peeled to AtlasPatamar4ServiceProvider (full-pass).
 
         // Swarm production resolver / parallel dispatch / executor wiring peeled
         // to AtlasSwarmServiceProvider (full-pass).
 
-        // Patamar 4 · Engineering Run Conductor — bind with ALL governance deps
-        // explicitly. The constructor's nullable params stay optional for unit
-        // tests, but the LIVE runtime (CLI + HTTP) must have the verify gate,
-        // governed memory recall and the SDD scope gate wired — the container
-        // would otherwise leave nullable-with-default params as null.
-        $this->app->bind(AtlasEngineeringRunConductorService::class, function ($app) {
-            return new AtlasEngineeringRunConductorService(
-                $app->make(AtlasSwarmConductorService::class),
-                $app->make(AtlasSwarmExecutorService::class),
-                $app->make(AtlasSwarmProductionResolverService::class),
-                $app->make(AtlasVerifiedExecutionRuntimeService::class),
-                $app->make(AtlasCompoundingMemoryService::class),
-                $app->make(SpecCritic::class),
-                $app->make(AiContextPackBuilder::class),
-                $app->make(AtlasCompoundingRuntimeService::class),
-                $app->make(AtlasLiveCodeDeliveryService::class),
-                $app->make(AtlasConductorRoutingMemory::class),
-                $app->make(AtlasSwarmTopologySelector::class),
-            );
-        });
+        // Engineering conductor peeled with Patamar4 SP (full-pass).
 
-        // S2.F1 · CLOSED MISSION LOOP wiring. The orchestrator's brain deps are
-        // nullable constructor params (so `new` in tests stays 2-arg), which means
-        // Laravel's auto-resolution leaves them NULL. Bind explicitly so the live
-        // atlas:mission:deliver path gets the brain query (provider-bound context
-        // in) AND the ingestion (outcome recorded back out) — the loop only closes
-        // when both are present. Both bridges remain flag-gated + fail-open inside
-        // the orchestrator, so this binding is safe even with the flag off.
-        // S2.F2 · EXECUTION feeds the BRAIN. The recorder's single ingestion param
-        // is nullable (so `new` in tests stays 0/1-arg), which means Laravel's
-        // auto-resolution would leave it NULL. Bind explicitly so the live loop gets
-        // a recorder that can actually write the outcome back. Flag-gated + fail-open
-        // inside the recorder, so this binding is safe even with the flag off.
-        $this->app->bind(AtlasMissionOutcomeRecorder::class, function ($app) {
-            return new AtlasMissionOutcomeRecorder(
-                $app->make(AtlasRealityGraphIngestionService::class),
-            );
-        });
-
-        $this->app->bind(MissionDeliveryOrchestrator::class, function ($app) {
-            return new MissionDeliveryOrchestrator(
-                $app->make(AtlasLiveCodeDeliveryService::class),
-                $app->make(GovernedBranchMaterializationService::class),
-                $app->make(AtlasRealityGraphQueryService::class),
-                $app->make(AtlasRealityGraphIngestionService::class),
-                $app->make(AtlasMissionOutcomeRecorder::class),
-            );
-        });
-
-        // S2.F4 · the LOOP COMPOUNDS + TEMPORAL. AtlasMissionService's temporal params
-        // are nullable (so `new AtlasMissionService($orchestrator)` in tests stays
-        // 1-arg), which means Laravel's auto-resolution would leave them NULL on the
-        // live CLI path. Bind explicitly so atlas:mission:deliver gets the ingestion
-        // (real graph-state snapshot) AND the temporal service (the 4D chain it ticks
-        // into) — each delivered mission's accrual is then timestamped. Flag-gated +
-        // fail-open inside the service, so this binding is safe even with the flag off.
-        $this->app->bind(AtlasMissionService::class, function ($app) {
-            return new AtlasMissionService(
-                $app->make(MissionDeliveryOrchestrator::class),
-                $app->make(AtlasRealityGraphIngestionService::class),
-                $app->make(AtlasUnifiedRealityGraphTemporalService::class),
-            );
-        });
-
-        // S3.F4 · the RECURSIVE GOVERNED SELF-IMPROVEMENT LOOP, fully governed. Like
-        // AtlasMissionService above, the loop's F3/F4 collaborators are nullable (so the
-        // F1-F3 test constructions stay byte-identical), which means auto-resolution would
-        // leave the meta-metric / adversarial re-check / receipt log NULL on the live CLI
-        // path. Bind explicitly so atlas:self-construct ALWAYS gets the full safe floor:
-        //  - the HONEST meta-metric (F3 history),
-        //  - the ADVERSARIAL RE-CHECK (F4 out-of-process Goodhart guard) — gated by
-        //    atlas.self_construction.adversarial_recheck_enabled (default ON): when OFF the
-        //    operator gets the F1-F3 behaviour (a gate PASS surfaces directly),
-        //  - the EVIDENCE / RECEIPT LOG (F4 audit trail — no silent action).
-        $this->app->bind(AtlasSelfConstructionLoopService::class, function ($app) {
-            $recheckEnabled = (bool) config('atlas.self_construction.adversarial_recheck_enabled', true);
-
-            return new AtlasSelfConstructionLoopService(
-                $app->make(AtlasSelfConstructionDetector::class),
-                $app->make(AtlasMissionService::class),
-                $app->make(AtlasSelfImprovementRelevanceGate::class),
-                $app->make(GovernedBranchMaterializationService::class),
-                $app->make(AtlasSelfImprovementMetaMetricService::class),
-                $recheckEnabled ? $app->make(AtlasSelfImprovementAdversarialRecheck::class) : null,
-                $app->make(AtlasSelfImprovementReceiptLog::class),
-            );
-        });
-
-        // Patamar 4 · ADML closed feedback loop. When the live outcome feedback
-        // service is bound, ADML can call autoDeactivateOnDegradation() to drop
-        // active routes whose live success rate falls below threshold.
-        $this->app->resolving(AtlasDecideMetaLearningService::class, function ($svc, $app) {
-            if ($svc instanceof AtlasDecideMetaLearningService) {
-                try {
-                    $svc->setLiveOutcomeFeedback($app->make(AtlasDecideLiveOutcomeFeedbackService::class));
-                } catch (\Throwable $e) {
-                    // Defensive — service is always resolvable but unit tests may bypass.
-                }
-            }
-        });
+        // Mission / self-construction / ADML peeled to AtlasMissionServiceProvider (full-pass).
 
         // AP-813 · CCR store (durable, ledger-backed). Singleton so the provider
         // pipeline AND the atlas_ccr_retrieve MCP tool share one configured instance.

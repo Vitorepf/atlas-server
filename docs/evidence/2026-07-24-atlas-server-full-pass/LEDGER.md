@@ -8,9 +8,10 @@ execution: in_progress
 full_pass_commits: 61+
 rescan: FINDINGS-RESCAN-2
 recent:
+  - AtlasPatamar4 + AtlasMission ASP peels (ASP →523)
   - engineering routes + ProviderCatalog residual (api.php →411)
   - routes arena/code-native/agents/memory-vault
-  - AtlasSwarmServiceProvider ASP peel (ASP →856)
+  - AtlasSwarmServiceProvider ASP peel
   - routes voice/mobile/vox split
   - AtlasOrganismServiceProvider ASP peel
   - AtlasVoxServiceProvider ASP peel
@@ -18,8 +19,8 @@ recent:
   - reportSuccessWithCommit peel
   - OneShotTickInvokerEnvelope + Catalog (62 invokers)
   - Wave A YesNo/UtcIso/trueFalse mass
-unit_proof: prior 64+60; mobile telemetry + route list 1388 after splits
-next: continuous residual (engineering routes | Patamar4 ASP | PRE staged | floors)
+unit_proof: Patamar4+conductor+delivery 89 tests green; prior peels green
+next: continuous residual (Aaeos density | YouTube peel | routes projects/ai-core | PRE staged | floors)
 ```
 
 ## Progress summary

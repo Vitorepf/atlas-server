@@ -4,7 +4,7 @@
 |---|---|---|
 | reuse | strong | stringOption variants complete; LoadsNamedJsonOption; ProviderCatalog; Wave A helpers |
 | density | strong | Serving report ~23L; LedgerReplay families→Support; Decide stages+executionGraph; OneShotTick envelope |
-| architecture | partial | routes api.php 762→411 + Organism/Vox/Swarm SPs; ProviderCatalog residual adopted; PRE staged |
+| architecture | partial | routes api.php 762→411; ASP 1067→523 (Organism/Vox/Swarm/Patamar4/Mission SPs); ProviderCatalog SSOT; PRE staged |
 | surface_std | strong | CLI option traits complete for known variants |
 | gates | partial | Organism+Vox+mobile 64 tests green this slice |
 | anti_goodhart | done | careful multi-arg peels; PRE not rushed |
@@ -17,6 +17,7 @@
 | Swarm ASP peel | AtlasSwarm* unit 60 tests / 139 asserts green |
 | arena/code/agents/memory-vault routes | route:list 1388; mobile telemetry 1 green; api.php 643→488 |
 | engineering routes + ProviderCatalog residual | route:list 1388; ProviderCatalog unit 3 green; api.php →411 |
+| Patamar4 + Mission ASP peels | 89 conductor/Patamar4/delivery tests green; ASP →523 |
 | Decide operationalDecision + executionGraph | 39 unit green |
 | LedgerReplay agent/decision/inbox/kernel/SI | 22 unit green per step |
 | stringOption variants + LoadsNamedJson | 3+2 unit green |
@@ -24,4 +25,4 @@
 
 ## Residual
 
-PRE leave Http (R103) · routes core residual · Patamar4/mission ASP peels · floors
+PRE leave Http (R103) · Aaeos density · YouTube peel · routes projects/ai-core · ASP CCR residual · floors
