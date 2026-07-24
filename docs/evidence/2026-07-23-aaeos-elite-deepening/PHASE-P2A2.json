@@ -1,0 +1,97 @@
+{
+  "schema": "atlas.aaeos.mt.phase_receipt.v1",
+  "phase": "P2a.2",
+  "status": "GREEN",
+  "edition": "vFINAL-COOKBOOK",
+  "branch": "main",
+  "base_commit": "212b98966b3f4f6a73f3eda489abc1ea86f032b1",
+  "implementation_commit": "e8d82affdaa5d6f3be47602ed311418ab19f2157",
+  "dirty_before": [
+    "foreign_wip_left_untouched_including_concurrent_codex_ledger_wip"
+  ],
+  "staged_before": [],
+  "allowed_paths": [
+    "app/Services/Ai/EngineeringKernel/EngineeringOutcome.php",
+    "tests/Feature/Ai/Aaeos/AaeosEngineeringOutcomeSchemaRolloutTest.php"
+  ],
+  "touched_paths": [
+    "app/Services/Ai/EngineeringKernel/EngineeringOutcome.php",
+    "tests/Feature/Ai/Aaeos/AaeosEngineeringOutcomeSchemaRolloutTest.php"
+  ],
+  "deleted_paths": [],
+  "foreign_wip_left_untouched": [
+    "concurrent_codex_wip_on_ledger_cycle_database",
+    "marketing_and_atlas_dev_foreign_wip"
+  ],
+  "baseline_failures": [],
+  "new_failures": [],
+  "tests": [
+    {
+      "path": "P2a.2 schema rollout + typed contract regression",
+      "command": "/opt/homebrew/bin/php artisan test tests/Feature/Ai/Aaeos/AaeosEngineeringOutcomeSchemaRolloutTest.php tests/Unit/Ai/EngineeringKernel/TypedEngineeringContractTest.php --no-coverage",
+      "red_exit": null,
+      "green_exit": 0,
+      "red_failure_reason": "GREEN matrix after dual-read expand",
+      "output_fingerprint_or_ref": "controller-verification/P2a2:42-passed-464-assertions;sha256:573763a5de7b46d764f346079775a9978b180276823e4357a741383e9f499ab9"
+    }
+  ],
+  "artifact_hashes_or_refs": [
+    "schema:atlas.engineering_outcome.v2",
+    "schema:atlas.engineering_outcome.v3",
+    "adverse_requires:failure_reason_code+failure_reason",
+    "no_v2_backfill"
+  ],
+  "exit_checklist": {
+    "dual_read_v2_without_backfill": true,
+    "v3_expand_schema_present": true,
+    "adverse_requires_precise_failure_fields": true,
+    "v2_unknown_fields_still_fail_closed": true,
+    "writers_may_remain_v2_expand_only": true,
+    "no_new_organ": true,
+    "phase_green": true,
+    "path_core_exit_checklist_all_true": true
+  },
+  "residuals_closed": [
+    "EngineeringOutcome dual-read v2+v3",
+    "v3 adverse failure_reason_code + failure_reason required",
+    "Historical v2 never backfilled or silently promoted"
+  ],
+  "residuals_still_open": [
+    "EliteExecutorKernel and other writers still emit v2 (expand/dual-read only; canary/cutover later with P2b discipline)",
+    "R-P2A1-PG-LIVE still open from P2a.1"
+  ],
+  "forbidden_touched": [],
+  "failure_reason_code": null,
+  "failure_reason": null,
+  "review_basis": {
+    "schema": "atlas.aaeos.mt.review_basis.v1",
+    "phase_payload_excludes": [
+      "review_basis",
+      "review_attestation_refs",
+      "next_phase_authorized",
+      "next_phase_authorization_basis"
+    ],
+    "phase_payload_sha256": "0ec0d65df1457c86c928677bfa7babb24a15b3749974fc392b704dd86960cbe5",
+    "ledger_content_sha256": "791687e5db9a8056460f69352c0f8c3ec8cda30a81a877d7e0708b0219909e2e",
+    "scoreboard_content_sha256": "c421e7f1f1f7336cad8bc671ca5ffba7ceee5927c17b1ad75d06440e3dd04247",
+    "sha256": "cecc51bda63c7ca31a1013d136245c7fceb0fa5f29f87d2a16f4427752d53cea"
+  },
+  "review_attestation_refs": [],
+  "next_phase_authorized": {
+    "phase": "P2b-EXPAND",
+    "precommit_predicates_satisfied": true,
+    "evidence_commit_required": true,
+    "effective_only_when_read_from_committed_evidence_tree": true
+  },
+  "next_phase_authorization_basis": {
+    "serial_predecessor_green": true,
+    "exit_checklist_all_true": true,
+    "tests_green": true,
+    "spec_review_approved": true,
+    "quality_review_approved": true,
+    "review_attestation_refs_valid": false,
+    "evidence_commit_required": true,
+    "committed_evidence_tree_required": true
+  },
+  "notes": "P2a.2 GREEN expand dual-read. Writers remain v2 until later canary. Next EXECUTE P2b-EXPAND."
+}
