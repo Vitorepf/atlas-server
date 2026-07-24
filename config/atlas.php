@@ -4603,6 +4603,10 @@ return [
         // (byte-identical when off). A preview so the operator can weigh the live-merge
         // perf cost against real yield before the separate live-merge slice is built.
         'call_edges' => (bool) env('ATLAS_CODE_GRAPH_CALL_EDGES', false),
+        // Which extractor resolves the call edges: 'generic' (default; heuristic short-name,
+        // INFERRED 0.7) or 'typed' (receiver-type-aware, EXTRACTED 1.0 — more precise for
+        // PHP: $this/self/static/direct-type calls resolve certainly). Only one runs.
+        'call_edges_mode' => (string) env('ATLAS_CODE_GRAPH_CALL_EDGES_MODE', 'generic'),
         // Upper bound on source files read per build when call_edges is ON (perf ceiling;
         // the perf-serious path must use the incremental reindex, not this full re-read).
         'call_edges_max_files' => (int) env('ATLAS_CODE_GRAPH_CALL_EDGES_MAX_FILES', 5000),

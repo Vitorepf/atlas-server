@@ -139,24 +139,37 @@ class CodeGraphSymbolBuilder
             return ['edges' => [], 'stats' => ['files' => 0, 'note' => 'no readable source']];
         }
 
+        // 'typed' uses the receiver-type-aware extractor (EXTRACTED 1.0, more precise);
+        // 'generic' (default) uses the heuristic short-name extractor (INFERRED 0.7). Only
+        // ONE runs — the two produce overlapping 'calls' edges, so they are alternatives,
+        // never merged together (that would double-count).
+        $mode = config('atlas.code_graph.call_edges_mode') === 'typed' ? 'typed' : 'generic';
+        $op = $mode === 'typed' ? 'typed_callgraph' : 'callgraph';
+
         $input = ['files' => $files];
-        $receipt = CodeGraphRuntimeInvoker::mintReceipt('callgraph', $input, 'atlas-kernel:code-graph-call-edges');
-        $result = app(CodeGraphRuntimeInvoker::class)->invoke('callgraph', $input, [], $receipt);
+        $receipt = CodeGraphRuntimeInvoker::mintReceipt($op, $input, 'atlas-kernel:code-graph-call-edges');
+        $result = app(CodeGraphRuntimeInvoker::class)->invoke($op, $input, [], $receipt);
 
         if (($result['status'] ?? null) !== CodeGraphRuntimeInvoker::STATUS_SUCCEEDED) {
-            return ['edges' => [], 'stats' => ['files' => count($files), 'status' => 'runtime_unavailable']];
+            return ['edges' => [], 'stats' => ['files' => count($files), 'mode' => $mode, 'status' => 'runtime_unavailable']];
         }
 
-        $calls = $result['artifacts'][0]['result']['calls'] ?? null;
-        if (! is_array($calls)) {
-            return ['edges' => [], 'stats' => ['files' => count($files), 'status' => 'malformed_result']];
+        $payload = $result['artifacts'][0]['result'] ?? [];
+        $calls = is_array($payload['calls'] ?? null) ? $payload['calls'] : null;
+        if ($calls === null) {
+            return ['edges' => [], 'stats' => ['files' => count($files), 'mode' => $mode, 'status' => 'malformed_result']];
         }
 
-        $resolved = (new CodeGraphCallResolver)->resolveCalls($calls, $this->buildMethodIndex($symbols));
+        if ($mode === 'typed') {
+            $imports = is_array($payload['imports_by_file'] ?? null) ? $payload['imports_by_file'] : [];
+            $resolved = (new CodeGraphTypedCallResolver)->resolve($calls, $imports, $this->buildClassIndex($symbols));
+        } else {
+            $resolved = (new CodeGraphCallResolver)->resolveCalls($calls, $this->buildMethodIndex($symbols));
+        }
 
         return [
             'edges' => is_array($resolved['edges'] ?? null) ? $resolved['edges'] : [],
-            'stats' => array_merge(['files' => count($files)], $resolved['stats'] ?? []),
+            'stats' => array_merge(['files' => count($files), 'mode' => $mode], $resolved['stats'] ?? []),
         ];
     }
 
@@ -207,6 +220,50 @@ class CodeGraphSymbolBuilder
         }
 
         return $index;
+    }
+
+    /**
+     * Class index for {@see CodeGraphTypedCallResolver}: class FQN -> {parent, methods,
+     * namespace}, from the loaded symbols (class/interface/trait/enum + their methods).
+     * `parent` (extends) is not in the symbol read-model, so it stays null — the resolver
+     * then skips only INHERITED-method resolution; self/static/direct-type calls still
+     * resolve, which covers the common case ($this->/self::/static::). Pure, no IO.
+     *
+     * @param  array<int,array{name:string,type:string,file_path:string}>  $symbols
+     * @return array<string,array{parent:?string, methods:array<int,string>, namespace:string}>
+     */
+    private function buildClassIndex(array $symbols): array
+    {
+        $namespaceOf = static function (string $fqn): string {
+            $pos = strrpos($fqn, '\\');
+
+            return $pos === false ? '' : substr($fqn, 0, $pos);
+        };
+
+        $classes = [];
+        foreach ($symbols as $sym) {
+            $type = $sym['type'] ?? null;
+            $name = ltrim((string) ($sym['name'] ?? ''), '\\');
+            if ($name === '') {
+                continue;
+            }
+            if (in_array($type, self::NODE_TYPES, true)) {
+                $classes[$name] ??= ['parent' => null, 'methods' => [], 'namespace' => $namespaceOf($name)];
+            } elseif ($type === 'method') {
+                $pos = strrpos($name, '::');
+                if ($pos === false) {
+                    continue;
+                }
+                $class = substr($name, 0, $pos);
+                $short = substr($name, $pos + 2);
+                $classes[$class] ??= ['parent' => null, 'methods' => [], 'namespace' => $namespaceOf($class)];
+                if ($short !== '') {
+                    $classes[$class]['methods'][] = $short;
+                }
+            }
+        }
+
+        return $classes;
     }
 
     /**
