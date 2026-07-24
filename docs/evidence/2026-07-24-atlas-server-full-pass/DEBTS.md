@@ -24,7 +24,7 @@
 - [x] Drop thin shells: memoryLimitToBytes, clamp01 (call sites), gitWorkspaceState wrappers
 - [x] Empty Maestro ClosedLoop+Pinning dirs removed
 - [x] ExternalBrain loadFacts → LoadsFactsFileOption (3 cmds)
-- [ ] NativeImplementation loadJson trait variant
+- [x] NativeImplementation loadJson → LoadsNamedJsonOption trait
 
 ### Density / elevate
 
@@ -53,7 +53,7 @@
 
 ### Architecture
 
-- [ ] PipelineRunExecutor leave Http + test port (live DI already KernelRunExecutor)
+- [ ] PipelineRunExecutor leave Http + test port (live DI already KernelRunExecutor; AAEOS R103 retain census — staged later)
 - [x] config/atlas.php: loop → atlas_loop_legacy.php (~1704L extracted; atlas.php 5409→3707)
 - [x] ProviderCatalog SSOT for invocation/auto-live/council (Gateway+Routes wired; config overrides optional)
 - [x] ProviderCatalog adopt in AtlasDecideService invocation list

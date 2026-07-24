@@ -19,7 +19,7 @@ recent:
   - OpenBrainMcpToolDefinitions data peel
   - LoadsFactsFileOption ExternalBrain
 unit_proof: Support/Workbench/ToolCatalog/FactsFile green; AiWorker 1 pre-existing fail
-next: voice/mobile routes | PRE leave Http | floors | continuous residual
+next: continuous residual (PRE staged | voice routes | floors)
 ```
 
 ## Progress summary
