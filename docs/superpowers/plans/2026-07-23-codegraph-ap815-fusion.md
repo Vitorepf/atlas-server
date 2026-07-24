@@ -42,3 +42,16 @@ O pipeline vivo (`atlas:code-graph:pipeline` → `CodeGraphSymbolBuilder.build`)
 **Invariantes:** cada pass é aditivo (nunca remove/altera edges existentes) e flag-gated default-OFF (byte-identical até ligar) — o mesmo contrato que `resolveEdges()` já respeita com o Python. Fallback sempre pro caminho provado. Zero risco ao AOBG até o operador ligar cada flag.
 
 **NÃO deletar nada do AP-815.** Cada órfão é um tier a religar.
+
+---
+
+## ACHADO DE EXECUÇÃO (24/07) — por que os Tier-1 são órfãos: falta o PIPELINE DE DADOS, não o wiring
+
+O build (`CodeGraphSymbolBuilder`) carrega symbols + relations (`dependencies`/`symbol_references`/`test_targets` de `atlas_engineering_code_file_snapshots.relations_json`). Os resolvers profundos precisam de dados que ESSA fonte não tem:
+- `CodeGraphCallResolver` → quer `calls[{caller,callee,path}]` (pares de chamada method→method) — NÃO estão nas relations; exigem extração AST de call-sites.
+- `CodeGraphCoverageEdgeParser` → quer report Clover/LCOV cru — exige RODAR a suíte com coverage (proibido: wipe do DB).
+- Typed/TypeFlow/FrameworkAware → refinam call edges — dependem do CallResolver base.
+
+**Conclusão:** o AP-815 Tier-1 não é "wire um pass"; é **construir a fonte de dados** (extractor de call-sites no AST → `calls`; e/ou ingestão de coverage-report fora da suíte-que-dropa-DB) e ENTÃO ligar os resolvers. Trabalho de feature focado, não slice overnight.
+
+**FEASÍVEL e FEITO (report-tier, opera sobre nodes/edges já construídos):** HealthAuditor + IntegrityHasher + InferredGuard no `postBuildAudit` (flag `atlas.code_graph.post_build_audit`). Próximo feasível: MermaidExporter/SkeletonView (output/leitura sobre o graph existente). Tier-5 (UnifiedView+AURG) precisa do AURG como fonte — verificar disponibilidade.
