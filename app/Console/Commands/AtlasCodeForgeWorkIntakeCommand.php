@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Models\AtlasProject;
 use App\Services\Ai\Programming\AtlasCodeForgeWorkIntakeService;
 use Illuminate\Console\Command;
@@ -19,6 +20,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasCodeForgeWorkIntakeCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:code:forge-intake
         {--obra= : UUID da Obra (obrigatorio)}
         {--objective= : Objetivo enterprise da Obra}
@@ -136,14 +139,6 @@ final class AtlasCodeForgeWorkIntakeCommand extends Command
         return mb_strlen($value) <= $max ? $value : mb_substr($value, 0, $max - 1).'…';
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = $this->option($key);
-        if (! is_string($value)) return null;
-        $value = trim($value);
-
-        return $value !== '' ? $value : null;
-    }
 
     /**
      * @return list<string>
