@@ -1021,52 +1021,68 @@ class AiWorker
         $job->refresh();
 
         if ($job->status === 'cancelled') {
-            $attempt->update([
-                'command' => $result->command,
-                'command_hash' => $result->command ? hash('sha256', json_encode($result->command, JSON_THROW_ON_ERROR)) : null,
-                'response_hash' => $responseHash,
-                'status' => 'cancelled',
-                'exit_code' => $result->exitCode,
-                'duration_ms' => $result->durationMs,
-                'output_text' => Str::limit($result->output, 20000, ''),
-                'stdout_excerpt' => Str::limit($result->stdout, 4000, '...'),
-                'stderr_excerpt' => Str::limit($result->stderr, 4000, '...'),
-                'error_code' => 'cancelled_by_operator',
-                'error_message' => 'Resultado ignorado porque o operador cancelou o job durante a execução.',
-                'finished_at' => now(),
-                'metadata' => array_merge($result->metadata, [
-                    'ignored_provider_result' => true,
-                    'provider_result_ok' => $result->ok,
-                    'provider_error_code' => $result->errorCode,
-                ]),
-            ]);
-
-            $this->logger->event(
-                eventType: 'job_cancelled',
-                message: 'AI job provider result ignored because the job was cancelled.',
-                severity: 'warning',
-                provider: $attempt->provider,
-                job: $job,
-                attempt: $attempt,
-                workerId: $workerId,
-            );
-            $this->recordTelemetry('job_cancelled', $job, $attempt, [
-                'event_phase' => 'worker',
-                'duration_ms' => $result->durationMs,
-                'metadata' => [
-                    'worker_id' => $workerId,
-                    'provider_result_ok' => $result->ok,
-                ],
-            ]);
-            $this->recordLedgerEvent(LedgerEventType::OperationBlocked, $job, $attempt, [
-                'reason' => 'cancelled_by_operator',
-                'provider_result_ok' => $result->ok,
-                'duration_ms' => $result->durationMs,
-            ], $workerId);
-
-            return $job->load(['trace', 'attemptHistory']);
+            return $this->completeAttemptWhenCancelled($job, $attempt, $result, $workerId, $responseHash);
         }
 
+        $this->persistAttemptProviderOutcome($job, $attempt, $result, $attemptStatus, $responseHash, $workerId);
+
+        if ($result->ok) {
+            return $this->completeAttemptWhenSucceeded($job, $attempt, $result, $workerId, $responseHash);
+        }
+
+        return $this->completeAttemptWhenFailed($job, $attempt, $result, $workerId);
+    }
+
+    private function completeAttemptWhenCancelled(AiJob $job, AiJobAttempt $attempt, AiProviderResult $result, string $workerId, ?string $responseHash): AiJob
+    {
+        $attempt->update([
+            'command' => $result->command,
+            'command_hash' => $result->command ? hash('sha256', json_encode($result->command, JSON_THROW_ON_ERROR)) : null,
+            'response_hash' => $responseHash,
+            'status' => 'cancelled',
+            'exit_code' => $result->exitCode,
+            'duration_ms' => $result->durationMs,
+            'output_text' => Str::limit($result->output, 20000, ''),
+            'stdout_excerpt' => Str::limit($result->stdout, 4000, '...'),
+            'stderr_excerpt' => Str::limit($result->stderr, 4000, '...'),
+            'error_code' => 'cancelled_by_operator',
+            'error_message' => 'Resultado ignorado porque o operador cancelou o job durante a execução.',
+            'finished_at' => now(),
+            'metadata' => array_merge($result->metadata, [
+                'ignored_provider_result' => true,
+                'provider_result_ok' => $result->ok,
+                'provider_error_code' => $result->errorCode,
+            ]),
+        ]);
+
+        $this->logger->event(
+            eventType: 'job_cancelled',
+            message: 'AI job provider result ignored because the job was cancelled.',
+            severity: 'warning',
+            provider: $attempt->provider,
+            job: $job,
+            attempt: $attempt,
+            workerId: $workerId,
+        );
+        $this->recordTelemetry('job_cancelled', $job, $attempt, [
+            'event_phase' => 'worker',
+            'duration_ms' => $result->durationMs,
+            'metadata' => [
+                'worker_id' => $workerId,
+                'provider_result_ok' => $result->ok,
+            ],
+        ]);
+        $this->recordLedgerEvent(LedgerEventType::OperationBlocked, $job, $attempt, [
+            'reason' => 'cancelled_by_operator',
+            'provider_result_ok' => $result->ok,
+            'duration_ms' => $result->durationMs,
+        ], $workerId);
+
+        return $job->load(['trace', 'attemptHistory']);
+    }
+
+    private function persistAttemptProviderOutcome(AiJob $job, AiJobAttempt $attempt, AiProviderResult $result, string $attemptStatus, ?string $responseHash, string $workerId): void
+    {
         $attempt->update([
             'command' => $result->command,
             'command_hash' => $result->command ? hash('sha256', json_encode($result->command, JSON_THROW_ON_ERROR)) : null,
@@ -1102,210 +1118,120 @@ class AiWorker
             ], $workerId);
         }
 
-        if ($result->ok) {
-            // Live Cockpit · verify (provider produziu resposta válida) +
-            // evidence (output persistido no AiJob). São os 2 checkpoints
-            // finais do pipeline antes do `response` terminal.
-            // C18: estatística de diff REAL no checkpoint — medida no workspace
-            // da execução via git shortstat. Sem workspace (chat read-mode) o
-            // campo é ausente: a UI não inventa número, mostra só o passo N/M.
-            $diffStats = $this->workspaceDiffStats($job);
-            $this->emitStreamEvent($job, $attempt, 'lifecycle', 'pipeline_verify_passed', '', array_filter([
-                'checkpoint' => 'verify',
-                'outcome' => 'done',
-                'gate_name' => 'provider_output',
-                'duration_ms' => $result->durationMs,
-                'diff_stats' => $diffStats,
-            ], fn ($v) => $v !== null), 'system');
-            $this->emitStreamEvent($job, $attempt, 'lifecycle', 'pipeline_evidence_appended', '', [
-                'checkpoint' => 'evidence',
-                'outcome' => 'done',
-                'kind' => 'response',
-                'response_hash' => $responseHash,
-                'artifact_count' => 1,
-            ], 'system');
+    }
 
-            // Chat weak-response probe (advisory, chat-side sibling of Dev W1):
-            // a structurally weak/contract-violating response is FLAGGED on the
-            // job metadata for surfaces/telemetry — never blocked. Absent key
-            // when clean keeps the metadata byte-identical to the pre-probe
-            // baseline.
-            $weakProbe = (new ChatWeakResponseProbe)->inspect(
-                $result->output,
-                is_array(data_get($job->payload, 'specialist_flow_execution'))
-                    ? (array) data_get($job->payload, 'specialist_flow_execution')
+    private function completeAttemptWhenSucceeded(AiJob $job, AiJobAttempt $attempt, AiProviderResult $result, string $workerId, ?string $responseHash): AiJob
+    {
+        // Live Cockpit · verify (provider produziu resposta válida) +
+        // evidence (output persistido no AiJob). São os 2 checkpoints
+        // finais do pipeline antes do `response` terminal.
+        // C18: estatística de diff REAL no checkpoint — medida no workspace
+        // da execução via git shortstat. Sem workspace (chat read-mode) o
+        // campo é ausente: a UI não inventa número, mostra só o passo N/M.
+        $diffStats = $this->workspaceDiffStats($job);
+        $this->emitStreamEvent($job, $attempt, 'lifecycle', 'pipeline_verify_passed', '', array_filter([
+            'checkpoint' => 'verify',
+            'outcome' => 'done',
+            'gate_name' => 'provider_output',
+            'duration_ms' => $result->durationMs,
+            'diff_stats' => $diffStats,
+        ], fn ($v) => $v !== null), 'system');
+        $this->emitStreamEvent($job, $attempt, 'lifecycle', 'pipeline_evidence_appended', '', [
+            'checkpoint' => 'evidence',
+            'outcome' => 'done',
+            'kind' => 'response',
+            'response_hash' => $responseHash,
+            'artifact_count' => 1,
+        ], 'system');
+
+        // Chat weak-response probe (advisory, chat-side sibling of Dev W1):
+        // a structurally weak/contract-violating response is FLAGGED on the
+        // job metadata for surfaces/telemetry — never blocked. Absent key
+        // when clean keeps the metadata byte-identical to the pre-probe
+        // baseline.
+        $weakProbe = (new ChatWeakResponseProbe)->inspect(
+            $result->output,
+            is_array(data_get($job->payload, 'specialist_flow_execution'))
+                ? (array) data_get($job->payload, 'specialist_flow_execution')
+                : [],
+        );
+
+        $job->update([
+            'status' => 'succeeded',
+            'result_text' => $result->output,
+            'error_code' => null,
+            'error_message' => null,
+            'finished_at' => now(),
+            'metadata' => array_merge(
+                $job->metadata ?? [],
+                $this->programmingDispatchUpdate($job, 'executed', $attempt->provider, $responseHash),
+                $weakProbe['weak']
+                    ? ['weak_response' => ['detected' => true, 'reasons' => $weakProbe['reasons']]]
                     : [],
-            );
+            ),
+        ]);
 
-            $job->update([
-                'status' => 'succeeded',
-                'result_text' => $result->output,
-                'error_code' => null,
-                'error_message' => null,
-                'finished_at' => now(),
-                'metadata' => array_merge(
-                    $job->metadata ?? [],
-                    $this->programmingDispatchUpdate($job, 'executed', $attempt->provider, $responseHash),
-                    $weakProbe['weak']
-                        ? ['weak_response' => ['detected' => true, 'reasons' => $weakProbe['reasons']]]
-                        : [],
-                ),
-            ]);
+        try {
+            $this->clarifier->completeAiClarification($job->refresh());
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
 
-            try {
-                $this->clarifier->completeAiClarification($job->refresh());
-            } catch (\Throwable $exception) {
-                report($exception);
-            }
+        if ($this->isAtlasScoutJob($job)) {
+            return $this->completeAtlasScoutJob($job, $attempt, $result, $workerId);
+        }
 
-            if ($this->isAtlasScoutJob($job)) {
-                return $this->completeAtlasScoutJob($job, $attempt, $result, $workerId);
-            }
-
-            if ($this->isCouncilJob($job)) {
-                $synced = $this->council->sync($job->trace()->firstOrFail());
-                if ($synced->status === 'succeeded' && $synced->response_text) {
-                    $completedPresentationState = $this->presentationStates->completed(trace: $synced);
-                    $synced->update([
-                        'metadata' => array_merge($synced->metadata ?? [], [
-                            'presentation_state' => $completedPresentationState,
-                        ]),
-                    ]);
-                    $this->emitStreamEvent($job, $attempt, 'lifecycle', 'execution_completed', '', [
+        if ($this->isCouncilJob($job)) {
+            $synced = $this->council->sync($job->trace()->firstOrFail());
+            if ($synced->status === 'succeeded' && $synced->response_text) {
+                $completedPresentationState = $this->presentationStates->completed(trace: $synced);
+                $synced->update([
+                    'metadata' => array_merge($synced->metadata ?? [], [
                         'presentation_state' => $completedPresentationState,
-                    ], 'system');
-                    $synced->refresh();
-                    $this->conversation->recordAssistantMessage($synced, $synced->response_text, [
-                        'source' => 'ai_council_coordinator',
-                        'execution_policy' => 'dual_review',
-                    ]);
-                    $this->updateSessionStateForTrace($synced, $synced->response_text);
-                    $this->evaluateQuality($synced);
-                    $this->completeRemediationActions($synced);
-                    $this->recordTelemetry('trace_completed', $job, $attempt, [
-                        'event_key' => 'worker:trace_completed:'.$synced->id.':'.$synced->status,
-                        'event_phase' => 'worker',
-                        'duration_ms' => $synced->latency_ms,
-                        'metadata' => [
-                            'worker_id' => $workerId,
-                            'trace_status' => $synced->status,
-                            'execution_policy' => 'dual_review',
-                        ],
-                    ]);
-                    $this->recordLedgerEvent(LedgerEventType::OperationCompleted, $job, $attempt, [
-                        'trace_status' => $synced->status,
-                        'execution_policy' => 'dual_review',
-                        'duration_ms' => $synced->latency_ms,
-                        'response_hash' => $synced->response_hash,
-                    ], $workerId);
-                    $this->recomputeTraceMetrics($synced);
-                }
-                $this->logger->event('job_succeeded', 'AI council job completed successfully.', 'info', $attempt->provider, $job, $attempt, workerId: $workerId);
-                $this->recordTelemetry('job_succeeded', $job, $attempt, [
-                    'event_phase' => 'worker',
-                    'duration_ms' => $result->durationMs,
-                    'metadata' => [
-                        'worker_id' => $workerId,
-                        'execution_policy' => 'dual_review',
-                    ],
+                    ]),
                 ]);
-                $this->audit->record('ai_job_succeeded', [
-                    'subject_type' => 'ai_job',
-                    'subject_id' => $job->id,
-                    'summary' => "Job de conselho IA concluido por {$attempt->provider}.",
-                    'evidence' => [
-                        'agent_slug' => $job->agent_slug,
-                        'provider' => $attempt->provider,
-                        'model' => $attempt->model,
-                        'duration_ms' => $result->durationMs,
-                        'response_hash' => $responseHash,
-                        'result_text' => $result->output,
-                        'council_role' => data_get($job->payload, 'council_role'),
-                    ],
-                    'privacy' => $this->privacyFromJob($job),
-                    'refs' => [
-                        'trace_id' => $job->trace_id,
-                        'job_id' => $job->id,
-                        'attempt_id' => $attempt->id,
-                    ],
-                ]);
-
-                $this->emitImportantJobResult($job->refresh(), 'succeeded');
-
-                return $job->refresh()->load(['trace', 'attemptHistory']);
-            }
-
-            if ($this->shouldEvaluateNativeProgrammingRepair($job)) {
-                $repairOutcome = $this->handleNativeProgrammingRepair($job, $attempt, $result, $responseHash, $workerId);
-                if ($repairOutcome !== null) {
-                    return $repairOutcome;
-                }
-            }
-
-            $completedPresentationState = $this->presentationStates->completed(trace: $job->trace);
-            $job->trace?->update([
-                'status' => 'succeeded',
-                'provider' => $attempt->provider,
-                'model' => $attempt->model,
-                'response_hash' => $responseHash,
-                'response_text' => $result->output,
-                'latency_ms' => $result->durationMs,
-                'completed_at' => now(),
-                'metadata' => array_merge(
-                    $job->trace->metadata ?? [],
-                    $this->programmingDispatchUpdate($job, 'executed', $attempt->provider, $responseHash),
-                    ['presentation_state' => $completedPresentationState],
-                ),
-            ]);
-            if ($job->trace) {
                 $this->emitStreamEvent($job, $attempt, 'lifecycle', 'execution_completed', '', [
                     'presentation_state' => $completedPresentationState,
                 ], 'system');
-            }
-
-            $trace = $job->trace?->refresh();
-            if ($trace?->response_text) {
-                $this->conversation->recordAssistantMessage($trace, $trace->response_text, [
-                    'source' => 'ai_worker',
-                    'attempt_id' => $attempt->id,
-                    'job_id' => $job->id,
+                $synced->refresh();
+                $this->conversation->recordAssistantMessage($synced, $synced->response_text, [
+                    'source' => 'ai_council_coordinator',
+                    'execution_policy' => 'dual_review',
                 ]);
-                $this->updateSessionStateForTrace($trace, $trace->response_text);
-                $this->evaluateQuality($trace);
-                $this->completeRemediationActions($trace);
+                $this->updateSessionStateForTrace($synced, $synced->response_text);
+                $this->evaluateQuality($synced);
+                $this->completeRemediationActions($synced);
+                $this->recordTelemetry('trace_completed', $job, $attempt, [
+                    'event_key' => 'worker:trace_completed:'.$synced->id.':'.$synced->status,
+                    'event_phase' => 'worker',
+                    'duration_ms' => $synced->latency_ms,
+                    'metadata' => [
+                        'worker_id' => $workerId,
+                        'trace_status' => $synced->status,
+                        'execution_policy' => 'dual_review',
+                    ],
+                ]);
+                $this->recordLedgerEvent(LedgerEventType::OperationCompleted, $job, $attempt, [
+                    'trace_status' => $synced->status,
+                    'execution_policy' => 'dual_review',
+                    'duration_ms' => $synced->latency_ms,
+                    'response_hash' => $synced->response_hash,
+                ], $workerId);
+                $this->recomputeTraceMetrics($synced);
             }
-
-            $this->logger->event('job_succeeded', 'AI job completed successfully.', 'info', $attempt->provider, $job, $attempt, workerId: $workerId);
+            $this->logger->event('job_succeeded', 'AI council job completed successfully.', 'info', $attempt->provider, $job, $attempt, workerId: $workerId);
             $this->recordTelemetry('job_succeeded', $job, $attempt, [
                 'event_phase' => 'worker',
                 'duration_ms' => $result->durationMs,
                 'metadata' => [
                     'worker_id' => $workerId,
+                    'execution_policy' => 'dual_review',
                 ],
             ]);
-            if ($trace) {
-                $this->recordTelemetry('trace_completed', $job, $attempt, [
-                    'event_key' => 'worker:trace_completed:'.$trace->id.':'.$trace->status,
-                    'event_phase' => 'worker',
-                    'duration_ms' => $trace->latency_ms,
-                    'metadata' => [
-                        'worker_id' => $workerId,
-                        'trace_status' => $trace->status,
-                    ],
-                ]);
-                $this->recordLedgerEvent(LedgerEventType::OperationCompleted, $job, $attempt, [
-                    'trace_status' => $trace->status,
-                    'duration_ms' => $trace->latency_ms,
-                    'response_hash' => $trace->response_hash,
-                ], $workerId);
-                $this->recomputeTraceMetrics($trace);
-            }
-            $this->completeKernelMissionFromSuccessfulJob($job->refresh(), $attempt, $responseHash, $workerId);
-            $this->assertEliteKernelHonestOutcome($job, $attempt);
             $this->audit->record('ai_job_succeeded', [
                 'subject_type' => 'ai_job',
                 'subject_id' => $job->id,
-                'summary' => "Job de IA concluido por {$attempt->provider}.",
+                'summary' => "Job de conselho IA concluido por {$attempt->provider}.",
                 'evidence' => [
                     'agent_slug' => $job->agent_slug,
                     'provider' => $attempt->provider,
@@ -1313,6 +1239,7 @@ class AiWorker
                     'duration_ms' => $result->durationMs,
                     'response_hash' => $responseHash,
                     'result_text' => $result->output,
+                    'council_role' => data_get($job->payload, 'council_role'),
                 ],
                 'privacy' => $this->privacyFromJob($job),
                 'refs' => [
@@ -1327,6 +1254,100 @@ class AiWorker
             return $job->refresh()->load(['trace', 'attemptHistory']);
         }
 
+        if ($this->shouldEvaluateNativeProgrammingRepair($job)) {
+            $repairOutcome = $this->handleNativeProgrammingRepair($job, $attempt, $result, $responseHash, $workerId);
+            if ($repairOutcome !== null) {
+                return $repairOutcome;
+            }
+        }
+
+        $completedPresentationState = $this->presentationStates->completed(trace: $job->trace);
+        $job->trace?->update([
+            'status' => 'succeeded',
+            'provider' => $attempt->provider,
+            'model' => $attempt->model,
+            'response_hash' => $responseHash,
+            'response_text' => $result->output,
+            'latency_ms' => $result->durationMs,
+            'completed_at' => now(),
+            'metadata' => array_merge(
+                $job->trace->metadata ?? [],
+                $this->programmingDispatchUpdate($job, 'executed', $attempt->provider, $responseHash),
+                ['presentation_state' => $completedPresentationState],
+            ),
+        ]);
+        if ($job->trace) {
+            $this->emitStreamEvent($job, $attempt, 'lifecycle', 'execution_completed', '', [
+                'presentation_state' => $completedPresentationState,
+            ], 'system');
+        }
+
+        $trace = $job->trace?->refresh();
+        if ($trace?->response_text) {
+            $this->conversation->recordAssistantMessage($trace, $trace->response_text, [
+                'source' => 'ai_worker',
+                'attempt_id' => $attempt->id,
+                'job_id' => $job->id,
+            ]);
+            $this->updateSessionStateForTrace($trace, $trace->response_text);
+            $this->evaluateQuality($trace);
+            $this->completeRemediationActions($trace);
+        }
+
+        $this->logger->event('job_succeeded', 'AI job completed successfully.', 'info', $attempt->provider, $job, $attempt, workerId: $workerId);
+        $this->recordTelemetry('job_succeeded', $job, $attempt, [
+            'event_phase' => 'worker',
+            'duration_ms' => $result->durationMs,
+            'metadata' => [
+                'worker_id' => $workerId,
+            ],
+        ]);
+        if ($trace) {
+            $this->recordTelemetry('trace_completed', $job, $attempt, [
+                'event_key' => 'worker:trace_completed:'.$trace->id.':'.$trace->status,
+                'event_phase' => 'worker',
+                'duration_ms' => $trace->latency_ms,
+                'metadata' => [
+                    'worker_id' => $workerId,
+                    'trace_status' => $trace->status,
+                ],
+            ]);
+            $this->recordLedgerEvent(LedgerEventType::OperationCompleted, $job, $attempt, [
+                'trace_status' => $trace->status,
+                'duration_ms' => $trace->latency_ms,
+                'response_hash' => $trace->response_hash,
+            ], $workerId);
+            $this->recomputeTraceMetrics($trace);
+        }
+        $this->completeKernelMissionFromSuccessfulJob($job->refresh(), $attempt, $responseHash, $workerId);
+        $this->assertEliteKernelHonestOutcome($job, $attempt);
+        $this->audit->record('ai_job_succeeded', [
+            'subject_type' => 'ai_job',
+            'subject_id' => $job->id,
+            'summary' => "Job de IA concluido por {$attempt->provider}.",
+            'evidence' => [
+                'agent_slug' => $job->agent_slug,
+                'provider' => $attempt->provider,
+                'model' => $attempt->model,
+                'duration_ms' => $result->durationMs,
+                'response_hash' => $responseHash,
+                'result_text' => $result->output,
+            ],
+            'privacy' => $this->privacyFromJob($job),
+            'refs' => [
+                'trace_id' => $job->trace_id,
+                'job_id' => $job->id,
+                'attempt_id' => $attempt->id,
+            ],
+        ]);
+
+        $this->emitImportantJobResult($job->refresh(), 'succeeded');
+
+        return $job->refresh()->load(['trace', 'attemptHistory']);
+    }
+
+    private function completeAttemptWhenFailed(AiJob $job, AiJobAttempt $attempt, AiProviderResult $result, string $workerId): AiJob
+    {
         if ($this->shouldFallbackGeminiToClaude($job, $attempt, $result)) {
             return $this->fallbackGeminiToClaude($job, $attempt, $result, $workerId);
         }

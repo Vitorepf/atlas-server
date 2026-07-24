@@ -30,7 +30,7 @@
 - [x] CertificationWorkbenchDelegators → map+__call (~1985→272L, 219 methods)
 - [ ] OpenBrainMcpToolCatalog::definitions domain split (~1099L)
 - [ ] EnterpriseFlowFixtureActionRuntimeService::run table-drive (~1200L)
-- [ ] AiWorker::completeAttempt stage peel (~533L)
+- [x] AiWorker::completeAttempt stage peel (orchestrator + WhenCancelled/Succeeded/Failed + persistOutcome; baseline suite pre-existing 1 fail unrelated)
 - [ ] AtlasTaskServingService::report stage peel (~550L)
 - [ ] AtlasAaeosCommand::universalGates → observe service (~808L)
 - [ ] AtlasLedgerReplayService family projectors (~2225L file)
