@@ -22,4 +22,9 @@ final class ControlPlaneStatusSectionTest extends TestCase
         $this->assertSame([], $out['by_status']);
         $this->assertSame([], $out['recent']);
     }
+
+    public function test_safe_count_missing_model_is_zero(): void
+    {
+        $this->assertSame(0, ControlPlaneStatusSection::safeCount('\\App\\Models\\Missing'.uniqid()));
+    }
 }

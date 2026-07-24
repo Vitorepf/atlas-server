@@ -52,4 +52,19 @@ final class ControlPlaneStatusSection
             return ['count' => 0, 'by_status' => [], 'recent' => []];
         }
     }
+
+    /**
+     * @param  class-string  $modelClass
+     */
+    public static function safeCount(string $modelClass): int
+    {
+        if (! class_exists($modelClass)) {
+            return 0;
+        }
+        try {
+            return (int) $modelClass::query()->count();
+        } catch (Throwable) {
+            return 0;
+        }
+    }
 }

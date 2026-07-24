@@ -104,13 +104,6 @@ class CyberControlPlaneProjection
 
     private function safeCount(string $modelClass): int
     {
-        if (! class_exists($modelClass)) {
-            return 0;
-        }
-        try {
-            return (int) $modelClass::query()->count();
-        } catch (Throwable) {
-            return 0;
-        }
+        return ControlPlaneStatusSection::safeCount($modelClass);
     }
 }
