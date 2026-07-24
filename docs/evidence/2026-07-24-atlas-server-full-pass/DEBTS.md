@@ -45,7 +45,7 @@
 - [x] AtlasLedgerReplayService kernel pipeline summary/health/review → Support (22 unit green)
 - [x] AtlasDecideService pure helpers → DecideProviderNormalization (confidence/quality/mode/research/task-type)
 - [x] AtlasDecideService operationalDecision stages (resolveSelection/buildExplanation/assemble; 39 unit green)
-- [ ] AtlasDecideService executionGraph peel residual
+- [x] AtlasDecideService executionGraph strategy peels (scout/council/single; 39 unit green)
 - [x] OneShotTickInvokerEnvelope deny-flag fusion (~29 invokers) + OneShotTickInvokerCatalog (62 classes)
 - [ ] OneShotTick invoker further normalize/factory fusion residual
 - [ ] Readiness PartN / HubDelegators peel collapse

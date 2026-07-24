@@ -1258,86 +1258,11 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
         string $contextStrategy,
         string $executionStrategy,
     ): array {
-        $nodes = [];
-        $edges = [];
-
-        if ($executionStrategy === 'scout_then_execute_planned') {
-            $nodes = [
-                [
-                    'id' => 'context_scout',
-                    'role' => 'long_context_scout',
-                    'provider' => 'gemini_cli',
-                    'model' => $this->models->resolve('gemini_cli', 'auto', $this->modelResolutionContext($options)),
-                    'status' => $this->geminiScoutStatus($options),
-                    'outputs' => ['context_digest', 'source_map', 'risk_notes', 'implementation_brief'],
-                ],
-                [
-                    'id' => 'primary_executor',
-                    'role' => 'implementation_or_plan_executor',
-                    'provider' => $selectedProvider,
-                    'model' => $selectedModel,
-                    'status' => 'selected',
-                    'inputs' => ['operator_request', 'context_digest'],
-                    'outputs' => ['answer_or_patch_plan', 'verification_plan'],
-                ],
-                [
-                    'id' => 'quality_gate',
-                    'role' => 'atlas_quality_gate',
-                    'provider' => $selectedProvider,
-                    'model' => $selectedModel,
-                    'status' => 'planned',
-                    'inputs' => ['answer_or_patch_plan', 'verification_plan'],
-                    'outputs' => ['decision_metrics', 'repair_recommendation'],
-                ],
-            ];
-            $edges = [
-                ['from' => 'context_scout', 'to' => 'primary_executor', 'contract' => 'compressed_context_brief'],
-                ['from' => 'primary_executor', 'to' => 'quality_gate', 'contract' => 'verify_before_done'],
-            ];
-        } elseif ($executionStrategy === 'council_dual_review') {
-            $nodes = [
-                [
-                    'id' => 'primary_planner',
-                    'role' => 'primary_planner',
-                    'provider' => 'claude_cli',
-                    'model' => null,
-                    'status' => 'selected',
-                    'outputs' => ['main_plan'],
-                ],
-                [
-                    'id' => 'critical_reviewer',
-                    'role' => 'critical_reviewer',
-                    'provider' => 'codex_cli',
-                    'model' => null,
-                    'status' => 'selected',
-                    'outputs' => ['risk_review'],
-                ],
-                [
-                    'id' => 'synthesis',
-                    'role' => 'decision_synthesis',
-                    'provider' => self::COUNCIL_PROVIDER,
-                    'model' => $selectedModel,
-                    'status' => 'selected',
-                    'inputs' => ['main_plan', 'risk_review'],
-                    'outputs' => ['final_decision'],
-                ],
-            ];
-            $edges = [
-                ['from' => 'primary_planner', 'to' => 'synthesis', 'contract' => 'main_plan'],
-                ['from' => 'critical_reviewer', 'to' => 'synthesis', 'contract' => 'risk_review'],
-            ];
-        } else {
-            $nodes = [
-                [
-                    'id' => 'primary_provider',
-                    'role' => $this->manualOverrideProvider($options) ? 'manual_provider' : 'primary_provider',
-                    'provider' => $selectedProvider,
-                    'model' => $selectedModel,
-                    'status' => 'selected',
-                    'outputs' => ['answer'],
-                ],
-            ];
-        }
+        [$nodes, $edges] = match ($executionStrategy) {
+            'scout_then_execute_planned' => $this->executionGraphScoutThenExecute($options, $selectedProvider, $selectedModel),
+            'council_dual_review' => $this->executionGraphCouncilDualReview($selectedModel),
+            default => $this->executionGraphSingleProvider($options, $selectedProvider, $selectedModel),
+        };
 
         $activationStatus = data_get($options, 'payload.atlas_decide.execution_graph_activation_status');
         if (! is_string($activationStatus) || trim($activationStatus) === '') {
@@ -1364,6 +1289,106 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
                 'surface_fallback_reason' => true,
             ],
         ];
+    }
+
+    /**
+     * @return array{0: list<array<string, mixed>>, 1: list<array<string, mixed>>}
+     */
+    private function executionGraphScoutThenExecute(array $options, string $selectedProvider, ?string $selectedModel): array
+    {
+        $nodes = [
+            [
+                'id' => 'context_scout',
+                'role' => 'long_context_scout',
+                'provider' => 'gemini_cli',
+                'model' => $this->models->resolve('gemini_cli', 'auto', $this->modelResolutionContext($options)),
+                'status' => $this->geminiScoutStatus($options),
+                'outputs' => ['context_digest', 'source_map', 'risk_notes', 'implementation_brief'],
+            ],
+            [
+                'id' => 'primary_executor',
+                'role' => 'implementation_or_plan_executor',
+                'provider' => $selectedProvider,
+                'model' => $selectedModel,
+                'status' => 'selected',
+                'inputs' => ['operator_request', 'context_digest'],
+                'outputs' => ['answer_or_patch_plan', 'verification_plan'],
+            ],
+            [
+                'id' => 'quality_gate',
+                'role' => 'atlas_quality_gate',
+                'provider' => $selectedProvider,
+                'model' => $selectedModel,
+                'status' => 'planned',
+                'inputs' => ['answer_or_patch_plan', 'verification_plan'],
+                'outputs' => ['decision_metrics', 'repair_recommendation'],
+            ],
+        ];
+        $edges = [
+            ['from' => 'context_scout', 'to' => 'primary_executor', 'contract' => 'compressed_context_brief'],
+            ['from' => 'primary_executor', 'to' => 'quality_gate', 'contract' => 'verify_before_done'],
+        ];
+
+        return [$nodes, $edges];
+    }
+
+    /**
+     * @return array{0: list<array<string, mixed>>, 1: list<array<string, mixed>>}
+     */
+    private function executionGraphCouncilDualReview(?string $selectedModel): array
+    {
+        $nodes = [
+            [
+                'id' => 'primary_planner',
+                'role' => 'primary_planner',
+                'provider' => 'claude_cli',
+                'model' => null,
+                'status' => 'selected',
+                'outputs' => ['main_plan'],
+            ],
+            [
+                'id' => 'critical_reviewer',
+                'role' => 'critical_reviewer',
+                'provider' => 'codex_cli',
+                'model' => null,
+                'status' => 'selected',
+                'outputs' => ['risk_review'],
+            ],
+            [
+                'id' => 'synthesis',
+                'role' => 'decision_synthesis',
+                'provider' => self::COUNCIL_PROVIDER,
+                'model' => $selectedModel,
+                'status' => 'selected',
+                'inputs' => ['main_plan', 'risk_review'],
+                'outputs' => ['final_decision'],
+            ],
+        ];
+        $edges = [
+            ['from' => 'primary_planner', 'to' => 'synthesis', 'contract' => 'main_plan'],
+            ['from' => 'critical_reviewer', 'to' => 'synthesis', 'contract' => 'risk_review'],
+        ];
+
+        return [$nodes, $edges];
+    }
+
+    /**
+     * @return array{0: list<array<string, mixed>>, 1: list<array<string, mixed>>}
+     */
+    private function executionGraphSingleProvider(array $options, string $selectedProvider, ?string $selectedModel): array
+    {
+        $nodes = [
+            [
+                'id' => 'primary_provider',
+                'role' => $this->manualOverrideProvider($options) ? 'manual_provider' : 'primary_provider',
+                'provider' => $selectedProvider,
+                'model' => $selectedModel,
+                'status' => 'selected',
+                'outputs' => ['answer'],
+            ],
+        ];
+
+        return [$nodes, []];
     }
 
     private function geminiScoutStatus(array $options): string

@@ -19,7 +19,7 @@ recent:
   - OpenBrainMcpToolDefinitions data peel
   - LoadsFactsFileOption ExternalBrain
 unit_proof: Support/Workbench/ToolCatalog/FactsFile green; AiWorker 1 pre-existing fail
-next: Decide executionGraph peel | continuous residual | floors
+next: continuous residual (selfImprovement schedule summary | routes voice | floors)
 ```
 
 ## Progress summary
