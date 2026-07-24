@@ -1,0 +1,44 @@
+# FUSÃO AP-815 — religar o code-graph avançado no pipeline vivo (patamar mais poderoso)
+
+**Princípio (correção do operador):** capacidade construída+testada mas não-ligada NÃO se deleta — **funde-se, religa-se, vira patamar mais poderoso.** Sempre há como reaproveitar. Pensar muito antes.
+
+## Diagnóstico
+O pipeline vivo (`atlas:code-graph:pipeline` → `CodeGraphSymbolBuilder.build`) roda só 2 passos: symbols + `resolveEdges()` (symbol→symbol básico, com fallback PHP↔Python governado). **40 classes do programa AP-815 (86 testes verdes) estão construídas e órfãs** — o code-graph avançado inteiro, desligado. Como o code-graph alimenta o **AOBG context-pack (usado em toda interação)**, religá-lo eleva a inteligência de código diária do operador.
+
+## Arquitetura da fusão (aditiva, flag-gated, fallback-safe — o padrão que o pipeline já usa)
+
+`SymbolBuilder.build()` vira um **pipeline de passes de edge**, cada um aditivo e gated, mergeando no mesmo world-model:
+
+### Tier 1 — RESOLUÇÃO PROFUNDA (edges mais ricos) — maior valor imediato
+| Órfão | Adiciona | Como plugar |
+|---|---|---|
+| `CodeGraphCallResolver` | edges method→method CALL (`call_edges.v1`) | pass após base; input = calls extraídos dos symbols/relations + methodIndex |
+| `CodeGraphTypedCallResolver` | edges CALL type-aware (precisão maior) | refina os do CallResolver quando há info de tipo |
+| `CodeGraphTypeFlowResolver` | resolve calls dinâmicos por type-flow | pass sobre calls não-resolvidos |
+| `CodeGraphFrameworkAwareResolver` | edges via convenção de framework (Laravel etc.) | pass; a "precision keystone" P-7 |
+| `CodeGraphCoverageEdgeParser` | edges test→code (runtime-grade) | pass lendo coverage; liga cobertura ao graph |
+
+### Tier 2 — QUALIDADE/INTEGRIDADE (gate do build, não deixa regredir)
+`CodeGraphHealthAuditor` (Q-1) · `CodeGraphRegressionDetector` (Q-3, entre 2 índices) · `CodeGraphIntegrityHasher` (G-8, snapshot verificável) · `CodeGraphInferredGuard` (Q-4, anti-over-claim no edge). → rodam pós-build como gate; falha = não promove o world-model.
+
+### Tier 3 — RETRIEVAL PODEROSO (o que o AOBG consome)
+`CodeGraphRetrievalCompressor` (E-1 keystone) · `CodeGraphSkeletonView` (E-7 progressive disclosure) · `CodeGraphQueryCache`+`Store` (E-9 memoize) · `CodeGraphAntiContextPruner` (E-8). → plugam no caminho de leitura do context-pack (`atlas:ctx`/`atlas:context-pack`), tornando o pack mais denso e barato.
+
+### Tier 4 — SOBERANIA/SEGURANÇA (pétreo local-first)
+`CodeGraphPrivacyFilter` · `CodeGraphWorkspaceAccessPolicy` (G-7) · `CodeGraphIngestGuard` (SSRF) · `CodeGraphLicenseDetector` (G-6) · `CodeGraphWorkspacePurger` (G-9 right-to-forget) · `CodeGraphRetentionPolicy` (W-8). → wrap no caminho de ingest/leitura cross-project.
+
+### Tier 5 — O PATAMAR: fusão com a realidade
+`CodeGraphUnifiedView` funde o graph estático com o **AURG (Atlas Universal Reality Graph)** + `CodeGraphRealityIngestionService` + `CodeGraphRuntimeEvidenceOverlay` (overlay de evidência de execução real nos edges). → **este é o "algo mais grandioso"**: o code-graph deixa de ser estático e passa a refletir o comportamento runtime real.
+
+### Planejadores/economia (ligam o índice incremental e o ROI)
+`CodeGraphFirstIndexPlanner` (W-11) + `CodeGraphIncrementalReindexPlanner` (E-2) → índice incremental barato (hoje re-indexa tudo). `CodeGraphEconomyTelemetry`+`Benchmark`+`LatencyBudget` → ROI/SLO por workspace.
+
+## Sequência de execução SEGURA (cada slice: flag default-OFF → wire → teste do órfão já cobre → boot → commit escopado)
+1. **Beachhead Tier-1**: `CodeGraphCallResolver` como pass aditivo gated por `atlas.code_graph.call_edges` (default OFF). Merge de edges no world-model. Prova o padrão de fusão.
+2. Tier-1 restante (Typed/TypeFlow/Framework/Coverage) — cada um um slice.
+3. Tier-2 gate no build. 4. Tier-3 no retrieval. 5. Tier-4 wrap soberania. 6. **Tier-5 UnifiedView+AURG** (o patamar).
+7. Planejadores incrementais + economia.
+
+**Invariantes:** cada pass é aditivo (nunca remove/altera edges existentes) e flag-gated default-OFF (byte-identical até ligar) — o mesmo contrato que `resolveEdges()` já respeita com o Python. Fallback sempre pro caminho provado. Zero risco ao AOBG até o operador ligar cada flag.
+
+**NÃO deletar nada do AP-815.** Cada órfão é um tier a religar.
