@@ -184,13 +184,22 @@ final class AaeosP4RealOperationGauntlet
             return ['status' => 'unparsed', 'completed' => false, 'error_codes' => [], 'payload' => null];
         }
 
+        // Prefer producer-owned terminal fields. forge_live_execution_status must
+        // beat nested aemor_outcome.status ("recorded"/"succeeded") which is spine
+        // telemetry, not eng completion. status alone on task envelopes still wins.
         $status = strtolower(trim((string) (
             $payload['status']
+            ?? $payload['forge_live_execution_status']
             ?? data_get($payload, 'run_summary.completion_state')
-            ?? data_get($payload, 'aemor_outcome.status')
             ?? data_get($payload, 'journey_terminal_status')
+            ?? data_get($payload, 'aemor_outcome.status')
+            ?? data_get($payload, 'aemor_outcome.outcome.status')
             ?? ''
         )));
+        // AEMOR spine may say "succeeded" when eng passed — map to completed set.
+        if ($status === 'succeeded') {
+            $status = 'passed';
+        }
         $errorCodes = [];
         foreach ([
             data_get($payload, 'run_summary.provider_call.error_codes'),

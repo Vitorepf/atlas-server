@@ -277,6 +277,21 @@ final class AaeosP4RealOperationGauntletTest extends TestCase
         $this->assertTrue($receipt['capability_proof_derived_not_caller_set']);
     }
 
+    public function test_forge_live_execution_status_is_producer_terminal_not_aemor_recorded(): void
+    {
+        $stdout = json_encode([
+            'schema_version' => 'atlas.forge_live_execution_certification.v1',
+            'forge_live_execution_status' => 'passed',
+            'remaining_blockers' => [],
+            'external_provider_call' => false,
+            'aemor_outcome' => ['status' => 'recorded'],
+        ], JSON_THROW_ON_ERROR);
+
+        $terminal = AaeosP4RealOperationGauntlet::deriveProducerTerminalFromStdout($stdout);
+        $this->assertSame('passed', $terminal['status']);
+        $this->assertTrue($terminal['completed']);
+    }
+
     public function test_senior_loop_payload_authority_lineage_is_derived_not_invented(): void
     {
         $stdout = json_encode([
