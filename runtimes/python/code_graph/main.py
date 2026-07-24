@@ -15,6 +15,7 @@ Ops:
   questions     {edges, god_nodes?, assignments?}   suggested review questions
   multilang     {files:[{path,language,content}]}    ast+regex symbols/imports
   treesitter    {files:[{path,language,content}]}    tree-sitter precise AST (venv)
+  callgraph     {files:[{path,language,content}]}    tree-sitter (caller,callee) call pairs (venv)
   ingest_mcp    {config}                             MCP server config -> graph
   ingest_scip   {scip}                               SCIP index -> graph
   ingest_md     {text, path}                          markdown -> doc nodes
@@ -44,6 +45,7 @@ from atlas_code_graph.ingest_lite import ingest_markdown, ingest_mcp_config, ing
 from atlas_code_graph.multilang import extract_symbols_and_imports
 from atlas_code_graph.pdf_ingest import ingest_pdf
 from atlas_code_graph.treesitter_extract import extract as treesitter_extract
+from atlas_code_graph.callgraph import extract_calls
 
 # AP-815 [py] ops (Wave F): eval harness (Q-2), co-change (P-8), hybrid ranker (E-6).
 # Each module is stdlib-only at import time (heavy/optional deps are lazy inside).
@@ -102,6 +104,7 @@ _OPS = {
     ),
     "multilang": lambda m: extract_symbols_and_imports(m.get("files", [])),
     "treesitter": lambda m: treesitter_extract(m.get("files", [])),
+    "callgraph": lambda m: extract_calls(m.get("files", [])),
     "ingest_mcp": lambda m: ingest_mcp_config(m.get("config", {})),
     "ingest_scip": lambda m: ingest_scip_json(m.get("scip", {})),
     "ingest_md": lambda m: ingest_markdown(m.get("text", ""), m.get("path", "")),
