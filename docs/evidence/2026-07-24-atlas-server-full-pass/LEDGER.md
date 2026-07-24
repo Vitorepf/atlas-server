@@ -6,25 +6,27 @@
 program: atlas-server-full-pass-file-by-file
 branch: main
 execution: in_progress
-unit_proof: 27 tests / 80 assertions green (package-proof.log)
-mcp_service_loc: ~875 (was ~1954 before catalog extract)
-next: PipelineRunExecutor Http exit OR Readiness peel OR HTML render split
+unit_proof: "31 tests / 88 assertions (package-proof.log)"
+mcp_service_loc: ~875
+next: PipelineRunExecutor leave Http OR HTML render split OR Readiness more peels
 ```
 
-## Landed (session)
+## Session landings (continuous)
 
-Reuse: LoadsFactsJsonOption, ResolvesSilentJsonOption, ResolvesGitProjectRoot, ParsesKeyValueMetadataOption, ReadsNonEmptyStringOption, GitWorkspaceStateReader (+benchmark shape), MemoryLimitBytes, CliInvocationModel, MemoryEntrySafetySummary, CodeGraphIntOrNull, ControlPlaneStatusSection, AcosDeltaSeriesJsonl, SchemaVersionedJsonBlockParser, DiskJsonIndexLoader, DatabaseIdsContaining.
+Reuse helpers: LoadsFactsJsonOption, ResolvesSilentJsonOption, ResolvesGitProjectRoot, ParsesKeyValueMetadataOption, ReadsNonEmptyStringOption, GitWorkspaceStateReader, MemoryLimitBytes, CliInvocationModel, MemoryEntrySafetySummary, CodeGraphIntOrNull, ControlPlaneStatusSection (+safeCount), AcosDeltaSeriesJsonl, SchemaVersionedJsonBlockParser, DiskJsonIndexLoader, DatabaseIdsContaining, CanonicalValue, CodexReviewMergeLaterCycleChain.
 
-Honesty rename: BriefGrounding, SuiteRedTriage (Helper BC).
+Honesty: BriefGrounding, SuiteRedTriage (Helper BC); loop config ACDE legacy comments.
 
-Density: OpenBrainMcpToolCatalog extract from tools() god method; annotations remain on façade.
+Density: OpenBrainMcpToolCatalog (~1084L extracted from tools()).
 
-Operate: config atlas loop keys documented as legacy ACDE.
+## Residual DEBT
 
-## Next / DEBT
-
-See DEBTS.md — monstruos, config split, ProviderCatalog, thin fat commands.
+PipelineRunExecutor still under Http; EnterpriseReport HTML monolog; Readiness OneShotTick forest; AiWorker completeAttempt; config/atlas.php physical split; ProviderCatalog; file-by-file receipts 13399.
 
 ## Floors
 
-RSI Session, Evidence redesign, Readiness probe hub, keep-list AtlasLoop*
+RSI Session, Evidence redesign, Readiness probe hub, AtlasLoop* keep-list — blocked.
+
+## Honesty
+
+Corpus-wide zero-bug claim rejected; continuous package-green full-pass hygiene continues.
