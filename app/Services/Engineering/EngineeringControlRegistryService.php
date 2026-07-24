@@ -140,7 +140,10 @@ class EngineeringControlRegistryService
                     timing: 'pre_commit',
                     required: false,
                     failurePolicy: 'advisory',
-                    command: escapeshellarg(AtlasPhpBinary::path()).' -d memory_limit=1024M vendor/bin/pint --test',
+                    // Forge worktrees can contain a large Laravel repository;
+                    // validate only the dirty patch instead of rescanning every
+                    // tracked PHP file on every attempt.
+                    command: escapeshellarg(AtlasPhpBinary::path()).' -d memory_limit=1024M vendor/bin/pint --test --dirty',
                     metadata: ['profile' => $profile, 'memory_limit' => '1024M'],
                 );
             }
