@@ -15,7 +15,7 @@ class ContextualizedBriefService
 {
     public function __construct(
         private readonly MarketingActionPlaybookResolver $resolver,
-        private readonly BriefGroundingHelper $grounding = new BriefGroundingHelper,
+        private readonly BriefGrounding $grounding = new BriefGrounding,
     ) {}
 
     /**
