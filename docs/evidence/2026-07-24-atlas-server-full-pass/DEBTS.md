@@ -1,24 +1,27 @@
 # Full-Pass DEBTS
 
-## Done in session (selected)
+## Done (session)
 
-- [x] MCP tools() catalog extract (OpenBrainMcpToolCatalog)
-- [x] Multiple reuse helpers (facts, git, memory, json, ids, control plane section, …)
-- [x] loop config operate-path honesty comments
+- [x] MCP tools() catalog extract
+- [x] Mass CLI stringOption trait adoption
+- [x] Many Support/* pure helpers
+- [x] CodexReviewMerge later-cycle trait
+- [x] Honesty renames BriefGrounding, SuiteRedTriage
+- [x] Loop config operate-path honesty comments
 
 ## Open
 
-- [ ] architecture: move PipelineRunExecutor from Http to Services
-- [ ] density: EnterpriseReportDashboardHtml::render (1409L)
-- [ ] density: Readiness PartN + OneShotTick invoker registry
-- [ ] elevate: AiWorker::completeAttempt stage handlers
-- [ ] elevate: AutonomousEvolutionSessionService::runCycle (floor risk)
-- [ ] config: physical split atlas.php / loop legacy file
-- [ ] surface: thin AtlasAaeosCommand / Mother + god tests partition
-- [ ] defactor: ProviderCatalog single source
-- [ ] operate: retarget Fable/Weekly loop CLI references
-- [ ] file-by-file receipts for 13399 inventory paths (long-running)
+- [ ] PipelineRunExecutor leave Http (high touch, many FQCN refs)
+- [ ] EnterpriseReportDashboardHtml::render density
+- [ ] Readiness OneShotTick invoker registry
+- [ ] AiWorker::completeAttempt stage peel
+- [ ] AutonomousEvolutionSessionService::runCycle (floor)
+- [ ] config/atlas.php physical multi-file split
+- [ ] ProviderCatalog single source
+- [ ] remaining cast-style stringOption variants (behavior-sensitive)
+- [ ] Fable/Weekly atlas:loop operate retarget
+- [ ] file-by-file receipts 13399 paths
 
-## Floors blocked
+## Floors
 
-- RSI / Evidence LedgerReplay redesign / Readiness probe hub / keep-list AtlasLoop*
+RSI / Evidence redesign / Readiness probe hub / AtlasLoop* keep-list
