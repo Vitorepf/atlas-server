@@ -1,21 +1,21 @@
 # AAEOS Elite Deepening — LEDGER
 
 **Master:** `docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md`  
-**State:** P0…P2d GREEN · **P2e GREEN (path-core)** · **NEXT = EXECUTE P2f**  
+**State:** P0…P2e GREEN · **P2f GREEN (path-core CLI strip)** · **NEXT = EXECUTE P3a** (or residual P2f census deepen)  
 **Branch:** main only
 
 ## Cursor
 
 | Slice | Status | Next |
 |---|---|---|
-| P2g excellence stack | GREEN path-core | QOS→CURR→MEAS→EVOL |
-| P2d spine R66 | GREEN path-core | settlement N11 |
-| **P2e** | **GREEN path-core** | R100 H1–H7 async continuation |
-| **P2f** | **NOT_STARTED — ACTIVE** | **EXECUTE P2f** operator census / strip technical CLI |
+| P2g excellence | GREEN path-core | prior |
+| P2d / P2e | GREEN path-core | prior |
+| **P2f** | **GREEN path-core** | intent-first daily port / strip technical flags |
+| **P3a** | **NOT_STARTED — ACTIVE** | deletion census (no mass delete) |
 
 ## Notes
-- R100: A awaits H1–H7; B settles; A resumes once
-- Cockpit attention partition: sovereign vs read-only; no eng pass mint
+- atlas:aaeos:run productive flags stripped with migration guidance
+- Full operator ingress/egress census residual (path-core CLI + tests)
 - R104-TRANSPORT residual still open
 
 ## Rule for implementers

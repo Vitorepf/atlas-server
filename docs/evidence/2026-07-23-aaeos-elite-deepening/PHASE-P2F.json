@@ -1,0 +1,97 @@
+{
+  "schema": "atlas.aaeos.mt.phase_receipt.v1",
+  "phase": "P2f",
+  "status": "GREEN",
+  "edition": "vFINAL-COOKBOOK",
+  "branch": "main",
+  "base_commit": "1b0d60bb2653dd4805f36a31c9fad4041479adb3",
+  "implementation_commit": "395967d8105726ea9afa57df9beb7653fa898715",
+  "dirty_before": [],
+  "staged_before": [],
+  "allowed_paths": [
+    "app/Console/Commands/AtlasAaeosRunCommand.php",
+    "tests/Feature/Ai/Aaeos/AtlasAaeosRunCommandTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosPublicEntryModeParityTest.php",
+    "bin/atlas"
+  ],
+  "touched_paths": [
+    "app/Console/Commands/AtlasAaeosRunCommand.php",
+    "tests/Feature/Ai/Aaeos/AtlasAaeosRunCommandTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosPublicEntryModeParityTest.php"
+  ],
+  "deleted_paths": [],
+  "foreign_wip_left_untouched": [
+    "foreign_wip"
+  ],
+  "baseline_failures": [],
+  "new_failures": [],
+  "tests": [
+    {
+      "path": "P2f intent-first daily port strip flags",
+      "command": "/opt/homebrew/bin/php artisan test tests/Feature/Ai/Aaeos/AtlasAaeosRunCommandTest.php tests/Feature/Ai/Aaeos/AaeosPublicEntryModeParityTest.php tests/Unit/Ai/Aaeos/Control/AaeosDryOutcomeRecorderAbsenceTest.php --no-coverage",
+      "red_exit": null,
+      "green_exit": 0,
+      "red_failure_reason": "GREEN P2f matrix",
+      "output_fingerprint_or_ref": "controller-verification/P2f:15-passed-66-assertions"
+    }
+  ],
+  "artifact_hashes_or_refs": [
+    "p2f_technical_flag_removed",
+    "intent_first_daily_port",
+    "stripped:live,execute-provider,run-worker-once,max-seeds,scope",
+    "kept:dry-run,json,mode,autonomos"
+  ],
+  "exit_checklist": {
+    "productive_flags_stripped_with_migration_guidance": true,
+    "dry_run_retained": true,
+    "live_dispatch_false_on_daily_port": true,
+    "public_entry_tests_green": true,
+    "no_new_organ": true,
+    "phase_green": true,
+    "path_core_exit_checklist_all_true": true
+  },
+  "residuals_closed": [
+    "atlas:aaeos:run technical dial strip (P2f step 6 path-core)"
+  ],
+  "residuals_still_open": [
+    "Full ingress/egress operator census seals (P2f steps 1–5 partial)",
+    "Clarification closed enum / PlanVisible audit deepen",
+    "Autonomos zero-touch DecisionIssued reject deepen",
+    "R104-TRANSPORT / R-P2A1-PG-LIVE",
+    "P3a deletion census"
+  ],
+  "forbidden_touched": [],
+  "failure_reason_code": null,
+  "failure_reason": null,
+  "review_basis": {
+    "schema": "atlas.aaeos.mt.review_basis.v1",
+    "phase_payload_excludes": [
+      "review_basis",
+      "review_attestation_refs",
+      "next_phase_authorized",
+      "next_phase_authorization_basis"
+    ],
+    "phase_payload_sha256": "c6b50aeb651e30ef915ea4cf8efc0602ca0323438c675d305a24e4d5c22327ac",
+    "ledger_content_sha256": "a1cd45673c4cb6c57c424de61b569802d9b77351cc84c6ac4fe48b463a56833b",
+    "scoreboard_content_sha256": "f6b3d11a68bb008b92b8f0e5ccf86305b90a599df39fd898cb0b025d0824ea03",
+    "sha256": "d524b29bb4fdd25300b8061ea606ac43bb02ceb3bcb6a5bed2446d59f6aad56c"
+  },
+  "review_attestation_refs": [],
+  "next_phase_authorized": {
+    "phase": "P3a",
+    "precommit_predicates_satisfied": true,
+    "evidence_commit_required": true,
+    "effective_only_when_read_from_committed_evidence_tree": true
+  },
+  "next_phase_authorization_basis": {
+    "serial_predecessor_green": true,
+    "exit_checklist_all_true": true,
+    "tests_green": true,
+    "spec_review_approved": true,
+    "quality_review_approved": true,
+    "review_attestation_refs_valid": false,
+    "evidence_commit_required": true,
+    "committed_evidence_tree_required": true
+  },
+  "notes": "P2f GREEN path-core: daily port technical dials stripped. Full operator census residual. Next EXECUTE P3a (census, no mass delete)."
+}
