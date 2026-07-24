@@ -395,7 +395,8 @@ final class AtlasTaskServingService
             $gateService = $this->awisGate ?? app(AwisExecutionGatePort::class);
             return $gateService->gate(
                 workspace: base_path(),
-                mode: 'dev',
+                // R102: TaskServing is Autônomos — never present as Dev.
+                mode: 'autonomos',
                 task: 'atlas autonomos task serving',
             );
         } catch (Throwable $e) {

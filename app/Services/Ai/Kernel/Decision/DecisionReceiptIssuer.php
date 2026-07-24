@@ -135,6 +135,12 @@ class DecisionReceiptIssuer
      */
     public function isV3CanarySelected(string $receiptId): bool
     {
+        // CUTOVER forces companion v3 on every new issuance (writers remain dual-transport;
+        // historical signed V2 bytes are never rewritten).
+        if ((bool) config('atlas.ai.decision_receipt_v3_cutover_enabled', false)) {
+            return true;
+        }
+
         $percent = max(0, min(100, (int) config('atlas.ai.decision_receipt_v3_canary_percent', 0)));
         if ($percent <= 0) {
             return false;

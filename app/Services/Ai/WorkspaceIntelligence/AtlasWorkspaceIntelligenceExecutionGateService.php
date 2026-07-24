@@ -11,15 +11,32 @@ final class AtlasWorkspaceIntelligenceExecutionGateService implements \App\Servi
     /**
      * @var array<int,string>
      */
+    /**
+     * Elite-executor mutative modes (R102): dev | forge | autonomos are explicit.
+     * Additional operational mutative modes stay listed; unknown modes fail closed.
+     *
+     * @var array<int,string>
+     */
     private const MUTATIVE_MODES = [
         'dev',
         'forge',
+        'autonomos',
         'patch',
         'test',
         'tool',
         'index-code',
         'provider-patch',
         'memory-write',
+    ];
+
+    /** @var array<int,string> */
+    private const CONVERSATION_MODES = [
+        'conversation',
+        'ask',
+        'chat',
+        'readonly',
+        'read-only',
+        'read_only',
     ];
 
     public function __construct(
@@ -47,7 +64,9 @@ final class AtlasWorkspaceIntelligenceExecutionGateService implements \App\Servi
             conversationTexts: $conversationTexts,
         );
 
-        $mutative = in_array($normalizedMode, self::MUTATIVE_MODES, true);
+        $modeClass = $this->classifyMode($normalizedMode);
+        $mutative = $modeClass !== 'conversation';
+        $unknownMode = $modeClass === 'unknown';
         $artifactShadow = $this->artifactShadowExecution->evaluate($report, $normalizedMode);
         $nextSessionBrain = (array) ($report['workspace_next_session_brain'] ?? []);
         $nextSessionBrainReady = ($nextSessionBrain['status'] ?? null) === 'ready'
@@ -64,14 +83,19 @@ final class AtlasWorkspaceIntelligenceExecutionGateService implements \App\Servi
         $blockers = [];
         $warnings = [];
 
+        if ($unknownMode) {
+            // R102: unknown execution mode fails closed — never silent conversation downgrade.
+            $blockers[] = 'unknown_execution_mode';
+        }
+
         if ($mutative) {
-            $blockers = $this->blockerCollector->collect([
+            $blockers = array_merge($blockers, $this->blockerCollector->collect([
                 'runtime_ready' => $runtimeReady,
                 'contracts_certified' => $contractsCertified,
                 'artifact_count' => $artifactCount,
                 'shadow_ready' => $artifactShadowReady,
                 'brain_ready' => $nextSessionBrainReady,
-            ]);
+            ]));
         } elseif (! $runtimeReady) {
             $warnings[] = 'workspace_not_ready_conversation_only';
         }
@@ -129,6 +153,21 @@ final class AtlasWorkspaceIntelligenceExecutionGateService implements \App\Servi
         $mode = trim(strtolower($mode));
 
         return $mode === '' ? 'conversation' : str_replace('_', '-', $mode);
+    }
+
+    /**
+     * @return 'conversation'|'mutative'|'unknown'
+     */
+    private function classifyMode(string $normalizedMode): string
+    {
+        if (in_array($normalizedMode, self::CONVERSATION_MODES, true)) {
+            return 'conversation';
+        }
+        if (in_array($normalizedMode, self::MUTATIVE_MODES, true)) {
+            return 'mutative';
+        }
+
+        return 'unknown';
     }
 
     /**

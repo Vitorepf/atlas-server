@@ -57,17 +57,18 @@ class DecisionReceiptRuntimeGuard
             );
         }
 
+        $cutover = $this->cutoverEnabled();
         $receiptV2 = data_get($receipt, DecisionReceipt::RECEIPT_V2_KEY);
         if (! is_array($receiptV2)) {
             $receiptV3 = data_get($receipt, DecisionReceipt::RECEIPT_V3_KEY);
 
             return is_array($receiptV3)
-                ? $this->v3ExpandViolation($receiptV3)
+                ? $this->v3OnlyViolation($receiptV3, $cutover)
                 : null;
         }
 
-        // Dual-read: V2 remains the governing runtime receipt. Writers stay on
-        // V2 until CANARY. From SHADOW onward, a co-present V3 must not contradict V2.
+        // Dual-read: V2 remains governing until CUTOVER. SHADOW: co-present V3
+        // must not contradict V2. CUTOVER: v2-only workers fail closed before effect.
 
         $receiptId = data_get($receiptV2, 'receipt_id');
         $envelopeId = data_get($receiptV2, 'envelope_id');
@@ -161,9 +162,25 @@ class DecisionReceiptRuntimeGuard
             if ($shadowViolation instanceof DecisionReceiptRuntimeViolation) {
                 return $shadowViolation;
             }
+        } elseif ($cutover) {
+            // Mixed-worker block-before-effect: cutover refuses v2-only mutative traffic.
+            return new DecisionReceiptRuntimeViolation(
+                errorCode: 'decision_receipt_cutover_v2_only_refused',
+                message: 'DecisionReceipt cutover: receipt_v2-only worker blocked before effect; companion receipt_v3 required.',
+                receiptId: $base['receiptId'],
+                envelopeId: $base['envelopeId'],
+                expiresAt: $base['expiresAt'],
+                dryRun: $base['dryRun'],
+                schemaVersion: $base['schemaVersion'],
+            );
         }
 
         return null;
+    }
+
+    private function cutoverEnabled(): bool
+    {
+        return (bool) config('atlas.ai.decision_receipt_v3_cutover_enabled', false);
     }
 
     /**
@@ -239,12 +256,12 @@ class DecisionReceiptRuntimeGuard
     }
 
     /**
-     * V3 bytes can be parsed and integrity-checked in EXPAND, but no V3-only
-     * envelope can authorize runtime work before the CANARY/CUTOVER path.
+     * V3-only transport: before cutover = non-authoritative; after cutover =
+     * integrity-valid envelopes authorize (mutative cutover).
      *
      * @param  array<string,mixed>  $receiptV3
      */
-    private function v3ExpandViolation(array $receiptV3): DecisionReceiptRuntimeViolation
+    private function v3OnlyViolation(array $receiptV3, bool $cutover): ?DecisionReceiptRuntimeViolation
     {
         $base = $this->baseForReceipt($receiptV3);
         if (($base['schemaVersion'] ?? null) !== DecisionReceipt::SCHEMA_VERSION_V3
@@ -269,9 +286,39 @@ class DecisionReceiptRuntimeGuard
             );
         }
 
+        if ($cutover) {
+            // Mutative cutover: integrity-valid v3-only is authoritative.
+            if ($base['dryRun'] === true) {
+                return $this->v3Violation(
+                    'decision_receipt_dry_run',
+                    'DecisionReceipt de preview/dry-run nao pode ser consumido pelo Data Plane.',
+                    $base,
+                );
+            }
+            if ($base['expiresAt'] !== null) {
+                try {
+                    if (CarbonImmutable::now()->greaterThan(CarbonImmutable::parse($base['expiresAt']))) {
+                        return $this->v3Violation(
+                            'decision_receipt_expired',
+                            'DecisionReceipt expirado antes da execucao do provider.',
+                            $base,
+                        );
+                    }
+                } catch (\Throwable) {
+                    return $this->v3Violation(
+                        'decision_receipt_v3_invalid',
+                        'DecisionReceipt v3 invalido: expires_at nao e uma data valida.',
+                        $base,
+                    );
+                }
+            }
+
+            return null;
+        }
+
         return $this->v3Violation(
             'decision_receipt_v3_non_authoritative',
-            'DecisionReceipt v3 foi verificado em EXPAND, mas ainda nao e autoridade de runtime antes de CANARY/CUTOVER.',
+            'DecisionReceipt v3 foi verificado, mas ainda nao e autoridade de runtime antes do CUTOVER.',
             $base,
         );
     }

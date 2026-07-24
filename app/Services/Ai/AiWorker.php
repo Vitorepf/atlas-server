@@ -1734,6 +1734,7 @@ class AiWorker
             'decision_receipt_v3_hash_mismatch',
             'decision_receipt_v3_non_authoritative',
             'decision_receipt_v2_v3_shadow_contradiction',
+            'decision_receipt_cutover_v2_only_refused',
             'permission_denied',
             'policy_violation',
         ], true);

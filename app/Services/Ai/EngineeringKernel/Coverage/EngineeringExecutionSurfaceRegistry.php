@@ -40,7 +40,8 @@ final class EngineeringExecutionSurfaceRegistry
             'owner' => 'atlas_autonomos',
             'mutative' => true,
             'awis_gate_class' => AtlasWorkspaceIntelligenceExecutionGateService::class,
-            'awis_mode' => 'dev',
+            // R102: Autônomos must not present as Dev (confused-deputy).
+            'awis_mode' => 'autonomos',
         ],
         'atlas_autonomos.native_worker' => [
             'id' => 'atlas_autonomos.native_worker',
@@ -48,7 +49,7 @@ final class EngineeringExecutionSurfaceRegistry
             'owner' => 'atlas_autonomos',
             'mutative' => true,
             'awis_gate_class' => AtlasWorkspaceIntelligenceExecutionGateService::class,
-            'awis_mode' => 'dev',
+            'awis_mode' => 'autonomos',
         ],
         'atlas_autonomos.commit_governance' => [
             'id' => 'atlas_autonomos.commit_governance',
@@ -56,7 +57,7 @@ final class EngineeringExecutionSurfaceRegistry
             'owner' => 'atlas_autonomos',
             'mutative' => true,
             'awis_gate_class' => AtlasWorkspaceIntelligenceExecutionGateService::class,
-            'awis_mode' => 'dev',
+            'awis_mode' => 'autonomos',
         ],
         'engineering_kernel.merge_actuator' => [
             'id' => 'engineering_kernel.merge_actuator',

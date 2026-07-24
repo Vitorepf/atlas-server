@@ -51,6 +51,38 @@ class DecisionReceiptRuntimeGuardTest extends TestCase
         }
     }
 
+    public function test_cutover_refuses_v2_only_workers_before_effect(): void
+    {
+        config(['atlas.ai.decision_receipt_v3_cutover_enabled' => true]);
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-05T12:00:00Z'));
+
+        $violation = (new DecisionReceiptRuntimeGuard)->violationForReceipt([
+            'receipt_v2' => $this->issuedReceipt([
+                'provider_selection' => [
+                    'primary' => 'codex_cli',
+                    'model' => 'gpt-5.5',
+                    'fallbacks' => [],
+                ],
+            ]),
+        ], runtimeProvider: 'codex_cli', runtimeModel: 'gpt-5.5');
+
+        $this->assertSame('decision_receipt_cutover_v2_only_refused', $violation?->errorCode);
+        config(['atlas.ai.decision_receipt_v3_cutover_enabled' => false]);
+    }
+
+    public function test_cutover_allows_integrity_valid_v3_only_as_authority(): void
+    {
+        config(['atlas.ai.decision_receipt_v3_cutover_enabled' => true]);
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-07-24T12:00:00Z'));
+
+        $violation = (new DecisionReceiptRuntimeGuard)->violationForReceipt([
+            'receipt_v3' => $this->validV3Receipt(),
+        ]);
+
+        $this->assertNull($violation);
+        config(['atlas.ai.decision_receipt_v3_cutover_enabled' => false]);
+    }
+
     public function test_blocks_v3_only_receipt_when_a_bound_authority_field_is_tampered(): void
     {
         $receipt = $this->validV3Receipt();
