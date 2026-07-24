@@ -45,3 +45,10 @@ Regra: sempre rodar **restore-fixpoint** pós-deleção (restaura toda classe de
 
 ## D7. Wave 2c ExternalBrain — 202 organs unwired deletados (commit 1379020ae)
 54% do ExternalBrain (advisory sem caller) deletado. Os organs eram capacidade-projetada-mas-não-ligada. **Totalmente reversível via git** se algum for capacidade futura desejada. GAP-09/10 (bridges "LIGAR destrava" do review H5) caíram aqui — se o operador quiser ligá-los, restaurar do commit anterior.
+
+## D8. Correção D1 — a maioria das "bombas" eram falso-positivo do class_exists estático
+Reavaliação (24/07): das bombas D1, só **`AtlasDeadCodeAnalyzer`** era real (required-inject no `atlas:code:dead-code-check`, sem guard) → **CONSERTADO** (restaurado de cd018^, commit 829438a0c). As demais são defensivamente-safe:
+- Exceptions Maestro (SchemaDowngradeRefused/UnknownSchemaVersion) — definidas inline no `AtlasMaestroPacketSchemaMigrator` que o comando invoca 7× (carregam+lançam junto → catch resolve).
+- `AtlasIntelligenceFactoryRuntimeService` (quarentenado=deletado por 178235aa9a) — TODOS os 5 consumidores são nullable-default OU `try{app(...)}catch(\Throwable){fallback}` (o god-debulk completou o sidecar-fix). Zero fatal.
+- `atlas:finance:strategy-evolve` (a bomba viva de verdade) — resolvida no redesenho D1 (comando removido, commit 228104459).
+Lição: class_exists estático não vê try/catch nem nullable-default; sempre confirmar o USO real antes de chamar de "quebrado".
