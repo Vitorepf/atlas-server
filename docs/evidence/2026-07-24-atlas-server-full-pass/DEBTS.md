@@ -37,7 +37,8 @@
 - [x] AtlasTaskServingService::reportSuccessWithCommit peel (8 unit green; evidence contract suite pre-existing fails unrelated)
 - [x] AtlasTaskServingService::reportSuccessDryRun peel
 - [ ] AtlasTaskServingService::report give_back/failed branches further stages
-- [ ] AtlasAaeosCommand::universalGates → observe service (~808L)
+- [x] AtlasAaeosCommand::universalGatesObserveProjectors table peel (~808→~56L method + dense table)
+- [ ] AtlasAaeosCommand further thin (loadSignals/service extract residual)
 - [ ] AtlasLedgerReplayService family projectors (~2225L file)
 - [ ] AtlasDecideService pure policy extract (~1722L file)
 - [x] OneShotTickInvokerEnvelope deny-flag fusion (~29 invokers) + OneShotTickInvokerCatalog (62 classes)

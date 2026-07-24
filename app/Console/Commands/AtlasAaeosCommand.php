@@ -969,46 +969,15 @@ final class AtlasAaeosCommand extends Command
         return self::SUCCESS;
     }
 
-    private function universalGates(AtlasUniversalGatesEvaluator $gates, bool $json): int
+    /**
+     * Observe-only optional JSON projectors for universal-gates (full-pass density table).
+     *
+     * @return list<array{0: string, 1: string, 2: callable(array<string,mixed>):mixed}>
+     */
+    private function universalGatesObserveProjectors(AtlasUniversalGatesEvaluator $gates): array
     {
-        $intent = (string) ($this->option('intent') ?? '');
-        if ($intent === '') {
-            return $this->failWith('universal-gates requires --intent');
-        }
-        $signals = $this->loadSignals();
-        $deliveryPackPath = (string) ($this->option('delivery-pack') ?? '');
-        if ($deliveryPackPath !== '') {
-            $composition = $this->loadJsonFile($deliveryPackPath);
-            if ($composition === null) {
-                return $this->failWith('universal-gates --delivery-pack must be a readable JSON object');
-            }
-            $signals['delivery_pack_completeness_min_0_95'] = $gates->deliveryPackCompletenessSignal($composition);
-            $report = $gates->evaluate($intent, $signals);
-            $report['observe'] = array_merge(
-                AiValueNormalizer::arrayOrEmpty($report['observe'] ?? null),
-                ['delivery_pack_completeness' => $gates->deliveryPackCompletenessScoreObserve($composition)],
-            );
-        } else {
-            $report = $gates->evaluate($intent, $signals);
-        }
+        return [
 
-        $specPath = (string) ($this->option('spec') ?? '');
-        if ($specPath !== '') {
-            $spec = $this->loadJsonFile($specPath);
-            if ($spec === null) {
-                return $this->failWith('universal-gates --spec must be a readable JSON object');
-            }
-            $report['observe'] = array_merge(
-                AiValueNormalizer::arrayOrEmpty($report['observe'] ?? null),
-                [
-                    'spec_completeness' => $gates->specCompletenessSignal($spec),
-                    'spec_completeness_score' => $gates->specCompletenessScoreObserve($spec),
-                ],
-            );
-        }
-
-        // Observe-only projectors: do not add universal-gate ids (catalogue stays 15).
-        foreach ([
             ['quality-bar', 'quality_bar_telemetry', fn (array $p) => $gates->qualityBarTelemetryObserve($p)],
             ['architect-spec-pack', 'architect_spec_pack_gate', fn (array $p) => $gates->architectSpecPackObserve($p)],
             ['predicted-impact', 'predicted_impact_band', fn (array $p) => $gates->predictedImpactBandObserve($p)],
@@ -1765,8 +1734,50 @@ final class AtlasAaeosCommand extends Command
             ['b777-aaeos-threshold-string-veto-floors-contract', 'b777_aaeos_threshold_string_veto_floors_contract', fn (array $p) => $gates->b777AaeosThresholdStringVetoFloorsContractObserve($p)],
             ['b778-aaeos-string-veto-floors-contract', 'b778_aaeos_string_veto_floors_contract', fn (array $p) => $gates->b778AaeosStringVetoFloorsContractObserve($p)],
             ['b779-aaeos-veto-floors-contract', 'b779_aaeos_veto_floors_contract', fn (array $p) => $gates->b779AaeosVetoFloorsContractObserve($p)],
-            ['b780-aaeos-department-floors-contract', 'b780_aaeos_department_floors_contract', fn (array $p) => $gates->b780AaeosDepartmentFloorsContractObserve($p)],
-        ] as [$option, $observeKey, $projector]) {
+            ['b780-aaeos-department-floors-contract', 'b780_aaeos_department_floors_contract', fn (array $p) => $gates->b780AaeosDepartmentFloorsContractObserve($p)],        ];
+    }
+
+    private function universalGates(AtlasUniversalGatesEvaluator $gates, bool $json): int
+    {
+        $intent = (string) ($this->option('intent') ?? '');
+        if ($intent === '') {
+            return $this->failWith('universal-gates requires --intent');
+        }
+        $signals = $this->loadSignals();
+        $deliveryPackPath = (string) ($this->option('delivery-pack') ?? '');
+        if ($deliveryPackPath !== '') {
+            $composition = $this->loadJsonFile($deliveryPackPath);
+            if ($composition === null) {
+                return $this->failWith('universal-gates --delivery-pack must be a readable JSON object');
+            }
+            $signals['delivery_pack_completeness_min_0_95'] = $gates->deliveryPackCompletenessSignal($composition);
+            $report = $gates->evaluate($intent, $signals);
+            $report['observe'] = array_merge(
+                AiValueNormalizer::arrayOrEmpty($report['observe'] ?? null),
+                ['delivery_pack_completeness' => $gates->deliveryPackCompletenessScoreObserve($composition)],
+            );
+        } else {
+            $report = $gates->evaluate($intent, $signals);
+        }
+
+        $specPath = (string) ($this->option('spec') ?? '');
+        if ($specPath !== '') {
+            $spec = $this->loadJsonFile($specPath);
+            if ($spec === null) {
+                return $this->failWith('universal-gates --spec must be a readable JSON object');
+            }
+            $report['observe'] = array_merge(
+                AiValueNormalizer::arrayOrEmpty($report['observe'] ?? null),
+                [
+                    'spec_completeness' => $gates->specCompletenessSignal($spec),
+                    'spec_completeness_score' => $gates->specCompletenessScoreObserve($spec),
+                ],
+            );
+        }
+
+        // Observe-only projectors: do not add universal-gate ids (catalogue stays 15).
+        foreach ($this->universalGatesObserveProjectors($gates) as [$option, $observeKey, $projector]) {
+
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {
                 return $failed;
