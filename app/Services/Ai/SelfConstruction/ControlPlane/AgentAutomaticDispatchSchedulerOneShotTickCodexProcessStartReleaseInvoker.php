@@ -3,6 +3,7 @@
 namespace App\Services\Ai\SelfConstruction\ControlPlane;
 
 use App\Services\Ai\SelfConstruction\Support\OneShotTickInputNormalizer;
+use App\Services\Ai\SelfConstruction\Support\OneShotTickInvokerEnvelope;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexProcessStartReleaseGate;
 
 final class AgentAutomaticDispatchSchedulerOneShotTickCodexProcessStartReleaseInvoker
@@ -21,7 +22,7 @@ final class AgentAutomaticDispatchSchedulerOneShotTickCodexProcessStartReleaseIn
         $normalized = $this->normalize($input);
         $result = $this->processStartReleaseGate->authorizeCodexProcessStart($normalized);
 
-        return [
+        return OneShotTickInvokerEnvelope::withDenyFlags([
             'status' => 'one_shot_scheduler_codex_process_start_release_authorized',
             'codex_process_start_release_gate_invoked' => true,
             'codex_process_start_release_gate_invocation_count' => 1,
@@ -36,14 +37,7 @@ final class AgentAutomaticDispatchSchedulerOneShotTickCodexProcessStartReleaseIn
             'process_start_release_authorized' => data_get($result, 'process_start_release_authorized'),
             'ledger_event_id' => data_get($result, 'ledger_event_id'),
             'idempotent' => data_get($result, 'idempotent'),
-            'external_process_started' => false,
-            'provider_started' => false,
-            'adapter_execution_allowed' => false,
-            'token_spend_allowed' => false,
-            'self_programming_allowed' => false,
-            'dispatch_allowed' => false,
-            'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_supervised_start_executor_release_contract',
-        ];
+        ], 'activate_signed_one_shot_scheduler_tick_codex_supervised_start_executor_release_contract');
     }
 
     /**

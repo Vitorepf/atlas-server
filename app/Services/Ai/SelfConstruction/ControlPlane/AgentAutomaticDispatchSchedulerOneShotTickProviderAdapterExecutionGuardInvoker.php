@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\SelfConstruction\ControlPlane;
 
+use App\Services\Ai\SelfConstruction\Support\OneShotTickInvokerEnvelope;
 use Illuminate\Support\Arr;
 use InvalidArgumentException;
 
@@ -20,7 +21,7 @@ final class AgentAutomaticDispatchSchedulerOneShotTickProviderAdapterExecutionGu
         $normalized = $this->normalize($input);
         $result = $this->adapterExecutionGuard->blockUntilProviderSpecificContract($normalized);
 
-        return [
+        return OneShotTickInvokerEnvelope::withDenyFlags([
             'status' => 'one_shot_scheduler_provider_adapter_execution_guard_blocked',
             'provider_adapter_execution_guard_invoked' => true,
             'provider_adapter_execution_guard_invocation_count' => 1,
@@ -35,14 +36,7 @@ final class AgentAutomaticDispatchSchedulerOneShotTickProviderAdapterExecutionGu
             'blocked_by' => data_get($result, 'blocked_by'),
             'ledger_event_id' => data_get($result, 'ledger_event_id'),
             'idempotent' => data_get($result, 'idempotent'),
-            'external_process_started' => false,
-            'provider_started' => false,
-            'adapter_execution_allowed' => false,
-            'token_spend_allowed' => false,
-            'self_programming_allowed' => false,
-            'dispatch_allowed' => false,
-            'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_provider_specific_execution_contract_release',
-        ];
+        ], 'activate_signed_one_shot_scheduler_tick_provider_specific_execution_contract_release');
     }
 
     /**

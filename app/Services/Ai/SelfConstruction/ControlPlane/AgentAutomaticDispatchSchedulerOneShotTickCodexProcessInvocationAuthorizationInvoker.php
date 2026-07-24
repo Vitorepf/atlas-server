@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\SelfConstruction\ControlPlane;
 
+use App\Services\Ai\SelfConstruction\Support\OneShotTickInvokerEnvelope;
 use Illuminate\Support\Arr;
 use InvalidArgumentException;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexExternalProcessInvocationAuthorizationGate;
@@ -21,7 +22,7 @@ final class AgentAutomaticDispatchSchedulerOneShotTickCodexProcessInvocationAuth
         $normalized = $this->normalize($input);
         $result = $this->invocationAuthorizationGate->authorizeExternalProcessInvocation($normalized);
 
-        return [
+        return OneShotTickInvokerEnvelope::withDenyFlags([
             'status' => 'one_shot_scheduler_codex_process_invocation_authorization_recorded',
             'codex_process_invocation_authorization_invoked' => true,
             'codex_process_invocation_authorization_invocation_count' => 1,
@@ -38,14 +39,7 @@ final class AgentAutomaticDispatchSchedulerOneShotTickCodexProcessInvocationAuth
             'external_process_invocation_authorized' => data_get($result, 'external_process_invocation_authorized'),
             'ledger_event_id' => data_get($result, 'ledger_event_id'),
             'idempotent' => data_get($result, 'idempotent'),
-            'external_process_started' => false,
-            'provider_started' => false,
-            'adapter_execution_allowed' => false,
-            'token_spend_allowed' => false,
-            'self_programming_allowed' => false,
-            'dispatch_allowed' => false,
-            'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_external_process_invoker_dry_run_contract',
-        ];
+        ], 'activate_signed_one_shot_scheduler_tick_codex_external_process_invoker_dry_run_contract');
     }
 
     /**

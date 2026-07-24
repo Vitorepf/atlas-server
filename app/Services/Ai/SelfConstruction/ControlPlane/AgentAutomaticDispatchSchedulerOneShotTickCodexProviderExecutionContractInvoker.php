@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\SelfConstruction\ControlPlane;
 
+use App\Services\Ai\SelfConstruction\Support\OneShotTickInvokerEnvelope;
 use Illuminate\Support\Arr;
 use InvalidArgumentException;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexProviderExecutionDriver;
@@ -21,7 +22,7 @@ final class AgentAutomaticDispatchSchedulerOneShotTickCodexProviderExecutionCont
         $normalized = $this->normalize($input);
         $result = $this->codexProviderExecutionDriver->prepareCodexExecution($normalized);
 
-        return [
+        return OneShotTickInvokerEnvelope::withDenyFlags([
             'status' => 'one_shot_scheduler_codex_provider_execution_contract_prepared',
             'codex_provider_execution_driver_invoked' => true,
             'codex_provider_execution_driver_invocation_count' => 1,
@@ -37,14 +38,7 @@ final class AgentAutomaticDispatchSchedulerOneShotTickCodexProviderExecutionCont
             'provider_specific_contract_ready' => data_get($result, 'provider_specific_contract_ready'),
             'ledger_event_id' => data_get($result, 'ledger_event_id'),
             'idempotent' => data_get($result, 'idempotent'),
-            'external_process_started' => false,
-            'provider_started' => false,
-            'adapter_execution_allowed' => false,
-            'token_spend_allowed' => false,
-            'self_programming_allowed' => false,
-            'dispatch_allowed' => false,
-            'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_process_start_release_contract',
-        ];
+        ], 'activate_signed_one_shot_scheduler_tick_codex_process_start_release_contract');
     }
 
     /**

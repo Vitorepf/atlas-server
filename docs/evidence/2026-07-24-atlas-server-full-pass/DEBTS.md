@@ -38,7 +38,8 @@
 - [ ] AtlasAaeosCommand::universalGates → observe service (~808L)
 - [ ] AtlasLedgerReplayService family projectors (~2225L file)
 - [ ] AtlasDecideService pure policy extract (~1722L file)
-- [ ] Readiness OneShotTick invoker registry (~62 classes)
+- [x] OneShotTickInvokerEnvelope deny-flag fusion (~29 invokers) + OneShotTickInvokerCatalog (62 classes)
+- [ ] OneShotTick invoker further normalize/factory fusion residual
 - [ ] Readiness PartN / HubDelegators peel collapse
 
 ### Architecture

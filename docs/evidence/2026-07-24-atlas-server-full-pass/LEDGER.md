@@ -8,6 +8,7 @@ execution: in_progress
 full_pass_commits: 60+
 rescan: FINDINGS-RESCAN-2
 recent:
+  - OneShotTickInvokerEnvelope + Catalog (62 invokers)
   - Wave A YesNo/UtcIso/trueFalse mass
   - EmitsCanonicalJson Command mass
   - EnterpriseReport HTML template peel
@@ -17,7 +18,7 @@ recent:
   - OpenBrainMcpToolDefinitions data peel
   - LoadsFactsFileOption ExternalBrain
 unit_proof: Support/Workbench/ToolCatalog/FactsFile green; AiWorker 1 pre-existing fail
-next: Fixture run table-drive | OneShotTick registry | Serving commit stages | Decide/Manager ProviderCatalog | LedgerReplay | floors
+next: Serving report commit stages | OneShotTick normalize fusion residual | Aaeos universalGates | LedgerReplay | Decide policy | floors
 ```
 
 ## Progress summary

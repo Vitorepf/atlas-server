@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\SelfConstruction\ControlPlane;
 
+use App\Services\Ai\SelfConstruction\Support\OneShotTickInvokerEnvelope;
 use Illuminate\Support\Arr;
 use InvalidArgumentException;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexProcessSpawnEnablementGate;
@@ -21,7 +22,7 @@ final class AgentAutomaticDispatchSchedulerOneShotTickCodexProcessSpawnEnablemen
         $normalized = $this->normalize($input);
         $result = $this->processSpawnEnablementGate->enableCodexProcessSpawn($normalized);
 
-        return [
+        return OneShotTickInvokerEnvelope::withDenyFlags([
             'status' => 'one_shot_scheduler_codex_process_spawn_enablement_recorded',
             'codex_process_spawn_enablement_gate_invoked' => true,
             'codex_process_spawn_enablement_gate_invocation_count' => 1,
@@ -38,14 +39,7 @@ final class AgentAutomaticDispatchSchedulerOneShotTickCodexProcessSpawnEnablemen
             'process_spawn_enabled' => data_get($result, 'process_spawn_enabled'),
             'ledger_event_id' => data_get($result, 'ledger_event_id'),
             'idempotent' => data_get($result, 'idempotent'),
-            'external_process_started' => false,
-            'provider_started' => false,
-            'adapter_execution_allowed' => false,
-            'token_spend_allowed' => false,
-            'self_programming_allowed' => false,
-            'dispatch_allowed' => false,
-            'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_final_process_spawn_executor_contract',
-        ];
+        ], 'activate_signed_one_shot_scheduler_tick_codex_final_process_spawn_executor_contract');
     }
 
     /**

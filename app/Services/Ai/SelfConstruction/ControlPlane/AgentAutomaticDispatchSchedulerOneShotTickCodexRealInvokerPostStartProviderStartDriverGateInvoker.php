@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\SelfConstruction\ControlPlane;
 
+use App\Services\Ai\SelfConstruction\Support\OneShotTickInvokerEnvelope;
 use Illuminate\Support\Arr;
 use InvalidArgumentException;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerPostStartProviderStartDriverGate;
@@ -21,7 +22,7 @@ final class AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartP
         $normalized = $this->normalize($input);
         $result = $this->postStartProviderStartDriverGate->preparePostStartProviderStartDriver($normalized);
 
-        return [
+        return OneShotTickInvokerEnvelope::withDenyFlags([
             'status' => 'one_shot_scheduler_codex_real_invoker_post_start_provider_start_driver_gate_prepared',
             'codex_real_invoker_post_start_provider_start_driver_gate_invoked' => true,
             'codex_real_invoker_post_start_provider_start_driver_gate_invocation_count' => 1,
@@ -44,13 +45,7 @@ final class AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartP
             'actual_process_start_allowed' => false,
             'provider_process_call_allowed' => false,
             'adapter_invocation_allowed' => false,
-            'adapter_execution_allowed' => false,
-            'token_spend_allowed' => false,
-            'self_programming_allowed' => false,
-            'dispatch_allowed' => false,
-            'idempotent' => data_get($result, 'idempotent'),
-            'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract',
-        ];
+            'idempotent' => data_get($result, 'idempotent')], 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_contract');
     }
 
     /**

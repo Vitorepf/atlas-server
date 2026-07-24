@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\SelfConstruction\ControlPlane;
 
+use App\Services\Ai\SelfConstruction\Support\OneShotTickInvokerEnvelope;
 use Illuminate\Support\Arr;
 use InvalidArgumentException;
 
@@ -20,7 +21,7 @@ final class AgentAutomaticDispatchSchedulerOneShotTickProviderStartDriverInvoker
         $normalized = $this->normalize($input);
         $result = $this->providerStartDriver->startProviderOnce($normalized);
 
-        return [
+        return OneShotTickInvokerEnvelope::withDenyFlags([
             'status' => 'one_shot_scheduler_provider_start_driver_prepared',
             'provider_start_driver_invoked' => true,
             'provider_start_driver_invocation_count' => 1,
@@ -33,13 +34,7 @@ final class AgentAutomaticDispatchSchedulerOneShotTickProviderStartDriverInvoker
             'ledger_event_id' => data_get($result, 'ledger_event_id'),
             'idempotent' => data_get($result, 'idempotent'),
             'provider_external_process_started' => false,
-            'provider_started' => false,
-            'adapter_invocation_allowed' => false,
-            'token_spend_allowed' => false,
-            'self_programming_allowed' => false,
-            'dispatch_allowed' => false,
-            'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_adapter_invocation_boundary_release_contract',
-        ];
+            'adapter_invocation_allowed' => false], 'activate_signed_one_shot_scheduler_tick_adapter_invocation_boundary_release_contract');
     }
 
     /**

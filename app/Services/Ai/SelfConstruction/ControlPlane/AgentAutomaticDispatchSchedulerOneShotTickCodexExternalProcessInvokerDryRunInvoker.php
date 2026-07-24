@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\SelfConstruction\ControlPlane;
 
+use App\Services\Ai\SelfConstruction\Support\OneShotTickInvokerEnvelope;
 use Illuminate\Support\Arr;
 use InvalidArgumentException;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexExternalProcessInvokerDryRun;
@@ -21,7 +22,7 @@ final class AgentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessInvoke
         $normalized = $this->normalize($input);
         $result = $this->externalProcessInvokerDryRun->prepareDryRun($normalized);
 
-        return [
+        return OneShotTickInvokerEnvelope::withDenyFlags([
             'status' => 'one_shot_scheduler_codex_external_process_invoker_dry_run_prepared',
             'codex_external_process_invoker_dry_run_invoked' => true,
             'codex_external_process_invoker_dry_run_invocation_count' => 1,
@@ -38,14 +39,7 @@ final class AgentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessInvoke
             'external_process_invoker_dry_run_prepared' => data_get($result, 'external_process_invoker_dry_run_prepared'),
             'ledger_event_id' => data_get($result, 'ledger_event_id'),
             'idempotent' => data_get($result, 'idempotent'),
-            'external_process_started' => false,
-            'provider_started' => false,
-            'adapter_execution_allowed' => false,
-            'token_spend_allowed' => false,
-            'self_programming_allowed' => false,
-            'dispatch_allowed' => false,
-            'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_release_preflight_contract',
-        ];
+        ], 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_release_preflight_contract');
     }
 
     /**

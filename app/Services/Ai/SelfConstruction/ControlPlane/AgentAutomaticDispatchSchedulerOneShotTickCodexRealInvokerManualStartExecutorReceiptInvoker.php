@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\SelfConstruction\ControlPlane;
 
+use App\Services\Ai\SelfConstruction\Support\OneShotTickInvokerEnvelope;
 use Illuminate\Support\Arr;
 use InvalidArgumentException;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerManualStartExecutorReceiptWriter;
@@ -32,7 +33,7 @@ final class AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerManualStar
                 ->persistSignedReleaseAuthorization($input['release_authorization']);
         }
 
-        return [
+        return OneShotTickInvokerEnvelope::withDenyFlags([
             'status' => 'one_shot_scheduler_codex_real_invoker_manual_start_executor_receipt_written',
             'codex_real_invoker_manual_start_executor_receipt_invoked' => true,
             'codex_real_invoker_manual_start_executor_receipt_invocation_count' => 1,
@@ -50,18 +51,10 @@ final class AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerManualStar
             'manual_operator_start_required' => true,
             'process_starter_ready' => true,
             'actual_process_start_allowed' => false,
-            'external_process_started' => false,
-            'provider_started' => false,
-            'adapter_execution_allowed' => false,
-            'token_spend_allowed' => false,
-            'self_programming_allowed' => false,
-            'dispatch_allowed' => false,
             'ledger_event_id' => data_get($result, 'ledger_event_id'),
             'idempotent' => data_get($result, 'idempotent'),
-            'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_operator_start_handoff_contract',
             'release_authorization_persisted' => $releaseAuthorizationResult !== null,
-            'release_authorization_result' => $releaseAuthorizationResult,
-        ];
+            'release_authorization_result' => $releaseAuthorizationResult], 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_operator_start_handoff_contract');
     }
 
     /**

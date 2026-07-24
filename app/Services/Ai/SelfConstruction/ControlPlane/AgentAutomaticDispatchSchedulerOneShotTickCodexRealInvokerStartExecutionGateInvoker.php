@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\SelfConstruction\ControlPlane;
 
+use App\Services\Ai\SelfConstruction\Support\OneShotTickInvokerEnvelope;
 use Illuminate\Support\Arr;
 use InvalidArgumentException;
 use App\Services\Ai\SelfConstruction\Support\AgentCodexRealInvokerStartExecutionGate;
@@ -21,7 +22,7 @@ final class AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerStartExecu
         $normalized = $this->normalize($input);
         $result = $this->startExecutionGate->authorizeStartExecution($normalized);
 
-        return [
+        return OneShotTickInvokerEnvelope::withDenyFlags([
             'status' => 'one_shot_scheduler_codex_real_invoker_start_execution_gate_authorized',
             'codex_real_invoker_start_execution_gate_invoked' => true,
             'codex_real_invoker_start_execution_gate_invocation_count' => 1,
@@ -39,16 +40,8 @@ final class AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerStartExecu
             'start_envelope_ready' => true,
             'start_execution_authorized' => true,
             'actual_process_start_allowed' => false,
-            'external_process_started' => false,
-            'provider_started' => false,
-            'adapter_execution_allowed' => false,
-            'token_spend_allowed' => false,
-            'self_programming_allowed' => false,
-            'dispatch_allowed' => false,
             'ledger_event_id' => data_get($result, 'ledger_event_id'),
-            'idempotent' => data_get($result, 'idempotent'),
-            'next_required_slice' => 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_starter_readiness_gate_contract',
-        ];
+            'idempotent' => data_get($result, 'idempotent')], 'activate_signed_one_shot_scheduler_tick_codex_real_invoker_process_starter_readiness_gate_contract');
     }
 
     /**
