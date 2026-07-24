@@ -445,6 +445,13 @@ final class EliteExecutorKernel
         if (($order->toolPermissions['mutate'] ?? false) !== true) {
             return VerifiedMutativeCandidate::blocked($order, ['mutative_permission_required']);
         }
+        // P2g-QOS: architecture / timeout / vanity dial fail-closed before provider.
+        $qosBlockers = AgentQosExcellenceLaw::blockers($this->qosContextFromOrder($order, [
+            'mutate' => true,
+        ]));
+        if ($qosBlockers !== []) {
+            return VerifiedMutativeCandidate::blocked($order, $qosBlockers);
+        }
         // P1b.1 pre-effect: reload authoritative decision before provider/sandbox/mutation.
         $preEffect = $this->preEffectDecisionAuthorityBlocker($order);
         if ($preEffect !== null) {
@@ -1206,6 +1213,47 @@ final class EliteExecutorKernel
         }
 
         return OutcomeLearningReceipt::fromObservation($observation, (string) ($event->event_hash ?? $event->event_id));
+    }
+
+    /**
+     * @param  array<string,mixed>  $extra
+     * @return array<string,mixed>
+     */
+    private function qosContextFromOrder(ExecutionOrder $order, array $extra = []): array
+    {
+        $envelope = $order->authorityEnvelope;
+
+        $context = [
+            'risk_class' => $order->riskClass,
+            'difficulty_level' => match ($order->riskClass) {
+                'R5' => 5,
+                'R4' => 4,
+                'R3' => 3,
+                'R2' => 2,
+                default => 1,
+            },
+            'request_class' => (string) ($envelope['request_class']
+                ?? $envelope['request_class_primary']
+                ?? AgentQosExcellenceLaw::CLASS_IMPL),
+            'mandate_excellence_depth' => $envelope['excellence_depth'] ?? $envelope['mandate_excellence_depth'] ?? null,
+            'caller_requested_depth' => $envelope['caller_requested_depth'] ?? null,
+            'architecture_candidates_count' => (int) ($envelope['architecture_candidates_count'] ?? 0),
+            'timeout_exhausted' => (bool) ($envelope['timeout_exhausted'] ?? false),
+            'budget_exhausted' => (bool) ($envelope['budget_exhausted'] ?? false),
+            'promote_requested' => (bool) ($envelope['promote_requested'] ?? false),
+            'r104_transport_open' => (bool) ($envelope['r104_transport_open'] ?? true),
+            'mutate' => (bool) ($order->toolPermissions['mutate'] ?? false),
+            'review_deep_as_eng_gate' => (bool) ($envelope['review_deep_as_eng_gate'] ?? false),
+        ];
+        // Productive vanity dial must not cross the mutative boundary.
+        if (array_key_exists('quality_ceiling', $envelope)) {
+            $context['quality_ceiling'] = $envelope['quality_ceiling'];
+            $context['quality_ceiling_changes_promote_alone'] = (bool) (
+                $envelope['quality_ceiling_changes_promote_alone'] ?? true
+            );
+        }
+
+        return array_merge($context, $extra);
     }
 
     /**

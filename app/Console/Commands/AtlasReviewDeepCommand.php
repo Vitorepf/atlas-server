@@ -86,6 +86,10 @@ class AtlasReviewDeepCommand extends Command
             'recommendation' => $recommendation,
             'blast_radius' => $context,
             'summary' => $summary,
+            // P2g-QOS / R94: surface audit only — never mints eng pass / CertVerdict.
+            'eng_gate' => false,
+            'non_gating_surface' => true,
+            'mints_engineering_outcome' => false,
         ];
     }
 
