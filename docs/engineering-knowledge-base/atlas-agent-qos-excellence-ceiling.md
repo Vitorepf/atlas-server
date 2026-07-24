@@ -405,7 +405,7 @@ Se estes não puderem **falhar** o instrumento, o teto é mentira:
 | **Desenho / lei path (R106 + §4.4)** | **FECHADO** |
 | **Instrumento M≥50× (§0)** | **FECHADO como lei de medição** |
 | **Runtime path QoS** | ABERTO até PHASE-P2G-QOS (+ R104, P2b, P2c) GREEN |
-| **Claim medido M≥50× (R107)** | ABERTO — suite S_50 + Rivals arms simétricos + report |
+| **Claim medido M≥50× (R107)** | ABERTO — S_frontier (não saturado) + Rivals arms simétricos + report |
 
 ### 4.4.8 Residual R107 — measured excellence multiplier ≥ 50×
 
@@ -499,7 +499,7 @@ Internamente: **0..N** repairs/replans sob o mesmo root.
 | Item | Valor |
 |---|---|
 | Path law | **R106** · `EXECUTE P2g-QOS` · `PHASE-P2G-QOS.json` |
-| Multiplicador ≥50× | **R107** · suite S_50 · Rivals dual-arm · sem vanity certify |
+| Multiplicador ≥50× | **R107** · S_frontier curriculum + Rivals dual-arm · sem vanity certify |
 | DAG path | após **P2c**, antes **P2d** |
 | Predecessores | **R104** (canal); **P2b** (authority) |
 | Non-waivable | R106 se excellence path claimed; **R107** se claim Atlas≥50× |
@@ -511,12 +511,13 @@ Internamente: **0..N** repairs/replans sob o mesmo root.
 **Path (R106):** raise-only depth; C_ARCH refuse mutate; FREEZE; Court+Floor; repair lock; timeout≠promote; review non-gating; mode parity; no new organ; R104 ortho.
 
 **Multiplier (R107):**
-15. S_50 preregistered before run  
+15. S_sanity + S_frontier preregistered; frontier not saturated when claiming 50×  
 16. Same μ both arms (e.g. Kimi)  
 17. Channel symmetry (R104)  
 18. EXCELLENCE_PASS conjunctive applied equally where defined  
-19. Report `M_excellence`; if &lt;50 claim blocked  
+19. Report `M_excellence`; if &lt;50 on valid frontier claim blocked; if raw saturated frontier → promote school level  
 20. Certify/cockpit cannot display 50× without Rivals receipt  
+21. Never argue “raw 80% ⇒ 50× forever impossible” (anti-ceiling fallacy canon)
 
 ---
 
