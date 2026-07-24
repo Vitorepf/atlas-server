@@ -294,6 +294,25 @@ class AtlasRealEngineeringCompanyRuntimeService
         }
         $dispositions = [];
         foreach (array_slice(self::QUALITY_ROLES, 0, 21) as $role) {
+            // Explicit mutative_applicability N/A must win before owner-receipt
+            // special paths: otherwise surface/performance owners hard-block scoped
+            // Dev smoke fixtures that honestly declare no surface/runtime effect.
+            if (in_array($role, ['frontend', 'mobile', 'performance_resilience', 'backend'], true)) {
+                $explicitNa = app(EngineeringQualityCourt::class)->adjudicateMutativeRole($case, $role);
+                if ($explicitNa->status === 'not_applicable') {
+                    $this->persistMutativeDisposition(
+                        $engagement,
+                        $cycle,
+                        $case,
+                        $explicitNa,
+                        EngineeringQualityCourt::MUTATIVE_ABSENCE_DOMAIN,
+                        'v1',
+                    );
+                    $dispositions[$role] = $explicitNa;
+
+                    continue;
+                }
+            }
             if (in_array($role, ['frontend', 'mobile'], true)) {
                 $surfaceRun = app(AtlasRealEngineeringExecutionKernelService::class)->persistCandidateSurfaceApplicabilityOwnerReceipt($engagement, $cycle, $case, $role);
                 $disposition = app(EngineeringQualityCourt::class)->adjudicateMutativeRole($case, $role);

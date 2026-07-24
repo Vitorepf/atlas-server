@@ -28,3 +28,4 @@
 ## Rule
 Never invent real_operation_completed from plan-only, PHPUnit, or exit-0 blocked.
 Autonomos residual must equal live producer status/reason (`queue_scan_limit_exceeded`), not a stale guess.
+- P4-DEV court scope: Dev adapter binds signed mutative_applicability matrix + release/rollback verification; company runtime short-circuits owner paths for explicit N/A (frontend/mobile/performance/backend). Live residual may still be provider/court until full green; absolute DONE still NOT.
