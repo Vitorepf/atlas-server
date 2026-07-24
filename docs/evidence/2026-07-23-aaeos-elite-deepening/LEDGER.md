@@ -2,7 +2,7 @@
 
 **Master (CANONICAL sole law):** `docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md`  
 **Edition:** **vFINAL-COOKBOOK · cursor for implementer**  
-**State:** P0 GREEN · **P1a GREEN** · **next gate = EXECUTE P1-JSON** · P2…P4 NOT_STARTED  
+**State:** P0 GREEN · **P1a GREEN** · **P1-JSON PARTIAL (native FC transport residual)** · P2…P4 NOT_STARTED
 **Branch:** `main` only
 
 ## How any IA uses this
@@ -19,8 +19,8 @@
 |---|---|---|---|---|
 | P0 | **GREEN** | done | `4979520f4675e3162952598a1b5c2dfd8784fa58` | `016e02a2c94f39fcdbea6a520d4f61a54f1d31b7` |
 | P1a | **GREEN** | done | `45890af483bc8448cc10e34c531b34a143c99a96` | `deb6597e7` (docs evidence commit) |
-| **P1-JSON** | **NOT_STARTED — ACTIVE NEXT** | **`EXECUTE P1-JSON`** | — | — |
-| P2a.1 | NOT_STARTED | after P1-JSON | — | — |
+| **P1-JSON** | **PARTIAL — STOP** | native FC transport is outside this closed path | `2888385f19bc3808c66098ac91eb06dabdf85904` | reported after COMMIT 2; never embedded |
+| P2a.1 | NOT_STARTED | blocked by P1-JSON PARTIAL | — | — |
 | … | … | full DAG in MASTER | — | — |
 | P2g-QOS…EVOL | NOT_STARTED | after P2c | — | — |
 | P4-* | NOT_STARTED | after P3 | — | — |
@@ -42,9 +42,12 @@ An over-strict controller revalidation compared **live** LEDGER bytes to **histo
 - R33/R34/R35 structural, adapters, RuntimeDaemon extract closed at P1a scope
 - Provider/mutation/Decision ACT still refused until later slices
 
-## Next work
+## Current stop
 
-**EXECUTE P1-JSON** (R104) — see MASTER SLICE P1-JSON and `atlas-problemas-conhecidos.md` P1.
+**P1-JSON is PARTIAL.** The port and free-form single-target law are green, but R104 cannot
+promote: the selected Hermes transport does not declare a native function or return structured
+arguments. `P2a.1` is not authorized. A controller-approved MASTER amendment for the provider
+boundary is required before resuming this gate; no P2 work starts from this receipt.
 
 ## Canon pointers
 

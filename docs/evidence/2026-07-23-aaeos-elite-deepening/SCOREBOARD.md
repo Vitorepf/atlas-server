@@ -1,7 +1,7 @@
 # AAEOS Elite Deepening — SCOREBOARD
 
 **Plan:** vFINAL-COOKBOOK  
-**Cursor:** **P0 GREEN · P1a GREEN · next = P1-JSON**  
+**Cursor:** **P0 GREEN · P1a GREEN · P1-JSON PARTIAL · P2 locked**
 **Measured composite:** unknown without samples; no static GOD_SOTA
 
 | Gate | State | Closes in |
@@ -14,8 +14,8 @@
 | brain args R33 / native dispatch P1a | **GREEN** | P1a |
 | seed R35 / exit R34 | **GREEN** | P1a |
 | RuntimeDaemon extract / adapters | **GREEN** | P1a |
-| **provider response no JSON³ (R104)** | **FAIL — ACTIVE** | **P1-JSON** |
-| invalid_provider_contract only when unusable | FAIL | P1-JSON |
+| **provider response no JSON³ (R104)** | **PARTIAL — single-target free-form green; native FC transport absent** | **P1-JSON** |
+| invalid_provider_contract only when unusable | GREEN at port law; no native transport claim | P1-JSON |
 | Decision v3 CUTOVER | FAIL | P2b-CUTOVER |
 | Agent QoS multi-loop (R106) | FAIL | P2g-QOS |
 | curriculum ladder (R108) | FAIL | P2g-CURR |
@@ -23,5 +23,5 @@
 | self-evolution night (R108) | FAIL | P2g-EVOL |
 | REAL_OPERATION ×3 | MISSING | P4 |
 
-**Promotion:** predecessor PHASE GREEN (frozen) → implement next slice → two commits → update this board.  
+**Promotion:** predecessor PHASE GREEN (frozen) → implement next slice → two commits → update this board. P2 stays locked while P1-JSON is PARTIAL.
 **Do not** demote prior GREEN by rehashing live LEDGER against old review_basis.
