@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Controllers\AtlasDev\Support;
 
 use App\Services\Ai\EngineeringKernel\CanonicalKernelPayload;
+use App\Services\Ai\EngineeringKernel\MutativeDecisionBinder;
 use App\Services\Ai\Programming\AtlasDev\Execution\AtlasDevExecutionService;
 use App\Services\Ai\Programming\AtlasDev\Execution\ConfirmedDevRun;
 use App\Services\Ai\Programming\AtlasDev\Execution\DevIntent;
@@ -63,7 +64,7 @@ final class KernelRunExecutor implements RunExecutor
         // translated and bound to its authority/spec/world hashes.
         $result = $this->execution->run($run, DevPlan::fromResult($intent, $plan));
 
-        return $this->toLegacyResult($result, $taskContract, $runId);
+        return $this->toLegacyResult($result, $taskContract, $runId, $run);
     }
 
     /** @return array<string,mixed> */
@@ -104,8 +105,12 @@ final class KernelRunExecutor implements RunExecutor
         return $plan->isForgePreview() ? 'DAG' : 'single';
     }
 
-    private function toLegacyResult(DevRunResult $result, LightTaskContract $contract, string $runId): RunExecutionResult
-    {
+    private function toLegacyResult(
+        DevRunResult $result,
+        LightTaskContract $contract,
+        string $runId,
+        ConfirmedDevRun $confirmed,
+    ): RunExecutionResult {
         $outcome = is_array($result->details['kernel_outcome'] ?? null) ? $result->details['kernel_outcome'] : [];
         $status = (string) ($outcome['status'] ?? $result->status);
         $completion = match ($status) {
@@ -116,6 +121,20 @@ final class KernelRunExecutor implements RunExecutor
         $hashes = is_array($outcome['correlated_hashes'] ?? null) ? $outcome['correlated_hashes'] : [];
         $provider = is_array($outcome['provider_receipt'] ?? null) ? $outcome['provider_receipt'] : [];
         $verification = is_array($outcome['evidence_bundle'] ?? null) ? $outcome['evidence_bundle'] : [];
+
+        // Same decision_event_id seed EliteExecutorKernelDevAdapter seals via MutativeDecisionBinder.
+        // Project the derived lineage into the producer payload so AAEOS P4 can derive
+        // authority_lineage_proof without inventing free caller bools.
+        $authorityHash = strtolower(trim($confirmed->authorityHash));
+        $authorityLineage = null;
+        if (preg_match('/^[a-f0-9]{64}$/', $authorityHash) === 1) {
+            $authorityLineage = [
+                'authority_ref' => MutativeDecisionBinder::decisionEventId('dev:'.$confirmed->runHash),
+                'authority_hash' => $authorityHash,
+                'authority_revision' => 1,
+                'source' => 'confirmed_dev_run',
+            ];
+        }
 
         return new RunExecutionResult(
             completionState: $completion,
@@ -155,6 +174,7 @@ final class KernelRunExecutor implements RunExecutor
                 is_string($result->details['exception'] ?? null) ? 'exception='.$result->details['exception'] : null,
                 is_string($result->details['reason'] ?? null) ? 'detail='.mb_substr($result->details['reason'], 0, 400) : null,
             ])),
+            authorityLineage: $authorityLineage,
         );
     }
 

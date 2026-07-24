@@ -36,6 +36,10 @@ final class RunExecutionResult
      * @param  ProviderCallSummary  $providerCallSummary
      * @param  list<string>|null  $reasons  CompletionStateGate decision reasons surfaced in the CLI --json run object (VAL-M2-030); null when the gate produced none.
      */
+    /**
+     * @param  array{authority_ref:string,authority_hash:string,authority_revision:int}|null  $authorityLineage
+     *                                                                                                           Derived mutative authority lineage (decision_event_id + ConfirmedDevRun hash). Never free caller bools.
+     */
     public function __construct(
         public readonly string $completionState,
         public readonly string $scopeGuardStatus,
@@ -47,6 +51,7 @@ final class RunExecutionResult
         public readonly ?string $scopeGuardReceiptHash = null,
         public readonly ?string $diffHash = null,
         public readonly ?array $reasons = null,
+        public readonly ?array $authorityLineage = null,
     ) {}
 
     /**
@@ -65,6 +70,7 @@ final class RunExecutionResult
             'provider_call' => $this->providerCallSummary,
             'persisted_receipt_paths' => $this->persistedReceiptPaths,
             'reasons' => $this->reasons,
+            'authority_lineage' => $this->authorityLineage,
         ];
     }
 }

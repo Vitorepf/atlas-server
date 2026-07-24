@@ -437,10 +437,18 @@ final class AaeosP4RealOperationGauntlet
             return null;
         }
         // Only accept explicit authority lineage fields already present in producer payload —
-        // never invent from run_id alone.
-        $ref = trim((string) data_get($payload, 'authority_lineage.authority_ref', data_get($payload, 'authority_ref', '')));
-        $hash = strtolower(trim((string) data_get($payload, 'authority_lineage.authority_hash', data_get($payload, 'authority_hash', ''))));
-        $revision = (int) data_get($payload, 'authority_lineage.authority_revision', data_get($payload, 'authority_revision', 0));
+        // never invent from run_id alone. Prefer nested run_summary.authority_lineage
+        // (senior-loop projects ConfirmedDevRun + sealed decision_event_id there).
+        $lineage = data_get($payload, 'authority_lineage');
+        if (! is_array($lineage)) {
+            $lineage = data_get($payload, 'run_summary.authority_lineage');
+        }
+        if (! is_array($lineage)) {
+            $lineage = [];
+        }
+        $ref = trim((string) ($lineage['authority_ref'] ?? data_get($payload, 'authority_ref', '')));
+        $hash = strtolower(trim((string) ($lineage['authority_hash'] ?? data_get($payload, 'authority_hash', ''))));
+        $revision = (int) ($lineage['authority_revision'] ?? data_get($payload, 'authority_revision', 0));
         if ($ref === '' || preg_match('/^[a-f0-9]{64}$/', $hash) !== 1 || $revision < 1) {
             return null;
         }

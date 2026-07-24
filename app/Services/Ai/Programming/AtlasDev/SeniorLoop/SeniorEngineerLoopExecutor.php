@@ -265,20 +265,23 @@ final class SeniorEngineerLoopExecutor
                 $this->step('verify', $passed ? 'completed' : 'failed', 'receipts/'.$plan->envelope->runId.'/'.ArtifactNames::VERIFICATION_RECEIPT),
                 $this->step('learning_handoff', 'completed', $ledger === null ? 'no_ledger_entry_needed' : 'error_ledger_version='.$ledger['version']),
             ],
-            runSummary: [
+            runSummary: array_filter([
                 'completion_state' => $run->completionState,
                 'diff_hash' => $run->diffHash,
                 'provider_call' => $run->providerCallSummary,
                 'scope_guard_status' => $run->scopeGuardStatus,
                 'verification_receipt_hash' => $run->verificationReceiptHash,
                 'verification_status' => $run->verificationStatus,
+                // Derived mutative authority lineage from ConfirmedDevRun (KernelRunExecutor).
+                // AAEOS P4 gauntlet derives authority_lineage_proof from this — never invent.
+                'authority_lineage' => $run->authorityLineage,
                 'escalation' => $escalationDecision === null ? null : [
                     'target' => $escalationDecision->target,
                     'score' => $escalationDecision->score,
                     'human_action_required' => $escalationDecision->humanActionRequired,
                     'ref' => $this->receiptRef($plan->envelope->runId, $escalationDecisionPath),
                 ],
-            ],
+            ], static fn (mixed $v): bool => $v !== null),
             debugLoop: [
                 'mode' => $passed ? 'single_attempt_verified_execution' : 'bounded_repair_triage',
                 'attempts_executed' => 1,

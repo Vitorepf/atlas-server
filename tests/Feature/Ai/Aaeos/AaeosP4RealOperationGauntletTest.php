@@ -277,6 +277,54 @@ final class AaeosP4RealOperationGauntletTest extends TestCase
         $this->assertTrue($receipt['capability_proof_derived_not_caller_set']);
     }
 
+    public function test_senior_loop_payload_authority_lineage_is_derived_not_invented(): void
+    {
+        $stdout = json_encode([
+            'status' => 'passed',
+            'schema_version' => 'atlas.dev.senior_engineer_loop_execution.v1',
+            'execution_hash' => str_repeat('ee', 32),
+            'run_summary' => [
+                'completion_state' => 'passed',
+                'verification_status' => 'passed',
+                'scope_guard_status' => 'passed',
+                'verification_receipt_hash' => str_repeat('aa', 32),
+                'provider_call' => [
+                    'provider' => 'hermes_cli',
+                    'provider_calls' => 1,
+                    'exit_code' => 0,
+                    'error_codes' => [],
+                ],
+                'authority_lineage' => [
+                    'authority_ref' => 'decafbaddecafbaddecafbaddecafbad',
+                    'authority_hash' => str_repeat('cd', 32),
+                    'authority_revision' => 1,
+                    'source' => 'confirmed_dev_run',
+                ],
+            ],
+        ], JSON_THROW_ON_ERROR);
+
+        $receipt = AaeosP4RealOperationGauntlet::journeyReceipt('dev', [
+            'exit_code' => 0,
+            'stdout' => $stdout,
+            'command' => 'php artisan atlas:dev:senior-loop:run --json',
+        ], [
+            'plan_only' => false,
+            'env' => [
+                'ATLAS_P4_PG_PRODUCER_URL' => 'pgsql://atlas_p4_producer@localhost/atlas_p4',
+                'ATLAS_P4_PG_VERIFIER_URL' => 'pgsql://atlas_p4_verifier@localhost/atlas_p4',
+            ],
+        ]);
+
+        $this->assertTrue($receipt['real_operation_qualified'], 'blockers='.implode(',', $receipt['blockers']));
+        $this->assertSame(AaeosP4RealOperationGauntlet::STATUS_REAL_OPERATION_COMPLETED, $receipt['journey_terminal_status']);
+        $this->assertNotNull($receipt['authority_lineage_proof']);
+        $this->assertSame('decafbaddecafbaddecafbaddecafbad', $receipt['authority_lineage_proof']['authority_ref']);
+        $this->assertSame(str_repeat('cd', 32), $receipt['authority_lineage_proof']['authority_hash']);
+        $this->assertTrue($receipt['authority_lineage_proof']['derived'] ?? false);
+        $this->assertNotNull($receipt['provider_spawn_proof']);
+        $this->assertTrue($receipt['provider_spawn_proof']['spawned'] ?? false);
+    }
+
     public function test_certify_read_only_boundary(): void
     {
         $ok = AaeosP4RealOperationGauntlet::certifyReadOnlyBoundary([
