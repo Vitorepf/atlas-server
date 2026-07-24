@@ -23,9 +23,15 @@ class AtlasEvidenceLedger
 {
     public const SCHEMA_VERSION = 'atlas.ledger_event.v1';
 
+    public const SCHEMA_VERSION_V2 = 'atlas.ledger_event.v2';
+
     public const CHAIN_BASIS_HASH_CHAINED = 'hash_chained';
 
     public const CHAIN_BASIS_LEGACY_UNCHAINED = 'legacy_unchained';
+
+    public const CHAIN_BASIS_FULL_ENVELOPE_V2 = 'full_envelope_v2';
+
+    public const INTEGRITY_LEGACY_UNVERIFIED = 'legacy_unverified';
 
     public function __construct(
         private readonly FailureClassifier $failureClassifier,
@@ -49,12 +55,12 @@ class AtlasEvidenceLedger
         $occurredAt = isset($context['occurred_at'])
             ? (function () use ($context): CarbonImmutable {
                 try {
-                    return CarbonImmutable::parse($context['occurred_at']);
+                    return CarbonImmutable::parse($context['occurred_at'])->utc()->startOfSecond();
                 } catch (Throwable $e) {
-                    return CarbonImmutable::now();
+                    return CarbonImmutable::now()->utc()->startOfSecond();
                 }
             })()
-            : CarbonImmutable::now();
+            : CarbonImmutable::now()->utc()->startOfSecond();
 
         $eventId = $this->string($context['event_id'] ?? (string) Str::ulid(), 32);
         $tenantId = $this->string($context['tenant_id'] ?? data_get($payload, 'operator.tenant_id', 'default'), 120);
@@ -68,9 +74,22 @@ class AtlasEvidenceLedger
         $scopeId = $this->nullableString($context['scope_id'] ?? data_get($payload, 'scope_id'), 80);
         $payloadHash = $this->payloadHash($payload);
 
+        $hasScopeType = DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_type');
+        $hasScopeId = DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_id');
+        $hasEventHash = DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'event_hash');
+        $hasPrevEventHash = DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'prev_event_hash');
+        $hasChainBasis = DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'chain_basis');
+        $hasChainKeyHash = DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'chain_key_hash');
+        $hasChainPosition = DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'chain_position');
+        $writesV2 = $hasEventHash
+            && $hasPrevEventHash
+            && $hasChainBasis
+            && $hasChainKeyHash
+            && $hasChainPosition;
+
         $row = [
             'event_id' => $eventId,
-            'schema_version' => self::SCHEMA_VERSION,
+            'schema_version' => $writesV2 ? self::SCHEMA_VERSION_V2 : self::SCHEMA_VERSION,
             'tenant_id' => $tenantId,
             'operator_id' => $operatorId,
             'envelope_id' => $envelopeId,
@@ -86,12 +105,6 @@ class AtlasEvidenceLedger
             'occurred_at' => $occurredAt,
         ];
 
-        $hasScopeType = DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_type');
-        $hasScopeId = DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_id');
-        $hasEventHash = DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'event_hash');
-        $hasPrevEventHash = DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'prev_event_hash');
-        $hasChainBasis = DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'chain_basis');
-
         if ($hasScopeType) {
             $row['scope_type'] = $scopeType;
         }
@@ -102,14 +115,22 @@ class AtlasEvidenceLedger
             $row['prev_event_hash'] = null;
         }
         if ($hasChainBasis) {
-            $row['chain_basis'] = self::CHAIN_BASIS_HASH_CHAINED;
+            $row['chain_basis'] = $writesV2
+                ? self::CHAIN_BASIS_FULL_ENVELOPE_V2
+                : self::CHAIN_BASIS_HASH_CHAINED;
+        }
+        if ($writesV2) {
+            $row['chain_key_hash'] = self::chainKeyHash($scopeType, $scopeId, $correlationId);
+            $row['chain_position'] = null;
         }
 
         $write = function () use (
             $row,
             $hasEventHash,
             $hasPrevEventHash,
+            $writesV2,
             $eventId,
+            $tenantId,
             $type,
             $envelopeId,
             $correlationId,
@@ -119,10 +140,19 @@ class AtlasEvidenceLedger
             $payloadHash,
             $occurredAt,
         ): AtlasLedgerEvent {
-            if ($hasPrevEventHash) {
-                $row['prev_event_hash'] = $this->previousEventHashForChain($scopeType, $scopeId, $correlationId);
+            if ($writesV2) {
+                $chainKeyHash = (string) $row['chain_key_hash'];
+                $this->serializeChainHead($tenantId, $chainKeyHash);
+                $previous = $this->previousV2EventForChain($tenantId, $chainKeyHash);
+                $row['prev_event_hash'] = $previous?->event_hash;
+                $row['chain_position'] = $previous === null
+                    ? 1
+                    : ((int) $previous->chain_position + 1);
+                $row['event_hash'] = self::computeEventHash(self::fullEnvelopeHashBasis($row));
+            } elseif ($hasPrevEventHash) {
+                $row['prev_event_hash'] = $this->previousEventHashForChain($tenantId, $scopeType, $scopeId, $correlationId);
             }
-            if ($hasEventHash) {
+            if ($hasEventHash && ! $writesV2) {
                 $row['event_hash'] = self::computeEventHash([
                     'event_id' => $eventId,
                     'event_type' => $type->value,
@@ -140,7 +170,7 @@ class AtlasEvidenceLedger
             return AtlasLedgerEvent::query()->create($row);
         };
 
-        if ($hasPrevEventHash && $hasEventHash) {
+        if ($writesV2 || ($hasPrevEventHash && $hasEventHash)) {
             return DB::transaction($write);
         }
 
@@ -176,7 +206,7 @@ class AtlasEvidenceLedger
             $envelope,
             static fn (mixed $value): bool => $value !== null && $value !== '',
         );
-        ksort($filtered);
+        $filtered = self::canonicalizeHashValue($filtered);
 
         return hash(
             'sha256',
@@ -184,9 +214,84 @@ class AtlasEvidenceLedger
         );
     }
 
-    private function previousEventHashForChain(?string $scopeType, ?string $scopeId, string $correlationId): ?string
+    public static function chainKeyHash(?string $scopeType, ?string $scopeId, string $correlationId): string
     {
+        $basis = $scopeType !== null && $scopeId !== null
+            ? ['kind' => 'scope', 'scope_type' => $scopeType, 'scope_id' => $scopeId]
+            : ['kind' => 'correlation', 'correlation_id' => $correlationId];
+
+        return self::computeEventHash($basis);
+    }
+
+    /**
+     * @param  array<string,mixed>  $row
+     * @return array<string,mixed>
+     */
+    public static function fullEnvelopeHashBasis(array $row): array
+    {
+        $occurredAt = $row['occurred_at'] ?? null;
+        if ($occurredAt instanceof \DateTimeInterface) {
+            $occurredAt = CarbonImmutable::instance($occurredAt)->utc()->format('Y-m-d\\TH:i:s\\Z');
+        } elseif (is_string($occurredAt) && trim($occurredAt) !== '') {
+            try {
+                $occurredAt = CarbonImmutable::parse($occurredAt)->utc()->format('Y-m-d\\TH:i:s\\Z');
+            } catch (Throwable) {
+                $occurredAt = trim($occurredAt);
+            }
+        }
+
+        return [
+            'schema_version' => $row['schema_version'] ?? null,
+            'event_id' => $row['event_id'] ?? null,
+            'tenant_id' => $row['tenant_id'] ?? null,
+            'operator_id' => $row['operator_id'] ?? null,
+            'envelope_id' => $row['envelope_id'] ?? null,
+            'receipt_id' => $row['receipt_id'] ?? null,
+            'trace_id' => $row['trace_id'] ?? null,
+            'correlation_id' => $row['correlation_id'] ?? null,
+            'causation_id' => $row['causation_id'] ?? null,
+            'event_type' => $row['event_type'] ?? null,
+            'emitter_stage' => $row['emitter_stage'] ?? null,
+            'emitter_version' => $row['emitter_version'] ?? null,
+            'scope_type' => $row['scope_type'] ?? null,
+            'scope_id' => $row['scope_id'] ?? null,
+            'chain_basis' => $row['chain_basis'] ?? null,
+            'chain_key_hash' => $row['chain_key_hash'] ?? null,
+            'chain_position' => isset($row['chain_position']) ? (int) $row['chain_position'] : null,
+            'prev_event_hash' => $row['prev_event_hash'] ?? null,
+            'payload' => is_array($row['payload'] ?? null) ? $row['payload'] : null,
+            'payload_hash' => $row['payload_hash'] ?? null,
+            'occurred_at' => $occurredAt,
+        ];
+    }
+
+    private function serializeChainHead(string $tenantId, string $chainKeyHash): void
+    {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            return;
+        }
+
+        DB::select('SELECT pg_advisory_xact_lock(hashtext(?), hashtext(?))', [$tenantId, $chainKeyHash]);
+    }
+
+    private function previousV2EventForChain(string $tenantId, string $chainKeyHash): ?AtlasLedgerEvent
+    {
+        return AtlasLedgerEvent::query()
+            ->where('tenant_id', $tenantId)
+            ->where('chain_key_hash', $chainKeyHash)
+            ->where('schema_version', self::SCHEMA_VERSION_V2)
+            ->orderByDesc('chain_position')
+            ->first();
+    }
+
+    private function previousEventHashForChain(
+        string $tenantId,
+        ?string $scopeType,
+        ?string $scopeId,
+        string $correlationId,
+    ): ?string {
         $query = AtlasLedgerEvent::query()
+            ->where('tenant_id', $tenantId)
             ->whereNotNull('event_hash')
             ->where('event_hash', '<>', '')
             ->orderByDesc('occurred_at')
@@ -215,8 +320,12 @@ class AtlasEvidenceLedger
     /**
      * @return array<int,array<string,mixed>>
      */
-    public function eventsForScope(string $scopeType, string $scopeId, int $limit = 100): array
-    {
+    public function eventsForScope(
+        string $scopeType,
+        string $scopeId,
+        int $limit = 100,
+        ?string $tenantId = null,
+    ): array {
         if (! DatabaseTableAvailability::has('atlas_ledger_events')
             || ! DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_type')
             || ! DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_id')) {
@@ -224,6 +333,7 @@ class AtlasEvidenceLedger
         }
 
         return AtlasLedgerEvent::query()
+            ->when($tenantId !== null, fn ($query) => $query->where('tenant_id', $tenantId))
             ->where('scope_type', $scopeType)
             ->where('scope_id', $scopeId)
             ->orderBy('occurred_at')
@@ -238,13 +348,14 @@ class AtlasEvidenceLedger
     /**
      * @return array<int,array<string,mixed>>
      */
-    public function eventsForCorrelation(string $correlationId, int $limit = 100): array
+    public function eventsForCorrelation(string $correlationId, int $limit = 100, ?string $tenantId = null): array
     {
         if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return [];
         }
 
         return AtlasLedgerEvent::query()
+            ->when($tenantId !== null, fn ($query) => $query->where('tenant_id', $tenantId))
             ->where('correlation_id', $correlationId)
             ->orderBy('occurred_at')
             ->orderBy('event_id')
@@ -255,22 +366,29 @@ class AtlasEvidenceLedger
             ->all();
     }
 
-    public function eventById(string $eventId): ?AtlasLedgerEvent
-    {
-        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
-            return null;
-        }
-
-        return AtlasLedgerEvent::query()->whereKey($eventId)->first();
-    }
-
-    public function latestForCorrelation(string $correlationId, ?string $eventName = null): ?AtlasLedgerEvent
+    public function eventById(string $eventId, ?string $tenantId = null): ?AtlasLedgerEvent
     {
         if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return null;
         }
 
         return AtlasLedgerEvent::query()
+            ->when($tenantId !== null, fn ($query) => $query->where('tenant_id', $tenantId))
+            ->whereKey($eventId)
+            ->first();
+    }
+
+    public function latestForCorrelation(
+        string $correlationId,
+        ?string $eventName = null,
+        ?string $tenantId = null,
+    ): ?AtlasLedgerEvent {
+        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
+            return null;
+        }
+
+        return AtlasLedgerEvent::query()
+            ->when($tenantId !== null, fn ($query) => $query->where('tenant_id', $tenantId))
             ->where('correlation_id', $correlationId)
             ->when($eventName !== null, fn ($query) => $query->where('payload->event_name', $eventName))
             ->orderByDesc('occurred_at')
@@ -278,8 +396,12 @@ class AtlasEvidenceLedger
             ->first();
     }
 
-    public function latestForScope(string $scopeType, string $scopeId, ?string $eventName = null): ?AtlasLedgerEvent
-    {
+    public function latestForScope(
+        string $scopeType,
+        string $scopeId,
+        ?string $eventName = null,
+        ?string $tenantId = null,
+    ): ?AtlasLedgerEvent {
         if (! DatabaseTableAvailability::has('atlas_ledger_events')
             || ! DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_type')
             || ! DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_id')) {
@@ -287,6 +409,7 @@ class AtlasEvidenceLedger
         }
 
         return AtlasLedgerEvent::query()
+            ->when($tenantId !== null, fn ($query) => $query->where('tenant_id', $tenantId))
             ->where('scope_type', $scopeType)
             ->where('scope_id', $scopeId)
             ->when($eventName !== null, fn ($query) => $query->where('payload->event_name', $eventName))
@@ -316,21 +439,42 @@ class AtlasEvidenceLedger
 
     public function eventIntegrityValid(AtlasLedgerEvent $event): bool
     {
+        return in_array($this->eventIntegrityStatus($event), [
+            'verified',
+            self::INTEGRITY_LEGACY_UNVERIFIED,
+        ], true);
+    }
+
+    public function eventIntegrityStatus(AtlasLedgerEvent $event): string
+    {
         $rawPayload = $event->payload;
         if (! is_array($rawPayload)) {
-            return false;
+            return 'payload_invalid';
         }
         $payload = $this->canonicalize($rawPayload);
         if (! hash_equals((string) $event->payload_hash, $this->payloadHash($payload))) {
-            return false;
+            return 'payload_hash_mismatch';
         }
 
-        // The persisted datetime column may truncate writer microseconds, so recomputing the
-        // envelope hash from the hydrated row is not stable across supported databases. Payload
-        // bytes are re-hashed above; the sealed event hash must still be a canonical SHA-256.
-        $eventHash = $event->getAttribute('event_hash');
+        if ((string) $event->schema_version !== self::SCHEMA_VERSION_V2) {
+            return self::INTEGRITY_LEGACY_UNVERIFIED;
+        }
 
-        return $eventHash === null || preg_match('/^[a-f0-9]{64}$/', (string) $eventHash) === 1;
+        if ((string) $event->chain_basis !== self::CHAIN_BASIS_FULL_ENVELOPE_V2
+            || preg_match('/^[a-f0-9]{64}$/', (string) $event->chain_key_hash) !== 1
+            || (int) $event->chain_position < 1
+            || preg_match('/^[a-f0-9]{64}$/', (string) $event->event_hash) !== 1) {
+            return 'v2_envelope_invalid';
+        }
+
+        $expected = self::computeEventHash(self::fullEnvelopeHashBasis(array_merge(
+            $event->getAttributes(),
+            ['payload' => $payload],
+        )));
+
+        return hash_equals($expected, (string) $event->event_hash)
+            ? 'verified'
+            : 'event_hash_mismatch';
     }
 
     public function recordEnvelopeCreated(OperationEnvelope $envelope): ?AtlasLedgerEvent
@@ -1006,13 +1150,14 @@ class AtlasEvidenceLedger
     /**
      * @return array<int,array<string,mixed>>
      */
-    public function eventsForEnvelope(string $envelopeId): array
+    public function eventsForEnvelope(string $envelopeId, ?string $tenantId = null): array
     {
         if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return [];
         }
 
         return AtlasLedgerEvent::query()
+            ->when($tenantId !== null, fn ($query) => $query->where('tenant_id', $tenantId))
             ->where('envelope_id', $envelopeId)
             ->orderBy('occurred_at')
             ->orderBy('event_id')
@@ -1028,15 +1173,28 @@ class AtlasEvidenceLedger
      */
     private function canonicalize(array $payload): array
     {
-        ksort($payload);
+        /** @var array<string,mixed> $canonical */
+        $canonical = self::canonicalizeHashValue($payload);
 
-        foreach ($payload as $key => $value) {
-            if (is_array($value)) {
-                $payload[$key] = $this->canonicalize($value);
-            }
+        return $canonical;
+    }
+
+    private static function canonicalizeHashValue(mixed $value): mixed
+    {
+        if (! is_array($value)) {
+            return $value;
         }
 
-        return $payload;
+        $isList = array_is_list($value);
+        if (! $isList) {
+            ksort($value);
+        }
+
+        foreach ($value as $key => $item) {
+            $value[$key] = self::canonicalizeHashValue($item);
+        }
+
+        return $isList ? array_values($value) : $value;
     }
 
     /**

@@ -5,10 +5,11 @@ namespace App\Services\Ai\Kernel\Evidence;
 use App\Models\AiInboxItem;
 use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\Kernel\Decision\DecisionReceiptHash;
+use App\Services\Ai\Kernel\Evidence\LedgerReplay\LedgerReplaySupport;
 use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonInterface;
-use App\Services\Ai\Kernel\Evidence\LedgerReplay\LedgerReplaySupport;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 class AtlasLedgerReplayService
@@ -21,9 +22,230 @@ class AtlasLedgerReplayService
     /**
      * @return array<int,array<string,mixed>>
      */
-    public function eventsForEnvelope(string $envelopeId): array
+    public function eventsForEnvelope(string $envelopeId, ?string $tenantId = null): array
     {
-        return $this->ledger->eventsForEnvelope($envelopeId);
+        return $this->ledger->eventsForEnvelope($envelopeId, $tenantId);
+    }
+
+    /**
+     * @return array<string,mixed>|null
+     */
+    public function authenticatedCutoffForTenantChain(string $tenantId, string $chainKeyHash): ?array
+    {
+        $events = $this->v2ChainQuery($tenantId, $chainKeyHash)->get();
+        if ($events->isEmpty()) {
+            return null;
+        }
+
+        /** @var AtlasLedgerEvent $anchor */
+        $anchor = $events->first();
+        /** @var AtlasLedgerEvent $head */
+        $head = $events->last();
+
+        return [
+            'schema' => 'atlas.ledger_cutoff.v1',
+            'tenant_id' => $tenantId,
+            'chain_key_hash' => $chainKeyHash,
+            'anchor_position' => (int) $anchor->chain_position,
+            'anchor_event_hash' => (string) $anchor->event_hash,
+            'head_position' => (int) $head->chain_position,
+            'head_event_hash' => (string) $head->event_hash,
+            'event_count' => $events->count(),
+        ];
+    }
+
+    /**
+     * Verify one exact, independently supplied tenant cutoff. A shorter valid
+     * prefix is never accepted as the whole history.
+     *
+     * @param  array<string,mixed>  $cutoff
+     * @return array<string,mixed>
+     */
+    public function verifyTenantChain(string $tenantId, string $chainKeyHash, array $cutoff): array
+    {
+        if (($cutoff['schema'] ?? null) !== 'atlas.ledger_cutoff.v1'
+            || ($cutoff['tenant_id'] ?? null) !== $tenantId
+            || ($cutoff['chain_key_hash'] ?? null) !== $chainKeyHash) {
+            return $this->chainFailure('cutoff_scope_mismatch');
+        }
+
+        $anchorPosition = filter_var($cutoff['anchor_position'] ?? null, FILTER_VALIDATE_INT);
+        $headPosition = filter_var($cutoff['head_position'] ?? null, FILTER_VALIDATE_INT);
+        $expectedCount = filter_var($cutoff['event_count'] ?? null, FILTER_VALIDATE_INT);
+        $anchorHash = (string) ($cutoff['anchor_event_hash'] ?? '');
+        $headHash = (string) ($cutoff['head_event_hash'] ?? '');
+        if ($anchorPosition === false || $headPosition === false || $expectedCount === false
+            || $anchorPosition < 1 || $headPosition < $anchorPosition || $expectedCount < 1
+            || preg_match('/^[a-f0-9]{64}$/', $anchorHash) !== 1
+            || preg_match('/^[a-f0-9]{64}$/', $headHash) !== 1) {
+            return $this->chainFailure('cutoff_invalid');
+        }
+
+        $all = $this->v2ChainQuery($tenantId, $chainKeyHash)->get();
+        if ($all->isEmpty()) {
+            return $this->chainFailure('ledger_chain_empty');
+        }
+
+        /** @var AtlasLedgerEvent $actualAnchor */
+        $actualAnchor = $all->first();
+        /** @var AtlasLedgerEvent $actualHead */
+        $actualHead = $all->last();
+        if ((int) $actualAnchor->chain_position > $anchorPosition
+            || ! $all->contains(fn (AtlasLedgerEvent $event): bool => (string) $event->event_hash === $anchorHash)) {
+            return $this->chainFailure('cutoff_prefix_truncated');
+        }
+        if ((int) $actualHead->chain_position < $headPosition
+            || ! $all->contains(fn (AtlasLedgerEvent $event): bool => (string) $event->event_hash === $headHash)) {
+            return $this->chainFailure('cutoff_suffix_truncated');
+        }
+        if ((int) $actualHead->chain_position > $headPosition) {
+            return $this->chainFailure('cutoff_stale');
+        }
+
+        $events = $all
+            ->filter(fn (AtlasLedgerEvent $event): bool => (int) $event->chain_position >= $anchorPosition
+                && (int) $event->chain_position <= $headPosition)
+            ->values();
+        if ($events->count() !== $expectedCount) {
+            return $this->chainFailure('cutoff_event_count_mismatch', [
+                'expected_event_count' => $expectedCount,
+                'actual_event_count' => $events->count(),
+            ]);
+        }
+
+        $expectedPosition = $anchorPosition;
+        $previousHash = null;
+        foreach ($events as $index => $event) {
+            if ((int) $event->chain_position !== $expectedPosition) {
+                return $this->chainFailure('cutoff_position_gap', [
+                    'expected_position' => $expectedPosition,
+                    'actual_position' => (int) $event->chain_position,
+                ]);
+            }
+            if ($this->ledger->eventIntegrityStatus($event) !== 'verified') {
+                return $this->chainFailure($this->ledger->eventIntegrityStatus($event), [
+                    'position' => (int) $event->chain_position,
+                ]);
+            }
+            if ($index === 0) {
+                if ((string) $event->event_hash !== $anchorHash) {
+                    return $this->chainFailure('cutoff_anchor_hash_mismatch');
+                }
+                if ($anchorPosition === 1 && $event->prev_event_hash !== null) {
+                    return $this->chainFailure('unexpected_anchor_predecessor');
+                }
+            } elseif (! hash_equals((string) $event->prev_event_hash, (string) $previousHash)) {
+                return $this->chainFailure('predecessor_mismatch', [
+                    'position' => (int) $event->chain_position,
+                ]);
+            }
+
+            $previousHash = (string) $event->event_hash;
+            $expectedPosition++;
+        }
+
+        if (! hash_equals($headHash, (string) $previousHash)) {
+            return $this->chainFailure('cutoff_head_hash_mismatch');
+        }
+
+        return [
+            'schema' => 'atlas.ledger_chain_verification.v1',
+            'status' => 'verified',
+            'valid' => true,
+            'failure_reason' => null,
+            'tenant_id' => $tenantId,
+            'chain_key_hash' => $chainKeyHash,
+            'event_count' => $events->count(),
+            'head_position' => $headPosition,
+            'head_event_hash' => $headHash,
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $cutoff
+     * @return array<string,mixed>
+     */
+    public function journeyManifestForTenantChain(string $tenantId, string $chainKeyHash, array $cutoff): array
+    {
+        $verification = $this->verifyTenantChain($tenantId, $chainKeyHash, $cutoff);
+        if (! ($verification['valid'] ?? false)) {
+            return [
+                'schema' => 'atlas.aaeos.journey_manifest.v1',
+                'status' => 'failed',
+                'failure_reason' => $verification['failure_reason'] ?? 'chain_verification_failed',
+            ];
+        }
+
+        $events = $this->v2ChainQuery($tenantId, $chainKeyHash)
+            ->whereBetween('chain_position', [
+                (int) $cutoff['anchor_position'],
+                (int) $cutoff['head_position'],
+            ])
+            ->get()
+            ->map(fn (AtlasLedgerEvent $event): array => $this->journeyEventRef($event))
+            ->values()
+            ->all();
+        $core = [
+            'schema' => 'atlas.aaeos.journey_manifest.v1',
+            'status' => 'sealed',
+            'tenant_id' => $tenantId,
+            'chain_key_hash' => $chainKeyHash,
+            'cutoff' => $cutoff,
+            'event_count' => count($events),
+            'events' => $events,
+        ];
+
+        return [
+            ...$core,
+            'journey_manifest_hash' => AtlasEvidenceLedger::computeEventHash($core),
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $manifest
+     * @return array<string,mixed>
+     */
+    public function verifyJourneyManifest(array $manifest): array
+    {
+        $providedHash = (string) ($manifest['journey_manifest_hash'] ?? '');
+        $core = $manifest;
+        unset($core['journey_manifest_hash']);
+        if (($core['schema'] ?? null) !== 'atlas.aaeos.journey_manifest.v1'
+            || preg_match('/^[a-f0-9]{64}$/', $providedHash) !== 1
+            || ! hash_equals(AtlasEvidenceLedger::computeEventHash($core), $providedHash)) {
+            return $this->journeyFailure('journey_manifest_hash_mismatch');
+        }
+
+        $tenantId = (string) ($core['tenant_id'] ?? '');
+        $chainKeyHash = (string) ($core['chain_key_hash'] ?? '');
+        $cutoff = is_array($core['cutoff'] ?? null) ? $core['cutoff'] : [];
+        $chain = $this->verifyTenantChain($tenantId, $chainKeyHash, $cutoff);
+        if (! ($chain['valid'] ?? false)) {
+            return $this->journeyFailure((string) ($chain['failure_reason'] ?? 'chain_verification_failed'));
+        }
+
+        $actualEvents = $this->v2ChainQuery($tenantId, $chainKeyHash)
+            ->whereBetween('chain_position', [
+                (int) $cutoff['anchor_position'],
+                (int) $cutoff['head_position'],
+            ])
+            ->get()
+            ->map(fn (AtlasLedgerEvent $event): array => $this->journeyEventRef($event))
+            ->values()
+            ->all();
+        if (($core['event_count'] ?? null) !== count($actualEvents)
+            || ($core['events'] ?? null) !== $actualEvents) {
+            return $this->journeyFailure('journey_manifest_order_mismatch');
+        }
+
+        return [
+            'schema' => 'atlas.aaeos.journey_manifest_verification.v1',
+            'status' => 'verified',
+            'valid' => true,
+            'failure_reason' => null,
+            'journey_manifest_hash' => $providedHash,
+            'event_count' => count($actualEvents),
+        ];
     }
 
     /**
@@ -1761,4 +1983,55 @@ class AtlasLedgerReplayService
         ];
     }
 
+    private function v2ChainQuery(string $tenantId, string $chainKeyHash): Builder
+    {
+        return AtlasLedgerEvent::query()
+            ->where('tenant_id', $tenantId)
+            ->where('chain_key_hash', $chainKeyHash)
+            ->where('schema_version', AtlasEvidenceLedger::SCHEMA_VERSION_V2)
+            ->orderBy('chain_position');
+    }
+
+    /**
+     * @param  array<string,mixed>  $details
+     * @return array<string,mixed>
+     */
+    private function chainFailure(string $reason, array $details = []): array
+    {
+        return [
+            'schema' => 'atlas.ledger_chain_verification.v1',
+            'status' => 'failed',
+            'valid' => false,
+            'failure_reason' => $reason,
+            ...$details,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function journeyEventRef(AtlasLedgerEvent $event): array
+    {
+        return [
+            'event_id' => (string) $event->event_id,
+            'event_hash' => (string) $event->event_hash,
+            'payload_hash' => (string) $event->payload_hash,
+            'event_type' => (string) $event->event_type,
+            'chain_position' => (int) $event->chain_position,
+            'causation_id' => $event->causation_id !== null ? (string) $event->causation_id : null,
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function journeyFailure(string $reason): array
+    {
+        return [
+            'schema' => 'atlas.aaeos.journey_manifest_verification.v1',
+            'status' => 'failed',
+            'valid' => false,
+            'failure_reason' => $reason,
+        ];
+    }
 }

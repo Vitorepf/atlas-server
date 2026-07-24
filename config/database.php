@@ -103,6 +103,53 @@ return [
             'sslmode' => env('DB_SSLMODE', 'prefer'),
         ],
 
+        // P2a.1 real-PostgreSQL contract. These connections are inert unless the
+        // guarded ATLAS_TEST_PG_* environment is supplied by the focused test run.
+        'atlas_p2_pg_setup' => [
+            'driver' => 'pgsql',
+            'host' => env('ATLAS_TEST_PG_HOST', '127.0.0.1'),
+            'port' => env('ATLAS_TEST_PG_PORT', '5432'),
+            'database' => env('ATLAS_TEST_PG_DATABASE', 'atlas_test_missing'),
+            'username' => env('ATLAS_TEST_PG_USERNAME', ''),
+            'password' => env('ATLAS_TEST_PG_PASSWORD', ''),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => env('ATLAS_TEST_PG_SSLMODE', 'prefer'),
+            'application_name' => 'atlas_p2a1_setup',
+        ],
+
+        'atlas_p2_pg_runtime' => [
+            'driver' => 'pgsql',
+            'host' => env('ATLAS_TEST_PG_HOST', '127.0.0.1'),
+            'port' => env('ATLAS_TEST_PG_PORT', '5432'),
+            'database' => env('ATLAS_TEST_PG_DATABASE', 'atlas_test_missing'),
+            'username' => env('ATLAS_TEST_PG_RUNTIME_USERNAME', 'atlas_p2a1_runtime'),
+            'password' => env('ATLAS_TEST_PG_RUNTIME_PASSWORD', ''),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => env('ATLAS_TEST_PG_SSLMODE', 'prefer'),
+            'application_name' => 'atlas_p2a1_runtime',
+        ],
+
+        'atlas_p2_pg_verifier' => [
+            'driver' => 'pgsql',
+            'host' => env('ATLAS_TEST_PG_HOST', '127.0.0.1'),
+            'port' => env('ATLAS_TEST_PG_PORT', '5432'),
+            'database' => env('ATLAS_TEST_PG_DATABASE', 'atlas_test_missing'),
+            'username' => env('ATLAS_TEST_PG_VERIFIER_USERNAME', 'atlas_p2a1_verifier'),
+            'password' => env('ATLAS_TEST_PG_VERIFIER_PASSWORD', ''),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => env('ATLAS_TEST_PG_SSLMODE', 'prefer'),
+            'application_name' => 'atlas_p2a1_verifier',
+        ],
+
         // Nivor / Blackink tracker — READ-ONLY (additive; never write to this connection).
         'nivor' => [
             'driver' => 'pgsql',

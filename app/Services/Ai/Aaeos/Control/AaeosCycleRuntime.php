@@ -17,7 +17,7 @@ use Throwable;
  */
 final class AaeosCycleRuntime
 {
-    public const SCHEMA = 'atlas.aaeos.cycle_receipt.v1';
+    public const SCHEMA = 'atlas.aaeos.cycle_receipt.v2';
 
     public function __construct(
         private readonly AaeosIntentCompiler $intents = new AaeosIntentCompiler,
@@ -105,14 +105,18 @@ final class AaeosCycleRuntime
             'evidence_status' => 'skipped',
         ];
 
+        $receipt['effect_level'] = $this->effectLevel($receipt);
+
         if (! $dryRun) {
             $evidence = $this->recordEvidence($receipt);
             $receipt['evidence_status'] = $evidence['status'];
             $receipt['runtime_write_performed'] = $evidence['written'];
             $receipt['runtime_write_kind'] = $evidence['written'] ? 'aaeos_cycle_receipt' : null;
+            $receipt['receipt_core'] = $evidence['receipt_core'];
+            $receipt['receipt_core_hash'] = $evidence['receipt_core_hash'];
+            $receipt['evidence_event_id'] = $evidence['evidence_event_id'];
+            $receipt['evidence_event_hash'] = $evidence['evidence_event_hash'];
         }
-
-        $receipt['effect_level'] = $this->effectLevel($receipt);
 
         return $receipt;
     }
@@ -219,10 +223,25 @@ final class AaeosCycleRuntime
 
     /**
      * @param  array<string,mixed>  $receipt
-     * @return array{status:string,written:bool}
+     * @return array{
+     *     status:string,
+     *     written:bool,
+     *     receipt_core:array<string,mixed>,
+     *     receipt_core_hash:string,
+     *     evidence_event_id:string|null,
+     *     evidence_event_hash:string|null
+     * }
      */
     private function recordEvidence(array $receipt): array
     {
+        $receiptCore = self::receiptCore($receipt);
+        $receiptCoreHash = self::receiptCoreHash($receiptCore);
+        $empty = [
+            'receipt_core' => $receiptCore,
+            'receipt_core_hash' => $receiptCoreHash,
+            'evidence_event_id' => null,
+            'evidence_event_hash' => null,
+        ];
         $ledger = $this->ledger;
         if ($ledger === null) {
             try {
@@ -230,12 +249,12 @@ final class AaeosCycleRuntime
                     $ledger = app(AtlasEvidenceLedger::class);
                 }
             } catch (Throwable) {
-                return ['status' => 'skipped_no_container', 'written' => false];
+                return ['status' => 'skipped_no_container', 'written' => false, ...$empty];
             }
         }
 
         if ($ledger === null) {
-            return ['status' => 'skipped_no_ledger', 'written' => false];
+            return ['status' => 'skipped_no_ledger', 'written' => false, ...$empty];
         }
 
         try {
@@ -243,28 +262,80 @@ final class AaeosCycleRuntime
                 LedgerEventType::AaeosCycleRecorded,
                 [
                     'schema' => self::SCHEMA,
-                    'cycle_status' => $receipt['status'] ?? null,
-                    'mode' => $receipt['mode']['mode'] ?? null,
-                    'admission' => $receipt['admission']['verdict'] ?? null,
-                    'difficulty_level' => $receipt['difficulty']['level'] ?? null,
-                    'elite_same_bar' => true,
-                    'live_dispatch' => $receipt['live_dispatch'] ?? false,
-                    'spine' => $receipt['spine'] ?? null,
-                    'objective_hash' => hash('sha256', (string) ($receipt['objective']['objective'] ?? '')),
+                    'receipt_core' => $receiptCore,
+                    'receipt_core_hash' => $receiptCoreHash,
                 ],
                 [
+                    'tenant_id' => data_get($receipt, 'world.tenant_id', data_get($receipt, 'objective.tenant_id', 'default')),
+                    'operator_id' => data_get($receipt, 'world.operator_id', data_get($receipt, 'objective.operator_id', 'aaeos')),
                     'emitter_stage' => 'atlas.aaeos.cycle',
+                    'emitter_version' => self::SCHEMA,
                     'scope_type' => 'aaeos_cycle',
-                    'envelope_id' => 'aaeos-cycle-'.substr(hash('sha256', (string) microtime(true)), 0, 16),
+                    'scope_id' => substr($receiptCoreHash, 0, 64),
+                    'correlation_id' => data_get($receipt, 'world.journey_id', $receiptCoreHash),
+                    'envelope_id' => 'aaeos-cycle-'.substr($receiptCoreHash, 0, 16),
                 ],
             );
 
             return $event === null
-                ? ['status' => 'skipped_table_missing', 'written' => false]
-                : ['status' => 'recorded', 'written' => true];
+                ? ['status' => 'skipped_table_missing', 'written' => false, ...$empty]
+                : [
+                    'status' => 'recorded',
+                    'written' => true,
+                    ...$empty,
+                    'evidence_event_id' => (string) $event->event_id,
+                    'evidence_event_hash' => (string) $event->event_hash,
+                ];
         } catch (Throwable) {
-            return ['status' => 'skipped_error', 'written' => false];
+            return ['status' => 'skipped_error', 'written' => false, ...$empty];
         }
+    }
+
+    /**
+     * @param  array<string,mixed>  $receipt
+     * @return array<string,mixed>
+     */
+    public static function receiptCore(array $receipt): array
+    {
+        unset(
+            $receipt['receipt_core'],
+            $receipt['receipt_core_hash'],
+            $receipt['evidence_event_id'],
+            $receipt['evidence_event_hash'],
+        );
+
+        /** @var array<string,mixed> $canonical */
+        $canonical = self::canonicalize($receipt);
+
+        return $canonical;
+    }
+
+    /**
+     * @param  array<string,mixed>  $receiptCore
+     */
+    public static function receiptCoreHash(array $receiptCore): string
+    {
+        return hash('sha256', json_encode(
+            self::canonicalize($receiptCore),
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
+        ));
+    }
+
+    private static function canonicalize(mixed $value): mixed
+    {
+        if (! is_array($value)) {
+            return $value;
+        }
+
+        if (! array_is_list($value)) {
+            ksort($value);
+        }
+
+        foreach ($value as $key => $item) {
+            $value[$key] = self::canonicalize($item);
+        }
+
+        return array_is_list($value) ? array_values($value) : $value;
     }
 
     /**
@@ -278,9 +349,7 @@ final class AaeosCycleRuntime
 
         return match ((string) ($receipt['status'] ?? '')) {
             'halted', 'repair_required', 'dispatch_failed', 'dispatch_refused', 'blocked' => 'blocked',
-            'dispatched_live' => $this->hasDurableMutationProof($receipt)
-                ? 'mutated'
-                : ((bool) ($receipt['runtime_write_performed'] ?? false) ? 'claimed' : 'prepared'),
+            'dispatched_live' => $this->hasDurableMutationProof($receipt) ? 'mutated' : 'prepared',
             'dispatched', 'commissioned' => 'prepared',
             'claimed' => 'claimed',
             default => 'blocked',

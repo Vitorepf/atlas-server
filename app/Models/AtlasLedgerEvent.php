@@ -33,6 +33,8 @@ class AtlasLedgerEvent extends Model
         'event_hash',
         'prev_event_hash',
         'chain_basis',
+        'chain_key_hash',
+        'chain_position',
         'occurred_at',
     ];
 
@@ -40,6 +42,7 @@ class AtlasLedgerEvent extends Model
     {
         return [
             'payload' => 'array',
+            'chain_position' => 'integer',
             'occurred_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',

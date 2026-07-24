@@ -14,6 +14,7 @@ use App\Services\Ai\Kernel\Pipeline\KernelPipelineStage;
 use App\Services\Ai\Kernel\Repair\AtlasRepairOrchestrator;
 use App\Services\Ai\Kernel\Repair\RepairRequestFactory;
 use App\Services\Ai\Kernel\Slo\KernelSloTargets;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 
@@ -97,6 +98,57 @@ class EvidenceLedgerTest extends TestCase
         ]);
 
         $this->assertSame($first?->payload_hash, $second?->payload_hash);
+    }
+
+    public function test_v2_seals_the_full_tenant_chain_envelope_and_dual_reads_v1_as_legacy_unverified(): void
+    {
+        $ledger = app(AtlasEvidenceLedger::class);
+        $event = $ledger->record(LedgerEventType::ContextComposed, ['proof' => ['b' => 2, 'a' => 1]], [
+            'event_id' => '01JAAEOSLEDGERV2EVENT000001',
+            'tenant_id' => 'tenant-v2',
+            'operator_id' => 'operator-v2',
+            'envelope_id' => 'envelope-v2',
+            'correlation_id' => 'correlation-v2',
+            'scope_type' => 'aaeos_cycle',
+            'scope_id' => 'cycle-v2',
+            'occurred_at' => '2026-07-24T12:34:56.987654Z',
+        ]);
+
+        self::assertNotNull($event);
+        self::assertSame(AtlasEvidenceLedger::SCHEMA_VERSION_V2, $event->schema_version);
+        self::assertSame(AtlasEvidenceLedger::CHAIN_BASIS_FULL_ENVELOPE_V2, $event->chain_basis);
+        self::assertSame(1, $event->chain_position);
+        self::assertSame('verified', $ledger->eventIntegrityStatus($event));
+        self::assertSame(
+            $event->event_hash,
+            AtlasEvidenceLedger::computeEventHash(AtlasEvidenceLedger::fullEnvelopeHashBasis(array_merge(
+                $event->getAttributes(),
+                ['payload' => $event->payload],
+            ))),
+        );
+
+        $legacyHash = hash('sha256', 'historical-v1-bytes');
+        DB::table('atlas_ledger_events')->insert([
+            'event_id' => '01JAAEOSLEGACYV1EVENT00001',
+            'schema_version' => AtlasEvidenceLedger::SCHEMA_VERSION,
+            'tenant_id' => 'tenant-v2',
+            'operator_id' => 'operator-v2',
+            'envelope_id' => 'legacy-envelope',
+            'correlation_id' => 'legacy-correlation',
+            'event_type' => LedgerEventType::ContextComposed->value,
+            'emitter_stage' => 'legacy.writer',
+            'emitter_version' => 'v1',
+            'payload' => json_encode(['legacy' => true], JSON_THROW_ON_ERROR),
+            'payload_hash' => hash('sha256', '{"legacy":true}'),
+            'event_hash' => $legacyHash,
+            'occurred_at' => '2026-07-23 12:00:00',
+            'created_at' => '2026-07-23 12:00:00',
+            'updated_at' => '2026-07-23 12:00:00',
+        ]);
+
+        $legacy = AtlasLedgerEvent::query()->findOrFail('01JAAEOSLEGACYV1EVENT00001');
+        self::assertSame(AtlasEvidenceLedger::INTEGRITY_LEGACY_UNVERIFIED, $ledger->eventIntegrityStatus($legacy));
+        self::assertSame($legacyHash, $legacy->event_hash);
     }
 
     public function test_records_classified_failure_as_canonical_ledger_event(): void
@@ -540,5 +592,6 @@ class EvidenceLedgerTest extends TestCase
         Schema::dropIfExists('atlas_ledger_events');
 
         (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
+        (require database_path('migrations/2026_07_23_230000_harden_atlas_ledger_chain_and_journey_queries.php'))->up();
     }
 }
