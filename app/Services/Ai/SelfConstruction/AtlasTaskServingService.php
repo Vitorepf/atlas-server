@@ -482,6 +482,423 @@ final class AtlasTaskServingService
         ];
     }
 
+    /**
+     * Success + scoped commit path: verify → evidence → refactor proof → governance →
+     * dedup/admission → elite pre-commit → commit → post-commit → resolve.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function reportSuccessWithCommit(string $clientId, string $taskPacketId, string $leaseId, array $payload): array
+    {
+        $scope = $this->orchestrator->taskScope($taskPacketId);
+
+        // FASE 2 — PROVE it works before it lands. The server re-runs real checks on the worker's in-tree
+        // changes; a delivery that fails definitively (and provably by THIS task) is REFUSED, keeping the
+        // lease so the worker fixes and re-reports — broken code never reaches shared main, so the next
+        // worker is never handed a wedged tree. Fail-open by design (never blocks a good worker over infra
+        // or another worker's WIP).
+        if ($this->verifier->enabled()) {
+            $verification = $this->verifier->verify((array) $scope['allowed_files'], $taskPacketId);
+            if (($verification['blocked'] ?? false) === true) {
+                return $this->reportEnvelope('commit_failed', $clientId, [
+                    'outcome' => 'success',
+                    'lease_closed' => false,
+                    'task_packet_id' => $taskPacketId,
+                    'lease_id' => $leaseId,
+                    'reason' => 'server_verification_failed',
+                    'verification' => $verification,
+                ]);
+            }
+        }
+
+        // EVIDENCE CONTRACT — binds the worker's evidence to the Verification Court's receipt-chain
+        // contract BEFORE governance runs. off skips evaluation entirely (byte-identical legacy
+        // behavior); observe (default) records the verdict and proceeds; enforce refuses the commit
+        // on a failed verdict, keeping the lease so the worker fixes evidence and re-reports. An
+        // evaluator exception is recorded as an unavailable Court authority: observe may continue,
+        // but enforce must fail closed before any commit.
+        $evidenceContractMode = $this->policyPlane->evidenceContractMode();
+        $evidenceContractVerdict = null;
+        if ($evidenceContractMode !== 'off') {
+            try {
+                $allowedFiles = array_values(array_unique(array_map('strval', (array) $scope['allowed_files'])));
+                sort($allowedFiles, SORT_STRING);
+                $allegation = [
+                    'task_packet_id' => $taskPacketId,
+                    'lease_id' => $leaseId,
+                    'allowed_files_hash' => hash('sha256', json_encode($allowedFiles, JSON_THROW_ON_ERROR)),
+                    'command_hash' => hash('sha256', implode(',', array_keys((array) ($verification['checks'] ?? [])))),
+                ];
+                $evidenceContractVerdict = ($this->evidenceContractEvaluator)($allegation, (array) ($payload['evidence'] ?? []));
+            } catch (Throwable $e) {
+                $evidenceContractVerdict = [
+                    'schema' => AtlasVerificationCourtEvidenceContract::SCHEMA,
+                    'accepted' => false,
+                    'blockers' => ['evidence_contract_evaluator_unavailable'],
+                    'error' => $e->getMessage(),
+                ];
+            }
+
+            if ($evidenceContractMode === 'enforce' && ($evidenceContractVerdict['accepted'] ?? false) !== true) {
+                return $this->reportEnvelope('commit_failed', $clientId, [
+                    'outcome' => 'success',
+                    'lease_closed' => false,
+                    'task_packet_id' => $taskPacketId,
+                    'lease_id' => $leaseId,
+                    'reason' => 'evidence_contract_failed',
+                    'evidence_contract' => $evidenceContractVerdict,
+                ]);
+            }
+        }
+
+        // REFACTOR DELTA PROOF — for refactor/optimize objectives, GREEN IS NOT ENOUGH: the
+        // delivery must show a measurable delta (less code / complexity / duplication /
+        // shorter functions) against the HEAD the worker started from. observe (default)
+        // records the proof on the envelope + receipt; enforce refuses the commit on a
+        // non-improving or anti-fake delivery (move_only / wrapper_only), keeping the lease
+        // so the worker improves it and re-reports. Fail-open: an uncomputable proof (infra,
+        // non-PHP scope) never blocks.
+        // AAEOS+ACOS elite lane: infer scope from allowed_files → enforce shrink proof
+        // without flipping the global Autônomos default (observe).
+        $laneScopeSlug = AtlasAaeosAcosLaneScope::inferFromAllowedFiles(array_values(array_map('strval', (array) $scope['allowed_files'])));
+        $refactorProofMode = $this->policyPlane->refactorProofMode($laneScopeSlug);
+        $refactorProof = null;
+        // A stage whose OWN scope is entirely tests AUTHORS proof — it is judged by
+        // the verifier + test contract, never by shrink axes (its callers already
+        // landed in earlier stages; their delta here is legitimately zero).
+        $stageProductionFiles = array_values(array_filter(
+            array_map('strval', (array) $scope['allowed_files']),
+            static fn (string $f): bool => ! (str_starts_with($f, 'tests/') || str_contains($f, '/tests/') || str_ends_with($f, 'Test.php')),
+        ));
+        if ($refactorProofMode !== 'off'
+            && $stageProductionFiles !== []
+            && AtlasRefactorProofGate::appliesTo((string) $scope['objective'])) {
+            // CHAIN-AWARE proof scope: when the packet carries a design spec, the
+            // delta is judged over the WHOLE seam (spec callers + stage files) —
+            // an extraction stage alone always grows; the seam is the unit of
+            // improvement, the stage is a transaction slice of it.
+            $proofScope = array_values(array_unique(array_merge(
+                (array) $scope['allowed_files'],
+                array_values(array_map('strval', (array) data_get($scope, 'refactor_design_spec.callers', []))),
+            )));
+            $refactorProof = $this->refactorProofGate->prove($proofScope);
+            if ($refactorProof !== null) {
+                // ARCHITECTURE JUDGE (advisory, semantic): local hermes reads the
+                // actual diff against the seam decision and judges what shrink
+                // metrics cannot see. Never blocks; verdict rides receipt+envelope.
+                if ((string) config('atlas_task_governance.refactor_semantic_judge', 'advisory') === 'advisory') {
+                    try {
+                        $refactorProof['architecture_judgment'] = (new TaskServing\AtlasRefactorArchitectureJudge)
+                            ->judge((array) data_get($scope, 'refactor_design_spec', []), $refactorProof, $proofScope);
+                    } catch (Throwable) {
+                        // Advisory by contract.
+                    }
+                }
+                try {
+                    $this->orchestrator->appendReportReceipt($taskPacketId, [
+                        'receipt_kind' => 'refactor_delta_proof',
+                        'mode' => $refactorProofMode,
+                        'proof' => $refactorProof,
+                    ]);
+                } catch (Throwable) {
+                    // Receipt is observability; never fail a report over it.
+                }
+            }
+            if ($refactorProofMode === 'enforce'
+                && $refactorProof !== null
+                && ($refactorProof['improved'] ?? true) !== true) {
+                return $this->reportEnvelope('commit_failed', $clientId, [
+                    'outcome' => 'success',
+                    'lease_closed' => false,
+                    'task_packet_id' => $taskPacketId,
+                    'lease_id' => $leaseId,
+                    'reason' => 'refactor_delta_refused',
+                    'refactor_proof' => $refactorProof,
+                ]);
+            }
+        }
+
+        // SPINE — the Merge Governor + Verification Court finally run on a LIVE delivery. In observe mode
+        // (default) it RECORDS the verdict and NEVER blocks (the bootstrap swarm builds these very organs,
+        // which score HIGH risk — enforcing here would self-lock the build). In enforce mode a non-admitted
+        // decision refuses the commit, keeping the lease. Fail-open: a governance error never wedges a worker.
+        $verificationFacts = isset($verification) && is_array($verification)
+            ? ['passed' => ($verification['passed'] ?? false) === true, 'checks' => (array) ($verification['checks'] ?? [])]
+            : ['passed' => false, 'checks' => []];
+        if ($evidenceContractMode !== 'off') {
+            $verificationFacts['evidence_contract'] = $evidenceContractVerdict;
+        }
+        $governance = $this->governance->govern([
+            'task_packet_id' => $taskPacketId,
+            'project_id' => 'atlas-self-construction',
+            'changed_files' => array_values((array) $scope['allowed_files']),
+            'verification' => $verificationFacts,
+        ]);
+        if (($governance['enforced_block'] ?? false) === true) {
+            return $this->reportEnvelope('commit_failed', $clientId, [
+                'outcome' => 'success',
+                'lease_closed' => false,
+                'task_packet_id' => $taskPacketId,
+                'lease_id' => $leaseId,
+                'reason' => 'merge_governance_refused',
+                'governance' => $governance,
+            ]);
+        }
+
+        // DEDUP/REUSO (F0 limpeza 05/07) — a esteira é o PRODUTOR da duplicação medida (38% dos
+        // clones do núcleo nascem em SelfConstruction). Entrega que declara símbolo homônimo de um
+        // já existente re-implementa em vez de reusar: enforce (default) recusa ANTES do commit,
+        // mantendo a lease para o worker reusar o símbolo existente. Blocos clonados de irmãos são
+        // observação no receipt (nunca bloqueiam). Fail-open em erro interno, como os gates acima.
+        $dedupMode = (string) config('atlas_task_governance.dedup_reuse_mode', 'enforce');
+        if ($dedupMode !== 'off' && $stageProductionFiles !== []) {
+            $dedup = null;
+            try {
+                $dedup = (new TaskQuality\AtlasTaskDuplicateReuseGate)->evaluate(array_values(array_map('strval', (array) $scope['allowed_files'])));
+                $this->orchestrator->appendReportReceipt($taskPacketId, [
+                    'receipt_kind' => 'duplicate_reuse_gate',
+                    'mode' => $dedupMode,
+                    'verdict' => $dedup,
+                ]);
+            } catch (Throwable) {
+                // Fail-open: gate/receipt nunca derruba um report por infra.
+            }
+            if ($dedupMode === 'enforce' && $dedup !== null && ($dedup['passed'] ?? true) !== true) {
+                return $this->reportEnvelope('commit_failed', $clientId, [
+                    'outcome' => 'success',
+                    'lease_closed' => false,
+                    'task_packet_id' => $taskPacketId,
+                    'lease_id' => $leaseId,
+                    'reason' => 'duplicate_reuse_refused',
+                    'dedup' => $dedup,
+                ]);
+            }
+        }
+
+        // ADMISSION GATE v2 (Obra #6 V0) — os dois produtores de entropia que o dedup de NOME não
+        // pega: lógica quase-duplicada (bloco >= 30 linhas copiado de outro arquivo) e classe 0-ref
+        // sem tag @unwired-until. observe (default) grava no receipt sem bloquear; enforce recusa
+        // mantendo a lease. Fail-open em erro interno, como os gates acima.
+        $admissionMode = (string) config('atlas_task_governance.admission_v2_mode', 'observe');
+        if ($admissionMode !== 'off' && $stageProductionFiles !== []) {
+            $admission = null;
+            try {
+                $admissionFiles = array_values(array_map('strval', (array) $scope['allowed_files']));
+                $admission = [
+                    'logic' => (new TaskQuality\AtlasTaskDuplicateReuseGate)->evaluateLogicReuse($admissionFiles),
+                    'wiring' => (new TaskQuality\AtlasTaskWiringAdmissionGate)->evaluate($admissionFiles),
+                    // K4 (Obra #18) — kit conformance: untouched pre-written oracle,
+                    // no artisan command-name collision, diff ⊆ allowed. Fail-safe to
+                    // pass on non-kit packets.
+                    'kit' => (new TaskQuality\AtlasTaskKitConformanceGate)->evaluate($scope, $admissionFiles),
+                ];
+                $this->orchestrator->appendReportReceipt($taskPacketId, [
+                    'receipt_kind' => 'admission_gate_v2',
+                    'mode' => $admissionMode,
+                    'verdict' => $admission,
+                ]);
+            } catch (Throwable) {
+                // Fail-open: gate/receipt nunca derruba um report por infra.
+            }
+            if ($admissionMode === 'enforce' && $admission !== null
+                && (($admission['logic']['passed'] ?? true) !== true
+                    || ($admission['wiring']['passed'] ?? true) !== true
+                    || ($admission['kit']['passed'] ?? true) !== true)) {
+                return $this->reportEnvelope('commit_failed', $clientId, [
+                    'outcome' => 'success',
+                    'lease_closed' => false,
+                    'task_packet_id' => $taskPacketId,
+                    'lease_id' => $leaseId,
+                    'reason' => 'admission_v2_refused',
+                    'admission' => $admission,
+                ]);
+            }
+        }
+
+        // Obra 2: AUCRI/context + honesty BEFORE scoped commit (fail-closed — no false land).
+        $eliteGate = $this->eliteAutonomosContextAndOutcome($taskPacketId, $scope, [
+            'commit_sha' => '',
+            'files_committed' => [],
+            'pre_commit' => true,
+        ]);
+        if (($eliteGate['ok'] ?? true) !== true) {
+            return $this->reportEnvelope('commit_failed', $clientId, [
+                'outcome' => 'success',
+                'lease_closed' => false,
+                'task_packet_id' => $taskPacketId,
+                'lease_id' => $leaseId,
+                'reason' => (string) ($eliteGate['reason'] ?? 'elite_autonomos_gate_blocked'),
+                'elite_gate' => $eliteGate,
+            ]);
+        }
+
+        // Project muscle-provided execution counts into landing certify so a real
+        // phpunit run in evidence.commands_run is not scored as claimed_pass_with_zero_tests.
+        if (! isset($verification) || ! is_array($verification)) {
+            $verification = [];
+        }
+        $muscleEvidence = (array) ($payload['evidence'] ?? []);
+        $testsRun = (int) ($muscleEvidence['tests_run'] ?? 0);
+        $assertions = (int) ($muscleEvidence['assertions_executed'] ?? 0);
+        if ($testsRun < 1) {
+            // Best-effort parse from commands_run when the muscle ran phpunit but
+            // forgot structured counters (common CLI report path).
+            foreach ((array) ($muscleEvidence['commands_run'] ?? []) as $cmd) {
+                $cmd = (string) $cmd;
+                if (str_contains($cmd, 'phpunit') || str_contains($cmd, 'artisan test')) {
+                    $testsRun = max($testsRun, 1);
+                }
+            }
+        }
+        if ($testsRun > 0) {
+            $selected = array_values(array_filter(
+                array_map('strval', (array) ($muscleEvidence['selected_tests'] ?? $scope['allowed_files'] ?? [])),
+                static fn (string $p): bool => str_ends_with($p, 'Test.php') || str_contains($p, '/tests/'),
+            ));
+            $verification['execution_evidence'] = array_merge(
+                (array) ($verification['execution_evidence'] ?? []),
+                [
+                    'commands' => array_values(array_map('strval', (array) ($muscleEvidence['commands_run'] ?? []))),
+                    'claimed_status' => (string) ($muscleEvidence['tests_or_gates_result'] ?? 'passed'),
+                    'tests_run' => $testsRun,
+                    'assertions_executed' => max($assertions, $testsRun),
+                    'selected_tests' => $selected,
+                    'counts_parseable' => true,
+                ],
+            );
+            $verification['proof_strength'] = $verification['proof_strength'] ?? 'task_tests_proven';
+        }
+
+        $commit = $this->committer->commitScope(
+            (array) $scope['allowed_files'],
+            $taskPacketId,
+            $clientId,
+            (string) $scope['objective'],
+            $verification !== [] ? $verification : null,
+        );
+
+        if (($commit['committed'] ?? false) !== true) {
+            // Commit did not land — KEEP the lease so the AI can fix and re-report (no work lost).
+            return $this->reportEnvelope('commit_failed', $clientId, [
+                'outcome' => 'success',
+                'lease_closed' => false,
+                'task_packet_id' => $taskPacketId,
+                'lease_id' => $leaseId,
+                'commit' => $commit,
+            ]);
+        }
+
+        // Post-commit honesty with real commit evidence. A red post-commit verdict means the
+        // commit landed but the task is NOT settled; keep the lease open so the worker/operator
+        // can repair or revert explicitly instead of marking fake-green work resolved.
+        $postCommitEliteGate = $this->eliteAutonomosContextAndOutcome($taskPacketId, $scope, $commit);
+        if (($postCommitEliteGate['ok'] ?? true) !== true) {
+            return $this->reportEnvelope('commit_failed', $clientId, [
+                'outcome' => 'success',
+                'lease_closed' => false,
+                'task_packet_id' => $taskPacketId,
+                'lease_id' => $leaseId,
+                'reason' => (string) ($postCommitEliteGate['reason'] ?? 'elite_autonomos_gate_blocked'),
+                'elite_gate' => $postCommitEliteGate,
+                'commit' => $commit,
+            ]);
+        }
+
+        $resolved = $this->orchestrator->markResolved($taskPacketId, $leaseId, $clientId, (string) ($commit['commit_sha'] ?? ''));
+        if ((string) ($resolved['event'] ?? '') !== 'task_resolved') {
+            return $this->reportEnvelope('settlement_failed', $clientId, [
+                'outcome' => 'success',
+                'lease_closed' => false,
+                'task_packet_id' => $taskPacketId,
+                'lease_id' => $leaseId,
+                'reason' => 'task_settlement_failed',
+                'commit' => $commit,
+                'settlement' => $resolved,
+            ]);
+        }
+
+        // DIARIO-3 — the scoped commit that just landed on the local main IS an
+        // auto-merge; label it in the Evolution Diary in the SAME act, reversible
+        // by git revert. Fail-open: the diary never fails a report.
+        try {
+            app(AtlasEvolutionDiaryRecorder::class)->merged(
+                (string) ($commit['commit_sha'] ?? ''),
+                'auto-merge do task '.$taskPacketId.' na main local',
+                'checks automáticos verdes (verificação + admission v2); sem espera por humano',
+                'commit '.substr((string) ($commit['commit_sha'] ?? ''), 0, 10),
+            );
+        } catch (Throwable) {
+            // never fail a report over the diary
+        }
+
+        // Task serving observes files, checks, and lease age — never model tokens, provider, or cost.
+        // Emit those operational facts only to an explicitly injected meter; a Maestro cost ledger must not
+        // receive semantically fabricated required fields merely to make a row persist.
+        if ($this->budgetMeter !== null) {
+            try {
+                $this->budgetMeter->measure([
+                    'task_packet_id' => $taskPacketId,
+                    'agent_id' => $clientId,
+                    'files_committed_count' => count((array) ($commit['files_committed'] ?? [])),
+                    'verification_checks_run' => count((array) ($verificationFacts['checks'] ?? [])),
+                    'wall_seconds' => $this->leaseAgeSeconds($leaseId) ?? 0,
+                ]);
+            } catch (Throwable) {
+                // Fail-open: an explicitly injected operational meter never breaks a resolved report.
+            }
+        }
+
+        // GOVERNOR'S CANARY LEG — policy-plane gated (default OFF, byte-identical to today when off).
+        // Probes the just-landed tree; a sentinel error is swallowed fail-open so a canary bug never
+        // touches the already-resolved report.
+        if ($this->policyPlane->canaryEnabled()) {
+            try {
+                $this->canarySentinel->observe($taskPacketId, (string) ($commit['commit_sha'] ?? ''), array_values((array) $scope['allowed_files']));
+            } catch (Throwable) {
+                // fail-open: a canary error never wedges or mutates the resolved report.
+            }
+        }
+
+        // C3 (Obra #18) — symmetric closure: a PROVEN esteira completion emits a G0
+        // memory candidate through the SAME governed channel the Stop hook uses
+        // (proposeLearning, kind=memory, ALWAYS pending_review). Delta-surprise filters
+        // bare successes; the write-back's capture-quality gate + dedup are the second
+        // anti-inflation line. Fail-open: closing to the registry never breaks a report.
+        try {
+            $candidate = TaskOutcomeLearningCandidate::from(
+                ['objective' => (string) ($scope['objective'] ?? ''), 'allowed_files' => array_values((array) ($scope['allowed_files'] ?? []))],
+                ['outcome' => 'success', 'commit' => (string) ($commit['commit_sha'] ?? ''), 'evidence' => (array) ($payload['evidence'] ?? [])],
+            );
+            if ($candidate !== null) {
+                app(AtlasOpenBrainWriteBackService::class)->proposeLearning($candidate);
+            }
+        } catch (Throwable) {
+            // fail-open: symmetric closure never wedges or mutates the resolved report.
+        }
+
+        return $this->reportEnvelope('resolved', $clientId, array_merge([
+            'outcome' => 'success',
+            'lease_closed' => (string) ($resolved['event'] ?? '') === 'task_resolved',
+            'task_packet_id' => $taskPacketId,
+            'lease_id' => $leaseId,
+            'commit_sha' => (string) ($commit['commit_sha'] ?? ''),
+            'files_committed' => array_values((array) ($commit['files_committed'] ?? [])),
+            'governance' => $governance,
+            'result' => $resolved,
+            // Project muscle evidence so AAEOS P4 can derive spawn/authority from report stdout.
+            'evidence' => (array) ($payload['evidence'] ?? []),
+            'outcome_spine' => $this->recordServerSideOutcomeSpine(
+                $taskPacketId,
+                $scope,
+                $commit,
+                isset($verification) && is_array($verification) ? $verification : null,
+                true,
+            ),
+        ], $evidenceContractMode !== 'off' ? ['evidence_contract' => $evidenceContractVerdict] : [],
+            $refactorProof !== null ? ['refactor_proof' => $refactorProof] : []));
+    }
+
     public function report(string $clientId, string $taskPacketId, string $leaseId, array $payload = []): array
     {
         $intake = $this->validateReportIntake($clientId, $taskPacketId, $leaseId, $payload);
@@ -495,413 +912,9 @@ final class AtlasTaskServingService
         // commit, then close. Only when the client asks to commit (the runbook flow); otherwise the legacy
         // dry-run path stays intact.
         if ($outcome === 'success' && (bool) ($payload['commit'] ?? false)) {
-            $scope = $this->orchestrator->taskScope($taskPacketId);
-
-            // FASE 2 — PROVE it works before it lands. The server re-runs real checks on the worker's in-tree
-            // changes; a delivery that fails definitively (and provably by THIS task) is REFUSED, keeping the
-            // lease so the worker fixes and re-reports — broken code never reaches shared main, so the next
-            // worker is never handed a wedged tree. Fail-open by design (never blocks a good worker over infra
-            // or another worker's WIP).
-            if ($this->verifier->enabled()) {
-                $verification = $this->verifier->verify((array) $scope['allowed_files'], $taskPacketId);
-                if (($verification['blocked'] ?? false) === true) {
-                    return $this->reportEnvelope('commit_failed', $clientId, [
-                        'outcome' => 'success',
-                        'lease_closed' => false,
-                        'task_packet_id' => $taskPacketId,
-                        'lease_id' => $leaseId,
-                        'reason' => 'server_verification_failed',
-                        'verification' => $verification,
-                    ]);
-                }
-            }
-
-            // EVIDENCE CONTRACT — binds the worker's evidence to the Verification Court's receipt-chain
-            // contract BEFORE governance runs. off skips evaluation entirely (byte-identical legacy
-            // behavior); observe (default) records the verdict and proceeds; enforce refuses the commit
-            // on a failed verdict, keeping the lease so the worker fixes evidence and re-reports. An
-            // evaluator exception is recorded as an unavailable Court authority: observe may continue,
-            // but enforce must fail closed before any commit.
-            $evidenceContractMode = $this->policyPlane->evidenceContractMode();
-            $evidenceContractVerdict = null;
-            if ($evidenceContractMode !== 'off') {
-                try {
-                    $allowedFiles = array_values(array_unique(array_map('strval', (array) $scope['allowed_files'])));
-                    sort($allowedFiles, SORT_STRING);
-                    $allegation = [
-                        'task_packet_id' => $taskPacketId,
-                        'lease_id' => $leaseId,
-                        'allowed_files_hash' => hash('sha256', json_encode($allowedFiles, JSON_THROW_ON_ERROR)),
-                        'command_hash' => hash('sha256', implode(',', array_keys((array) ($verification['checks'] ?? [])))),
-                    ];
-                    $evidenceContractVerdict = ($this->evidenceContractEvaluator)($allegation, (array) ($payload['evidence'] ?? []));
-                } catch (Throwable $e) {
-                    $evidenceContractVerdict = [
-                        'schema' => AtlasVerificationCourtEvidenceContract::SCHEMA,
-                        'accepted' => false,
-                        'blockers' => ['evidence_contract_evaluator_unavailable'],
-                        'error' => $e->getMessage(),
-                    ];
-                }
-
-                if ($evidenceContractMode === 'enforce' && ($evidenceContractVerdict['accepted'] ?? false) !== true) {
-                    return $this->reportEnvelope('commit_failed', $clientId, [
-                        'outcome' => 'success',
-                        'lease_closed' => false,
-                        'task_packet_id' => $taskPacketId,
-                        'lease_id' => $leaseId,
-                        'reason' => 'evidence_contract_failed',
-                        'evidence_contract' => $evidenceContractVerdict,
-                    ]);
-                }
-            }
-
-            // REFACTOR DELTA PROOF — for refactor/optimize objectives, GREEN IS NOT ENOUGH: the
-            // delivery must show a measurable delta (less code / complexity / duplication /
-            // shorter functions) against the HEAD the worker started from. observe (default)
-            // records the proof on the envelope + receipt; enforce refuses the commit on a
-            // non-improving or anti-fake delivery (move_only / wrapper_only), keeping the lease
-            // so the worker improves it and re-reports. Fail-open: an uncomputable proof (infra,
-            // non-PHP scope) never blocks.
-            // AAEOS+ACOS elite lane: infer scope from allowed_files → enforce shrink proof
-            // without flipping the global Autônomos default (observe).
-            $laneScopeSlug = AtlasAaeosAcosLaneScope::inferFromAllowedFiles(array_values(array_map('strval', (array) $scope['allowed_files'])));
-            $refactorProofMode = $this->policyPlane->refactorProofMode($laneScopeSlug);
-            $refactorProof = null;
-            // A stage whose OWN scope is entirely tests AUTHORS proof — it is judged by
-            // the verifier + test contract, never by shrink axes (its callers already
-            // landed in earlier stages; their delta here is legitimately zero).
-            $stageProductionFiles = array_values(array_filter(
-                array_map('strval', (array) $scope['allowed_files']),
-                static fn (string $f): bool => ! (str_starts_with($f, 'tests/') || str_contains($f, '/tests/') || str_ends_with($f, 'Test.php')),
-            ));
-            if ($refactorProofMode !== 'off'
-                && $stageProductionFiles !== []
-                && AtlasRefactorProofGate::appliesTo((string) $scope['objective'])) {
-                // CHAIN-AWARE proof scope: when the packet carries a design spec, the
-                // delta is judged over the WHOLE seam (spec callers + stage files) —
-                // an extraction stage alone always grows; the seam is the unit of
-                // improvement, the stage is a transaction slice of it.
-                $proofScope = array_values(array_unique(array_merge(
-                    (array) $scope['allowed_files'],
-                    array_values(array_map('strval', (array) data_get($scope, 'refactor_design_spec.callers', []))),
-                )));
-                $refactorProof = $this->refactorProofGate->prove($proofScope);
-                if ($refactorProof !== null) {
-                    // ARCHITECTURE JUDGE (advisory, semantic): local hermes reads the
-                    // actual diff against the seam decision and judges what shrink
-                    // metrics cannot see. Never blocks; verdict rides receipt+envelope.
-                    if ((string) config('atlas_task_governance.refactor_semantic_judge', 'advisory') === 'advisory') {
-                        try {
-                            $refactorProof['architecture_judgment'] = (new TaskServing\AtlasRefactorArchitectureJudge)
-                                ->judge((array) data_get($scope, 'refactor_design_spec', []), $refactorProof, $proofScope);
-                        } catch (Throwable) {
-                            // Advisory by contract.
-                        }
-                    }
-                    try {
-                        $this->orchestrator->appendReportReceipt($taskPacketId, [
-                            'receipt_kind' => 'refactor_delta_proof',
-                            'mode' => $refactorProofMode,
-                            'proof' => $refactorProof,
-                        ]);
-                    } catch (Throwable) {
-                        // Receipt is observability; never fail a report over it.
-                    }
-                }
-                if ($refactorProofMode === 'enforce'
-                    && $refactorProof !== null
-                    && ($refactorProof['improved'] ?? true) !== true) {
-                    return $this->reportEnvelope('commit_failed', $clientId, [
-                        'outcome' => 'success',
-                        'lease_closed' => false,
-                        'task_packet_id' => $taskPacketId,
-                        'lease_id' => $leaseId,
-                        'reason' => 'refactor_delta_refused',
-                        'refactor_proof' => $refactorProof,
-                    ]);
-                }
-            }
-
-            // SPINE — the Merge Governor + Verification Court finally run on a LIVE delivery. In observe mode
-            // (default) it RECORDS the verdict and NEVER blocks (the bootstrap swarm builds these very organs,
-            // which score HIGH risk — enforcing here would self-lock the build). In enforce mode a non-admitted
-            // decision refuses the commit, keeping the lease. Fail-open: a governance error never wedges a worker.
-            $verificationFacts = isset($verification) && is_array($verification)
-                ? ['passed' => ($verification['passed'] ?? false) === true, 'checks' => (array) ($verification['checks'] ?? [])]
-                : ['passed' => false, 'checks' => []];
-            if ($evidenceContractMode !== 'off') {
-                $verificationFacts['evidence_contract'] = $evidenceContractVerdict;
-            }
-            $governance = $this->governance->govern([
-                'task_packet_id' => $taskPacketId,
-                'project_id' => 'atlas-self-construction',
-                'changed_files' => array_values((array) $scope['allowed_files']),
-                'verification' => $verificationFacts,
-            ]);
-            if (($governance['enforced_block'] ?? false) === true) {
-                return $this->reportEnvelope('commit_failed', $clientId, [
-                    'outcome' => 'success',
-                    'lease_closed' => false,
-                    'task_packet_id' => $taskPacketId,
-                    'lease_id' => $leaseId,
-                    'reason' => 'merge_governance_refused',
-                    'governance' => $governance,
-                ]);
-            }
-
-            // DEDUP/REUSO (F0 limpeza 05/07) — a esteira é o PRODUTOR da duplicação medida (38% dos
-            // clones do núcleo nascem em SelfConstruction). Entrega que declara símbolo homônimo de um
-            // já existente re-implementa em vez de reusar: enforce (default) recusa ANTES do commit,
-            // mantendo a lease para o worker reusar o símbolo existente. Blocos clonados de irmãos são
-            // observação no receipt (nunca bloqueiam). Fail-open em erro interno, como os gates acima.
-            $dedupMode = (string) config('atlas_task_governance.dedup_reuse_mode', 'enforce');
-            if ($dedupMode !== 'off' && $stageProductionFiles !== []) {
-                $dedup = null;
-                try {
-                    $dedup = (new TaskQuality\AtlasTaskDuplicateReuseGate)->evaluate(array_values(array_map('strval', (array) $scope['allowed_files'])));
-                    $this->orchestrator->appendReportReceipt($taskPacketId, [
-                        'receipt_kind' => 'duplicate_reuse_gate',
-                        'mode' => $dedupMode,
-                        'verdict' => $dedup,
-                    ]);
-                } catch (Throwable) {
-                    // Fail-open: gate/receipt nunca derruba um report por infra.
-                }
-                if ($dedupMode === 'enforce' && $dedup !== null && ($dedup['passed'] ?? true) !== true) {
-                    return $this->reportEnvelope('commit_failed', $clientId, [
-                        'outcome' => 'success',
-                        'lease_closed' => false,
-                        'task_packet_id' => $taskPacketId,
-                        'lease_id' => $leaseId,
-                        'reason' => 'duplicate_reuse_refused',
-                        'dedup' => $dedup,
-                    ]);
-                }
-            }
-
-            // ADMISSION GATE v2 (Obra #6 V0) — os dois produtores de entropia que o dedup de NOME não
-            // pega: lógica quase-duplicada (bloco >= 30 linhas copiado de outro arquivo) e classe 0-ref
-            // sem tag @unwired-until. observe (default) grava no receipt sem bloquear; enforce recusa
-            // mantendo a lease. Fail-open em erro interno, como os gates acima.
-            $admissionMode = (string) config('atlas_task_governance.admission_v2_mode', 'observe');
-            if ($admissionMode !== 'off' && $stageProductionFiles !== []) {
-                $admission = null;
-                try {
-                    $admissionFiles = array_values(array_map('strval', (array) $scope['allowed_files']));
-                    $admission = [
-                        'logic' => (new TaskQuality\AtlasTaskDuplicateReuseGate)->evaluateLogicReuse($admissionFiles),
-                        'wiring' => (new TaskQuality\AtlasTaskWiringAdmissionGate)->evaluate($admissionFiles),
-                        // K4 (Obra #18) — kit conformance: untouched pre-written oracle,
-                        // no artisan command-name collision, diff ⊆ allowed. Fail-safe to
-                        // pass on non-kit packets.
-                        'kit' => (new TaskQuality\AtlasTaskKitConformanceGate)->evaluate($scope, $admissionFiles),
-                    ];
-                    $this->orchestrator->appendReportReceipt($taskPacketId, [
-                        'receipt_kind' => 'admission_gate_v2',
-                        'mode' => $admissionMode,
-                        'verdict' => $admission,
-                    ]);
-                } catch (Throwable) {
-                    // Fail-open: gate/receipt nunca derruba um report por infra.
-                }
-                if ($admissionMode === 'enforce' && $admission !== null
-                    && (($admission['logic']['passed'] ?? true) !== true
-                        || ($admission['wiring']['passed'] ?? true) !== true
-                        || ($admission['kit']['passed'] ?? true) !== true)) {
-                    return $this->reportEnvelope('commit_failed', $clientId, [
-                        'outcome' => 'success',
-                        'lease_closed' => false,
-                        'task_packet_id' => $taskPacketId,
-                        'lease_id' => $leaseId,
-                        'reason' => 'admission_v2_refused',
-                        'admission' => $admission,
-                    ]);
-                }
-            }
-
-            // Obra 2: AUCRI/context + honesty BEFORE scoped commit (fail-closed — no false land).
-            $eliteGate = $this->eliteAutonomosContextAndOutcome($taskPacketId, $scope, [
-                'commit_sha' => '',
-                'files_committed' => [],
-                'pre_commit' => true,
-            ]);
-            if (($eliteGate['ok'] ?? true) !== true) {
-                return $this->reportEnvelope('commit_failed', $clientId, [
-                    'outcome' => 'success',
-                    'lease_closed' => false,
-                    'task_packet_id' => $taskPacketId,
-                    'lease_id' => $leaseId,
-                    'reason' => (string) ($eliteGate['reason'] ?? 'elite_autonomos_gate_blocked'),
-                    'elite_gate' => $eliteGate,
-                ]);
-            }
-
-            // Project muscle-provided execution counts into landing certify so a real
-            // phpunit run in evidence.commands_run is not scored as claimed_pass_with_zero_tests.
-            if (! isset($verification) || ! is_array($verification)) {
-                $verification = [];
-            }
-            $muscleEvidence = (array) ($payload['evidence'] ?? []);
-            $testsRun = (int) ($muscleEvidence['tests_run'] ?? 0);
-            $assertions = (int) ($muscleEvidence['assertions_executed'] ?? 0);
-            if ($testsRun < 1) {
-                // Best-effort parse from commands_run when the muscle ran phpunit but
-                // forgot structured counters (common CLI report path).
-                foreach ((array) ($muscleEvidence['commands_run'] ?? []) as $cmd) {
-                    $cmd = (string) $cmd;
-                    if (str_contains($cmd, 'phpunit') || str_contains($cmd, 'artisan test')) {
-                        $testsRun = max($testsRun, 1);
-                    }
-                }
-            }
-            if ($testsRun > 0) {
-                $selected = array_values(array_filter(
-                    array_map('strval', (array) ($muscleEvidence['selected_tests'] ?? $scope['allowed_files'] ?? [])),
-                    static fn (string $p): bool => str_ends_with($p, 'Test.php') || str_contains($p, '/tests/'),
-                ));
-                $verification['execution_evidence'] = array_merge(
-                    (array) ($verification['execution_evidence'] ?? []),
-                    [
-                        'commands' => array_values(array_map('strval', (array) ($muscleEvidence['commands_run'] ?? []))),
-                        'claimed_status' => (string) ($muscleEvidence['tests_or_gates_result'] ?? 'passed'),
-                        'tests_run' => $testsRun,
-                        'assertions_executed' => max($assertions, $testsRun),
-                        'selected_tests' => $selected,
-                        'counts_parseable' => true,
-                    ],
-                );
-                $verification['proof_strength'] = $verification['proof_strength'] ?? 'task_tests_proven';
-            }
-
-            $commit = $this->committer->commitScope(
-                (array) $scope['allowed_files'],
-                $taskPacketId,
-                $clientId,
-                (string) $scope['objective'],
-                $verification !== [] ? $verification : null,
-            );
-
-            if (($commit['committed'] ?? false) !== true) {
-                // Commit did not land — KEEP the lease so the AI can fix and re-report (no work lost).
-                return $this->reportEnvelope('commit_failed', $clientId, [
-                    'outcome' => 'success',
-                    'lease_closed' => false,
-                    'task_packet_id' => $taskPacketId,
-                    'lease_id' => $leaseId,
-                    'commit' => $commit,
-                ]);
-            }
-
-            // Post-commit honesty with real commit evidence. A red post-commit verdict means the
-            // commit landed but the task is NOT settled; keep the lease open so the worker/operator
-            // can repair or revert explicitly instead of marking fake-green work resolved.
-            $postCommitEliteGate = $this->eliteAutonomosContextAndOutcome($taskPacketId, $scope, $commit);
-            if (($postCommitEliteGate['ok'] ?? true) !== true) {
-                return $this->reportEnvelope('commit_failed', $clientId, [
-                    'outcome' => 'success',
-                    'lease_closed' => false,
-                    'task_packet_id' => $taskPacketId,
-                    'lease_id' => $leaseId,
-                    'reason' => (string) ($postCommitEliteGate['reason'] ?? 'elite_autonomos_gate_blocked'),
-                    'elite_gate' => $postCommitEliteGate,
-                    'commit' => $commit,
-                ]);
-            }
-
-            $resolved = $this->orchestrator->markResolved($taskPacketId, $leaseId, $clientId, (string) ($commit['commit_sha'] ?? ''));
-            if ((string) ($resolved['event'] ?? '') !== 'task_resolved') {
-                return $this->reportEnvelope('settlement_failed', $clientId, [
-                    'outcome' => 'success',
-                    'lease_closed' => false,
-                    'task_packet_id' => $taskPacketId,
-                    'lease_id' => $leaseId,
-                    'reason' => 'task_settlement_failed',
-                    'commit' => $commit,
-                    'settlement' => $resolved,
-                ]);
-            }
-
-            // DIARIO-3 — the scoped commit that just landed on the local main IS an
-            // auto-merge; label it in the Evolution Diary in the SAME act, reversible
-            // by git revert. Fail-open: the diary never fails a report.
-            try {
-                app(AtlasEvolutionDiaryRecorder::class)->merged(
-                    (string) ($commit['commit_sha'] ?? ''),
-                    'auto-merge do task '.$taskPacketId.' na main local',
-                    'checks automáticos verdes (verificação + admission v2); sem espera por humano',
-                    'commit '.substr((string) ($commit['commit_sha'] ?? ''), 0, 10),
-                );
-            } catch (Throwable) {
-                // never fail a report over the diary
-            }
-
-            // Task serving observes files, checks, and lease age — never model tokens, provider, or cost.
-            // Emit those operational facts only to an explicitly injected meter; a Maestro cost ledger must not
-            // receive semantically fabricated required fields merely to make a row persist.
-            if ($this->budgetMeter !== null) {
-                try {
-                    $this->budgetMeter->measure([
-                        'task_packet_id' => $taskPacketId,
-                        'agent_id' => $clientId,
-                        'files_committed_count' => count((array) ($commit['files_committed'] ?? [])),
-                        'verification_checks_run' => count((array) ($verificationFacts['checks'] ?? [])),
-                        'wall_seconds' => $this->leaseAgeSeconds($leaseId) ?? 0,
-                    ]);
-                } catch (Throwable) {
-                    // Fail-open: an explicitly injected operational meter never breaks a resolved report.
-                }
-            }
-
-            // GOVERNOR'S CANARY LEG — policy-plane gated (default OFF, byte-identical to today when off).
-            // Probes the just-landed tree; a sentinel error is swallowed fail-open so a canary bug never
-            // touches the already-resolved report.
-            if ($this->policyPlane->canaryEnabled()) {
-                try {
-                    $this->canarySentinel->observe($taskPacketId, (string) ($commit['commit_sha'] ?? ''), array_values((array) $scope['allowed_files']));
-                } catch (Throwable) {
-                    // fail-open: a canary error never wedges or mutates the resolved report.
-                }
-            }
-
-            // C3 (Obra #18) — symmetric closure: a PROVEN esteira completion emits a G0
-            // memory candidate through the SAME governed channel the Stop hook uses
-            // (proposeLearning, kind=memory, ALWAYS pending_review). Delta-surprise filters
-            // bare successes; the write-back's capture-quality gate + dedup are the second
-            // anti-inflation line. Fail-open: closing to the registry never breaks a report.
-            try {
-                $candidate = TaskOutcomeLearningCandidate::from(
-                    ['objective' => (string) ($scope['objective'] ?? ''), 'allowed_files' => array_values((array) ($scope['allowed_files'] ?? []))],
-                    ['outcome' => 'success', 'commit' => (string) ($commit['commit_sha'] ?? ''), 'evidence' => (array) ($payload['evidence'] ?? [])],
-                );
-                if ($candidate !== null) {
-                    app(AtlasOpenBrainWriteBackService::class)->proposeLearning($candidate);
-                }
-            } catch (Throwable) {
-                // fail-open: symmetric closure never wedges or mutates the resolved report.
-            }
-
-            return $this->reportEnvelope('resolved', $clientId, array_merge([
-                'outcome' => 'success',
-                'lease_closed' => (string) ($resolved['event'] ?? '') === 'task_resolved',
-                'task_packet_id' => $taskPacketId,
-                'lease_id' => $leaseId,
-                'commit_sha' => (string) ($commit['commit_sha'] ?? ''),
-                'files_committed' => array_values((array) ($commit['files_committed'] ?? [])),
-                'governance' => $governance,
-                'result' => $resolved,
-                // Project muscle evidence so AAEOS P4 can derive spawn/authority from report stdout.
-                'evidence' => (array) ($payload['evidence'] ?? []),
-                'outcome_spine' => $this->recordServerSideOutcomeSpine(
-                    $taskPacketId,
-                    $scope,
-                    $commit,
-                    isset($verification) && is_array($verification) ? $verification : null,
-                    true,
-                ),
-            ], $evidenceContractMode !== 'off' ? ['evidence_contract' => $evidenceContractVerdict] : [],
-                $refactorProof !== null ? ['refactor_proof' => $refactorProof] : []));
+            return $this->reportSuccessWithCommit($clientId, $taskPacketId, $leaseId, $payload);
         }
+
 
         if ($outcome === 'success') {
             $result = $this->orchestrator->completeDryRun($taskPacketId, $leaseId, (array) ($payload['evidence'] ?? []));

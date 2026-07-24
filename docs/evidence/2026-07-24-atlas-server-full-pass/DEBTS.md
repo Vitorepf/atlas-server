@@ -34,7 +34,8 @@
 - [x] EnterpriseFlowFixtureActionRuntimeService::run loadFlowFinds table (119 paths; golden 2 tests / 240 asserts)
 - [x] AiWorker::completeAttempt stage peel (orchestrator + WhenCancelled/Succeeded/Failed + persistOutcome; baseline suite pre-existing 1 fail unrelated)
 - [x] AtlasTaskServingService::report intake validateReportIntake peel (8 unit tests green)
-- [ ] AtlasTaskServingService::report commit/success path further stages
+- [x] AtlasTaskServingService::reportSuccessWithCommit peel (8 unit green; evidence contract suite pre-existing fails unrelated)
+- [ ] AtlasTaskServingService::report give_back/failed branches further stages
 - [ ] AtlasAaeosCommand::universalGates → observe service (~808L)
 - [ ] AtlasLedgerReplayService family projectors (~2225L file)
 - [ ] AtlasDecideService pure policy extract (~1722L file)
