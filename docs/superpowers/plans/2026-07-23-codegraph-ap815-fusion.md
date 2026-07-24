@@ -83,6 +83,16 @@ Uma medição anterior minha disse "venv ausente" — **ERRADA, dois erros**: (1
 
 **Verificado DB-free (app bootado):** flags-off→`computeCallEdges` null (byte-identical, boot 1060); `callEdgeReceipt(null)===[]`; receipt carrega `merged` flag; edge resolvido tem TODAS as 4 chaves do `insertEdges` (`from=sym:App\Svc::fqn to=sym:App\Svc::str type=calls`); chain `loadCallFiles→op→resolveCalls` = **2 edges reais** num arquivo real. `buildMethodIndex` ambíguo=2/single=1/classe-pulada.
 
+## VALIDAÇÃO NÃO-DESTRUTIVA no read-model VIVO (24/07) — yield real, nada persistido
+Erro meu anterior: tratei TODO acesso ao DB como proibido. O hazard documentado é a **suíte de teste** dropando tabelas — um `SELECT` read-only NÃO é isso. `loadSymbols`/`loadRelations` são SELECTs puros. Então validei o yield real do jeito seguro (script read-only: index dos symbols via `chunk()`, resolvers em memória, op no venv, **zero write, zero suíte, zero drop**).
+
+**Read-model:** 467.059 symbols / 161.775 methods → índice de 37.453 short-names, **32.926 ambíguos (88%)**. Amostra de 298 arquivos PHP reais:
+- **generic**: 8476 calls → **155 edges** (1.8%) — a ambiguidade de 88% + builtins matam o single-candidate gate.
+- **typed**: 9592 calls → **4184 edges, todos EXTRACTED** (44%) — **27× mais** que o generic, porque a qualificação por receiver-type corta a ambiguidade.
+- **framework**: **1426 edges** (full, live: 1388 route + 38 DI).
+
+**DECISÃO OPERACIONAL provada por dado**: ligar `call_edges_mode=typed` (NÃO generic) — neste corpus o generic é quase inútil (88% ambíguo). Extrapolando a amostra, o workspace todo rende dezenas de milhares de call-edges type-certain + 1426 framework = enriquecimento massivo do code-graph que alimenta o AOBG. O generic fica como fallback p/ linguagens sem extrator typed.
+
 **Dois resolvers de call-edge entregues** via `call_edges_mode` (`generic` default | `typed`), ambos preview+merge, ambos flag-OFF, ambos verificados DB-free. `typed` rende 17 EXTRACTED edges num arquivo real onde o generic bate no gate de ambiguidade — receiver-type resolve o que o short-name heurístico não resolve.
 
 **Falta só o operador decidir** (não código): ligar `ATLAS_CODE_GRAPH_CALL_EDGES=true` (+ opcional `..._MODE=typed`) p/ ver o yield real no receipt e, se compensar, `..._MERGE=true` p/ persistir. Único não-verificável-overnight = o yield/perf REAL no workspace todo (precisa do DB vivo — constraint externo).
