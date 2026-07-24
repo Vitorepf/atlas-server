@@ -40,8 +40,8 @@
 - [x] AtlasAaeosCommand::universalGatesObserveProjectors table peel (~808→~56L method + dense table)
 - [ ] AtlasAaeosCommand further thin (loadSignals/service extract residual)
 - [x] AtlasLedgerReplayService SLO summary/review → LedgerReplaySupport (22 unit tests)
-- [x] AtlasLedgerReplayService repair/inbox/agent/decision/self-improvement summaries → Support
-- [ ] AtlasLedgerReplayService kernel pipeline summary residual
+- [x] AtlasLedgerReplayService SLO + repair summary/review → LedgerReplaySupport (22 unit green)
+- [ ] AtlasLedgerReplayService remaining families (inbox/agent/decision/kernel)
 - [ ] AtlasDecideService pure policy extract (~1722L file)
 - [x] OneShotTickInvokerEnvelope deny-flag fusion (~29 invokers) + OneShotTickInvokerCatalog (62 classes)
 - [ ] OneShotTick invoker further normalize/factory fusion residual

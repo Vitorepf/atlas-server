@@ -917,9 +917,23 @@ class AtlasLedgerReplayService
      */
     private function decisionReceiptEventSummary(Collection $events): array
     {
-        return $this->support->decisionReceiptEventSummary($events);
-    }
+        $invalidEvents = $events->filter(fn (array $event): bool => in_array('mismatch', [
+            $event['receipt_integrity_status'] ?? null,
+            $event['chain_integrity_status'] ?? null,
+        ], true));
+        $latest = $events->last();
 
+        return [
+            'decision_event_count' => $events->count(),
+            'valid_receipt_hash_count' => $events->where('receipt_integrity_status', 'ok')->count(),
+            'valid_chain_hash_count' => $events->where('chain_integrity_status', 'ok')->count(),
+            'invalid_count' => $invalidEvents->count(),
+            'latest_receipt_id' => is_array($latest) ? ($latest['receipt_id'] ?? null) : null,
+            'latest_chain_hash' => is_array($latest) ? ($latest['chain_hash'] ?? null) : null,
+            'review_signal' => $this->decisionReceiptReviewSignal($events, $invalidEvents),
+            'events' => $events->all(),
+        ];
+    }
 
     /**
      * @param  Collection<int,array<string,mixed>>  $events
@@ -928,9 +942,40 @@ class AtlasLedgerReplayService
      */
     private function decisionReceiptReviewSignal(Collection $events, Collection $invalidEvents): array
     {
-        return $this->support->decisionReceiptReviewSignal($events, $invalidEvents);
-    }
+        if ($events->isEmpty()) {
+            return [
+                'status' => 'unknown',
+                'severity' => 'low',
+                'review_required' => false,
+                'reasons' => ['no_decision_receipt_events_for_envelope'],
+                'recommended_action' => 'wait_for_decision_receipt_evidence',
+            ];
+        }
 
+        if ($invalidEvents->isNotEmpty()) {
+            return [
+                'status' => 'breach',
+                'severity' => 'high',
+                'review_required' => true,
+                'reasons' => array_values(array_unique($invalidEvents
+                    ->flatMap(fn (array $event): array => [
+                        ($event['receipt_integrity_status'] ?? null) === 'mismatch' ? 'decision_receipt_hash_mismatch' : null,
+                        ($event['chain_integrity_status'] ?? null) === 'mismatch' ? 'decision_receipt_chain_hash_mismatch' : null,
+                    ])
+                    ->filter()
+                    ->all())),
+                'recommended_action' => 'open_reviewable_decision_receipt_replay_proposal',
+            ];
+        }
+
+        return [
+            'status' => 'ok',
+            'severity' => 'none',
+            'review_required' => false,
+            'reasons' => [],
+            'recommended_action' => 'none',
+        ];
+    }
 
     /**
      * @param  Collection<int,array<string,mixed>>  $events
@@ -938,9 +983,26 @@ class AtlasLedgerReplayService
      */
     private function agentBehaviorSummary(Collection $events): array
     {
-        return $this->support->agentBehaviorSummary($events);
-    }
+        $findingCodes = $events->pluck('finding_codes')->flatten()->filter()->values();
+        $findingSeverities = $events->pluck('finding_severities')->flatten()->filter()->values();
+        $scoreAvg = $events->isEmpty()
+            ? null
+            : round($events->pluck('score')->map(fn (mixed $score): int => (int) $score)->avg(), 2);
+        $reviewSignal = $this->agentBehaviorReviewSignal($events, $findingCodes);
 
+        return [
+            'agent_behavior_event_count' => $events->count(),
+            'finding_count' => $findingCodes->count(),
+            'status_counts' => $events->pluck('status')->filter()->countBy()->all(),
+            'finding_code_counts' => $findingCodes->countBy()->all(),
+            'finding_severity_counts' => $findingSeverities->countBy()->all(),
+            'provider_counts' => $events->pluck('provider')->filter()->countBy()->all(),
+            'agent_slug_counts' => $events->pluck('agent_slug')->filter()->countBy()->all(),
+            'average_score' => $scoreAvg,
+            'review_signal' => $reviewSignal,
+            'events' => $events->all(),
+        ];
+    }
 
     /**
      * @param  Collection<int,array<string,mixed>>  $events
@@ -949,9 +1011,41 @@ class AtlasLedgerReplayService
      */
     private function agentBehaviorReviewSignal(Collection $events, Collection $findingCodes): array
     {
-        return $this->support->agentBehaviorReviewSignal($events, $findingCodes);
-    }
+        if ($events->isEmpty()) {
+            return [
+                'status' => 'unknown',
+                'severity' => 'low',
+                'review_required' => false,
+                'reasons' => ['no_agent_behavior_gate_events_in_window'],
+                'recommended_action' => 'wait_for_agent_behavior_evidence',
+            ];
+        }
 
+        $recurring = $findingCodes
+            ->countBy()
+            ->filter(fn (int $count): bool => $count >= 2)
+            ->keys()
+            ->values()
+            ->all();
+
+        if ($recurring !== []) {
+            return [
+                'status' => 'warning',
+                'severity' => 'medium',
+                'review_required' => true,
+                'reasons' => array_map(fn (string $code): string => 'recurring_agent_behavior_finding:'.$code, $recurring),
+                'recommended_action' => 'open_reviewable_agent_behavior_quality_proposal',
+            ];
+        }
+
+        return [
+            'status' => 'ok',
+            'severity' => 'none',
+            'review_required' => false,
+            'reasons' => [],
+            'recommended_action' => 'none',
+        ];
+    }
 
     /**
      * @param  Collection<int,array<string,mixed>>  $events
@@ -1167,9 +1261,60 @@ class AtlasLedgerReplayService
      */
     private function selfImprovementScheduleEventSummary(Collection $events): array
     {
-        return $this->support->selfImprovementScheduleEventSummary($events);
-    }
+        $latest = $events->last();
+        $issueCounts = $events->pluck('issues')->flatten()->filter()->countBy()->all();
+        $emittedInboxItemIds = $events
+            ->pluck('emitted_inbox_item_ids')
+            ->flatten()
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+        $emittedInboxItems = $events
+            ->pluck('emitted_inbox_items')
+            ->flatten(1)
+            ->filter()
+            ->unique('id')
+            ->values()
+            ->all();
+        $missingInboxItemIds = $events
+            ->pluck('emitted_inbox_item_missing_ids')
+            ->flatten()
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+        $warningCount = $events->filter(fn (array $event): bool => in_array($event['health_status'] ?? null, ['warning', 'disabled'], true)
+            || ($event['scheduler_status'] ?? null) === 'skipped'
+            || (int) ($event['invalid_flow_count'] ?? 0) > 0)->count();
+        $reviewSignal = $this->selfImprovementScheduleReviewSignal($events, $warningCount, $issueCounts);
 
+        return [
+            'schedule_observation_count' => $events->count(),
+            'envelope_count' => $events->pluck('envelope_id')->filter()->unique()->count(),
+            'health_status_counts' => $events->pluck('health_status')->filter()->countBy()->all(),
+            'scheduler_status_counts' => $events->pluck('scheduler_status')->filter()->countBy()->all(),
+            'issue_counts' => $issueCounts,
+            'warning_count' => $warningCount,
+            'completed_count' => $events->where('completed', true)->count(),
+            'emitted_count' => $events->sum(fn (array $event): int => (int) ($event['emitted_count'] ?? 0)),
+            'emitted_inbox_item_ids' => $emittedInboxItemIds,
+            'emitted_inbox_items' => $emittedInboxItems,
+            'emitted_inbox_item_hydration_available' => DatabaseTableAvailability::has('ai_inbox_items'),
+            'emitted_inbox_item_missing_ids' => $missingInboxItemIds,
+            'latest_health_status' => is_array($latest) ? ($latest['health_status'] ?? null) : null,
+            'latest_scheduler_status' => is_array($latest) ? ($latest['scheduler_status'] ?? null) : null,
+            'latest_plan_hash' => is_array($latest) ? ($latest['plan_hash'] ?? null) : null,
+            'latest_next_run_at' => is_array($latest) ? ($latest['next_run_at'] ?? null) : null,
+            'review_required' => $warningCount > 0,
+            'health' => [
+                'status' => $warningCount > 0 ? 'warning' : ($events->isEmpty() ? 'unknown' : 'ok'),
+                'reasons' => $warningCount > 0 ? array_keys($issueCounts + ['self_improvement_schedule_warning_observed' => 1]) : ($events->isEmpty() ? ['no_self_improvement_schedule_observations_in_window'] : []),
+            ],
+            'review_signal' => $reviewSignal,
+            'events' => $events->all(),
+        ];
+    }
 
     /**
      * @param  Collection<int,array<string,mixed>>  $events
@@ -1178,9 +1323,39 @@ class AtlasLedgerReplayService
      */
     private function selfImprovementScheduleReviewSignal(Collection $events, int $warningCount, array $issueCounts): array
     {
-        return $this->support->selfImprovementScheduleReviewSignal($events, $warningCount, $issueCounts);
-    }
+        if ($events->isEmpty()) {
+            return [
+                'status' => 'unknown',
+                'severity' => 'low',
+                'review_required' => false,
+                'reasons' => ['no_self_improvement_schedule_observations_in_window'],
+                'recommended_action' => 'wait_for_next_self_improvement_cycle',
+            ];
+        }
 
+        if ($warningCount === 0) {
+            return [
+                'status' => 'ok',
+                'severity' => 'none',
+                'review_required' => false,
+                'reasons' => [],
+                'recommended_action' => 'none',
+            ];
+        }
+
+        $reasons = array_keys($issueCounts + ['self_improvement_schedule_warning_observed' => 1]);
+        $hasSkippedScheduler = $events->contains(fn (array $event): bool => ($event['scheduler_status'] ?? null) === 'skipped');
+        $hasInvalidFlows = $events->contains(fn (array $event): bool => (int) ($event['invalid_flow_count'] ?? 0) > 0);
+        $severity = $hasSkippedScheduler ? 'high' : ($hasInvalidFlows || $warningCount > 1 ? 'medium' : 'low');
+
+        return [
+            'status' => 'warning',
+            'severity' => $severity,
+            'review_required' => true,
+            'reasons' => $reasons,
+            'recommended_action' => 'open_reviewable_self_improvement_schedule_proposal',
+        ];
+    }
 
     /**
      * @param  array<string,mixed>  $event
@@ -1293,9 +1468,140 @@ class AtlasLedgerReplayService
      */
     private function inboxActionSummary(Collection $events): array
     {
-        return $this->support->inboxActionSummary($events);
-    }
+        $reviewedPatchCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_patch')
+            ->count();
+        $withDiffRefsCount = $events
+            ->filter(fn (array $event): bool => (int) ($event['diff_ref_count'] ?? 0) > 0)
+            ->count();
+        $rivalsReviewRecordedCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'record_rivals_review')
+            ->count();
+        $rivalsReviewWithScoresCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'record_rivals_review')
+            ->filter(fn (array $event): bool => is_numeric($event['rivals_regret_score'] ?? null)
+                && is_numeric($event['rivals_alignment_score'] ?? null)
+                && is_numeric($event['rivals_agency_score'] ?? null))
+            ->count();
+        $providerCostRateActionCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'configure_provider_cost_rates')
+            ->count();
+        $providerCostRateAppliedCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'configure_provider_cost_rates')
+            ->filter(fn (array $event): bool => (bool) ($event['provider_cost_rate_applied'] ?? false))
+            ->count();
+        $retrievalRegressionReviewCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_retrieval_regression')
+            ->count();
+        $retrievalRegressionReviewedCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_retrieval_regression')
+            ->filter(fn (array $event): bool => (bool) ($event['retrieval_regression_reviewed'] ?? false))
+            ->count();
+        $retrievalShadowScopeReviewCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_retrieval_shadow_scope')
+            ->count();
+        $retrievalShadowScopeReviewedCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_retrieval_shadow_scope')
+            ->filter(fn (array $event): bool => (bool) ($event['retrieval_shadow_scope_reviewed'] ?? false))
+            ->count();
+        $retrievalShadowScopeReceiptCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_retrieval_shadow_scope')
+            ->filter(fn (array $event): bool => filled($event['retrieval_shadow_scope_decision_receipt_hash'] ?? null))
+            ->count();
+        $retrievalShadowScopeRuntimeAllowedCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_retrieval_shadow_scope')
+            ->filter(fn (array $event): bool => (bool) ($event['retrieval_shadow_scope_shadow_execution_allowed_now'] ?? false))
+            ->count();
+        $externalVectorRagPreflightReviewCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_external_vector_rag_preflight')
+            ->count();
+        $externalVectorRagPreflightReviewedCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_external_vector_rag_preflight')
+            ->filter(fn (array $event): bool => (bool) ($event['external_vector_rag_preflight_reviewed'] ?? false))
+            ->count();
+        $externalVectorRagPreflightReceiptCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_external_vector_rag_preflight')
+            ->filter(fn (array $event): bool => filled($event['external_vector_rag_preflight_decision_receipt_hash'] ?? null))
+            ->count();
+        $externalVectorRagPreflightUnsafeActivationCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_external_vector_rag_preflight')
+            ->filter(fn (array $event): bool => (bool) ($event['external_vector_rag_preflight_embedding_allowed_now'] ?? false)
+                || (bool) ($event['external_vector_rag_preflight_vector_write_allowed_now'] ?? false)
+                || (bool) ($event['external_vector_rag_preflight_constellation_allowed_now'] ?? false))
+            ->count();
+        $reviewSignal = $this->inboxActionReviewSignal(
+            $events,
+            $reviewedPatchCount,
+            $withDiffRefsCount,
+            $rivalsReviewRecordedCount,
+            $rivalsReviewWithScoresCount,
+            $providerCostRateActionCount,
+            $providerCostRateAppliedCount,
+            $retrievalRegressionReviewCount,
+            $retrievalRegressionReviewedCount,
+            $retrievalShadowScopeReviewCount,
+            $retrievalShadowScopeReviewedCount,
+            $retrievalShadowScopeReceiptCount,
+            $retrievalShadowScopeRuntimeAllowedCount,
+            $externalVectorRagPreflightReviewCount,
+            $externalVectorRagPreflightReviewedCount,
+            $externalVectorRagPreflightReceiptCount,
+            $externalVectorRagPreflightUnsafeActivationCount,
+        );
 
+        return [
+            'inbox_action_count' => $events->count(),
+            'action_counts' => $events->pluck('action')->filter()->countBy()->all(),
+            'actor_type_counts' => $events->pluck('actor_type')->filter()->countBy()->all(),
+            'category_counts' => $events->pluck('inbox_item_category')->filter()->countBy()->all(),
+            'severity_counts' => $events->pluck('inbox_item_severity')->filter()->countBy()->all(),
+            'recommended_action_counts' => $events->pluck('recommended_action')->filter()->countBy()->all(),
+            'reviewed_patch_count' => $reviewedPatchCount,
+            'with_diff_refs_count' => $withDiffRefsCount,
+            'rivals_review_recorded_count' => $rivalsReviewRecordedCount,
+            'rivals_review_with_scores_count' => $rivalsReviewWithScoresCount,
+            'retrieval_regression_review_count' => $retrievalRegressionReviewCount,
+            'retrieval_regression_reviewed_count' => $retrievalRegressionReviewedCount,
+            'retrieval_regression_decision_counts' => $events
+                ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_retrieval_regression')
+                ->pluck('retrieval_regression_decision')
+                ->filter()
+                ->countBy()
+                ->all(),
+            'retrieval_shadow_scope_review_count' => $retrievalShadowScopeReviewCount,
+            'retrieval_shadow_scope_reviewed_count' => $retrievalShadowScopeReviewedCount,
+            'retrieval_shadow_scope_decision_receipt_count' => $retrievalShadowScopeReceiptCount,
+            'retrieval_shadow_scope_runtime_allowed_count' => $retrievalShadowScopeRuntimeAllowedCount,
+            'retrieval_shadow_scope_decision_counts' => $events
+                ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_retrieval_shadow_scope')
+                ->pluck('retrieval_shadow_scope_decision')
+                ->filter()
+                ->countBy()
+                ->all(),
+            'external_vector_rag_preflight_review_count' => $externalVectorRagPreflightReviewCount,
+            'external_vector_rag_preflight_reviewed_count' => $externalVectorRagPreflightReviewedCount,
+            'external_vector_rag_preflight_decision_receipt_count' => $externalVectorRagPreflightReceiptCount,
+            'external_vector_rag_preflight_unsafe_activation_count' => $externalVectorRagPreflightUnsafeActivationCount,
+            'external_vector_rag_preflight_decision_counts' => $events
+                ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_external_vector_rag_preflight')
+                ->pluck('external_vector_rag_preflight_decision')
+                ->filter()
+                ->countBy()
+                ->all(),
+            'provider_cost_rate_action_count' => $providerCostRateActionCount,
+            'provider_cost_rate_applied_count' => $providerCostRateAppliedCount,
+            'provider_cost_rate_provider_counts' => $events->pluck('provider_cost_rate_provider')->filter()->countBy()->all(),
+            'provider_cost_rate_model_counts' => $events
+                ->map(fn (array $event): ?string => ($event['provider_cost_rate_provider'] ?? null) && ($event['provider_cost_rate_model'] ?? null)
+                    ? $event['provider_cost_rate_provider'].':'.$event['provider_cost_rate_model']
+                    : null)
+                ->filter()
+                ->countBy()
+                ->all(),
+            'review_signal' => $reviewSignal,
+            'events' => $events->all(),
+        ];
+    }
 
     /**
      * @param  Collection<int,array<string,mixed>>  $events
@@ -1511,9 +1817,31 @@ class AtlasLedgerReplayService
      */
     private function kernelPipelineEventSummary(Collection $events): array
     {
-        return $this->support->inboxActionReviewSignal($events, $reviewedPatchCount, $withDiffRefsCount, $rivalsReviewRecordedCount, $rivalsReviewWithScoresCount, $providerCostRateActionCount, $providerCostRateAppliedCount, $retrievalRegressionReviewCount, $retrievalRegressionReviewedCount, $retrievalShadowScopeReviewCount, $retrievalShadowScopeReviewedCount, $retrievalShadowScopeReceiptCount, $retrievalShadowScopeRuntimeAllowedCount, $externalVectorRagPreflightReviewCount, $externalVectorRagPreflightReviewedCount, $externalVectorRagPreflightReceiptCount, $externalVectorRagPreflightUnsafeActivationCount, $events, $retrievalRegressionReviewCount, $retrievalRegressionReviewedCount, $retrievalRegressionReviewCount, $retrievalShadowScopeRuntimeAllowedCount, $retrievalShadowScopeReviewCount, $retrievalShadowScopeReviewedCount, $retrievalShadowScopeReviewCount, $retrievalShadowScopeReviewCount, $retrievalShadowScopeReceiptCount, $retrievalShadowScopeReviewCount, $externalVectorRagPreflightUnsafeActivationCount, $externalVectorRagPreflightReviewCount, $externalVectorRagPreflightReviewedCount, $externalVectorRagPreflightReviewCount, $externalVectorRagPreflightReviewCount, $externalVectorRagPreflightReceiptCount, $externalVectorRagPreflightReviewCount, $rivalsReviewRecordedCount, $rivalsReviewWithScoresCount, $rivalsReviewRecordedCount, $providerCostRateActionCount, $providerCostRateAppliedCount, $providerCostRateActionCount, $reviewedPatchCount, $withDiffRefsCount, $retrievalShadowScopeReviewCount, $retrievalShadowScopeReviewedCount, $retrievalShadowScopeReviewCount, $retrievalShadowScopeReceiptCount, $retrievalShadowScopeReviewCount, $retrievalRegressionReviewCount, $retrievalRegressionReviewedCount, $retrievalRegressionReviewCount, $externalVectorRagPreflightReviewCount, $externalVectorRagPreflightReviewedCount, $externalVectorRagPreflightReviewCount, $externalVectorRagPreflightReceiptCount, $externalVectorRagPreflightReviewCount, $rivalsReviewRecordedCount, $rivalsReviewWithScoresCount, $rivalsReviewRecordedCount, $providerCostRateActionCount, $providerCostRateAppliedCount, $providerCostRateActionCount, $reviewedPatchCount, $withDiffRefsCount, $events, $events);
-    }
+        $latest = $events->last();
+        $eventCount = $events->count();
+        $acceptedCount = $events->where('event_type', LedgerEventType::KernelPipelineAccepted->value)->count();
+        $rejectedCount = $events->where('event_type', LedgerEventType::KernelPipelineRejected->value)->count();
+        $health = $this->kernelPipelineHealth($eventCount, $acceptedCount, $rejectedCount);
+        $reviewSignal = $this->kernelPipelineReviewSignal($health, $events->pluck('violations')->flatten()->filter()->countBy()->all());
 
+        return [
+            'kernel_pipeline_event_count' => $eventCount,
+            'accepted_count' => $acceptedCount,
+            'rejected_count' => $rejectedCount,
+            'status_counts' => $events->pluck('status')->filter()->countBy()->all(),
+            'surface_counts' => $events->pluck('surface_id')->filter()->countBy()->all(),
+            'emitter_stage_counts' => $events->pluck('emitter_stage')->filter()->countBy()->all(),
+            'surface_contract_source_counts' => $events->pluck('surface_contract_source')->filter()->countBy()->all(),
+            'flow_counts' => $events->pluck('flow')->filter()->countBy()->all(),
+            'input_mode_counts' => $events->pluck('input_mode')->filter()->countBy()->all(),
+            'violation_counts' => $events->pluck('violations')->flatten()->filter()->countBy()->all(),
+            'latest_status' => is_array($latest) ? ($latest['status'] ?? null) : null,
+            'has_rejections' => $events->contains(fn (array $event): bool => ($event['status'] ?? null) === 'rejected'),
+            'health' => $health,
+            'review_signal' => $reviewSignal,
+            'events' => $events->all(),
+        ];
+    }
 
     /**
      * @return array{
