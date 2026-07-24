@@ -59,6 +59,20 @@ class AiChatCommandPermissionTest extends TestCase
         $this->assertTrue(data_get($permissions, 'allow_unsandboxed_provider'));
     }
 
+    public function test_mutative_cli_permissions_carry_awis_derived_workspace_cert(): void
+    {
+        $permissions = $this->toolPermissions(
+            options: ['--permission' => 'danger'],
+            workspace: base_path(),
+            workflowMode: 'dev',
+            permissionMode: 'danger',
+        );
+
+        $this->assertSame('available', data_get($permissions, 'workspace_cert.status'), json_encode($permissions));
+        $this->assertSame('danger', data_get($permissions, 'workspace_cert.mode'));
+        $this->assertSame('awis_execution_gate', data_get($permissions, 'workspace_cert.source'));
+    }
+
     public function test_visual_language_triggers_auto_clipboard_image_detection(): void
     {
         $command = app(AiChatCommand::class);
