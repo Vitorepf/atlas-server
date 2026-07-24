@@ -8,37 +8,40 @@ plan: docs/superpowers/plans/2026-07-24-atlas-server-full-pass-FILE-BY-FILE.md
 branch: main
 execution: in_progress
 started: 2026-07-24
-hours_note: continuous full-pass hygiene batches on main
 inventory_files: 13399
-pending_full_file_receipts: still_open_corpus_wide
+file_receipts_corpus_wide: not_complete
+hours_note: continuous hygiene batches on main; corpus-wide pending remains
+next_item: MCP tools catalog extract OR PipelineRunExecutor Http exit OR Readiness peel collapse
 ```
 
-## Batches landed (scoped commits)
+## Batches landed (scoped commits, real code)
 
-| Commit focus | Areas | Proof |
+| Theme | Areas | Proof |
 |---|---|---|
-| LoadsFactsJsonOption + GitWorkspaceStateReader + loop config honesty | reuse, operate_vs_legacy, honesty | unit tests green |
-| ResolvesSilentJsonOption + MemoryLimitBytes + OpenBrain intOpt | reuse, standardize | unit tests green |
-| ResolvesGitProjectRoot (CLI) | reuse, surface_std | unit tests green |
-| CliInvocationModel + ParsesKeyValueMetadataOption | reuse | unit tests green |
-| MemoryEntrySafetySummary + CodeGraphIntOrNull | reuse, honesty | unit tests green |
+| LoadsFactsJsonOption + GitWorkspaceStateReader + loop config honesty | reuse, operate_vs_legacy, honesty | unit green |
+| ResolvesSilentJsonOption + MemoryLimitBytes + OpenBrain intOpt | reuse, standardize | unit green |
+| ResolvesGitProjectRoot (CLI start/continue/interrupt/dev) | reuse, surface_std | unit green |
+| CliInvocationModel + ParsesKeyValueMetadataOption | reuse | unit green |
+| MemoryEntrySafetySummary + CodeGraphIntOrNull | reuse, honesty | unit green |
+| Benchmark git shape + ReadsNonEmptyStringOption | reuse | unit green |
+| ControlPlaneStatusSection (Cyber/Strategy) | reuse, architecture | unit green |
+| AcosDeltaSeriesJsonl | reuse | unit green |
+| SchemaVersionedJsonBlockParser + DiskJsonIndexLoader | reuse | unit green |
 
-## Next queued (from FINDINGS P0)
+## Next queued (FINDINGS P0 residual)
 
-1. MCP `tools()` catalog extract (density) — large/risky; stage carefully
-2. Readiness peel collapse / OneShotTick registry
-3. PipelineRunExecutor out of Http
-4. EnterpriseReportDashboardHtml::render split
-5. AiWorker completeAttempt peel
-6. config/atlas.php physical split (ai/aobg/loop quarantine file)
+1. density: AtlasOpenBrainMcpService::tools catalog (1084L)
+2. architecture: PipelineRunExecutor leave Http
+3. density: EnterpriseReportDashboardHtml::render
+4. density: Readiness PartN / OneShotTick registry
+5. elevate: AiWorker::completeAttempt
+6. config: physical split atlas.php / loop legacy file
+7. surface: thin Aaeos/Mother commands + god tests
 
-## Floors blocked (do not force)
+## Floors blocked
 
-- AutonomousEvolutionSession RSI-core redesign (operator-present)
-- Evidence LedgerReplay API redesign
-- Readiness probe-mechanism hub redesign
-- Prefix-delete AtlasLoop* keep-list
+- Session RSI-core, Evidence LedgerReplay redesign, Readiness probe hub, keep-list AtlasLoop*
 
 ## Anti-goodhart
 
-No vanity residual-pass commits. Each batch is real code + unit proof.
+No vanity residual-pass commits. Each batch = code + unit proof.
