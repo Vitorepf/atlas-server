@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\LongHorizon;
 
+use App\Support\CanonicalValue;
 use App\Models\AtlasLongHorizonCompactionReceipt;
 use App\Models\AtlasLongHorizonContinuationPack;
 use App\Models\AtlasLongHorizonReplayManifest;
@@ -697,18 +698,7 @@ class LongHorizonContinuityCertificationService
 
     private function canonicalize(mixed $value): mixed
     {
-        if (! is_array($value)) {
-            return $value;
-        }
-        $out = [];
-        foreach ($value as $key => $item) {
-            $out[$key] = $this->canonicalize($item);
-        }
-        if (! array_is_list($out)) {
-            ksort($out);
-        }
-
-        return $out;
+        return CanonicalValue::canonicalize($value);
     }
 
     /**

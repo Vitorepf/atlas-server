@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SpecialistFlows;
 
+use App\Support\CanonicalValue;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 
 /**
@@ -136,20 +137,7 @@ final class SpecialistFlowsRouter
 
     private function canonicalize(mixed $value): mixed
     {
-        if (! is_array($value)) {
-            return $value;
-        }
-
-        $canonical = [];
-        foreach ($value as $key => $item) {
-            $canonical[$key] = $this->canonicalize($item);
-        }
-
-        if (! array_is_list($canonical)) {
-            ksort($canonical);
-        }
-
-        return $canonical;
+        return CanonicalValue::canonicalize($value);
     }
 
     private function stringOrNull(mixed $value): ?string

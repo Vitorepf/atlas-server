@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Architecture;
 
+use App\Support\CanonicalValue;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
@@ -784,19 +785,6 @@ final class AtlasExternalGraphHarnessService
 
     private function canonicalize(mixed $value): mixed
     {
-        if (! is_array($value)) {
-            return $value;
-        }
-
-        $canonical = [];
-        foreach ($value as $key => $item) {
-            $canonical[$key] = $this->canonicalize($item);
-        }
-
-        if (! array_is_list($canonical)) {
-            ksort($canonical);
-        }
-
-        return $canonical;
+        return CanonicalValue::canonicalize($value);
     }
 }
