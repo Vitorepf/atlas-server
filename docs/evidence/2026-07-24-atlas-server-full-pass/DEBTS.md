@@ -27,7 +27,7 @@
 ### Density / elevate
 
 - [x] EnterpriseReportDashboardHtml shell → Template class (host ~552L)
-- [ ] CertificationWorkbenchDelegators → catalog (~1985L pure tables)
+- [x] CertificationWorkbenchDelegators → map+__call (~1985→272L, 219 methods)
 - [ ] OpenBrainMcpToolCatalog::definitions domain split (~1099L)
 - [ ] EnterpriseFlowFixtureActionRuntimeService::run table-drive (~1200L)
 - [ ] AiWorker::completeAttempt stage peel (~533L)
