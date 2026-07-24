@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\Learning\Dreyfus\DreyfusOverlayRepository;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
@@ -152,12 +153,6 @@ class AtlasDreyfusCommand extends Command
             : $overlays->nodeIdForTopic($node);
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = trim((string) ($this->option($key) ?? ''));
-
-        return $value !== '' ? $value : null;
-    }
 
     /**
      * @return array<string,mixed>

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\Programming\AtlasDevBeatTestReportService;
 use Illuminate\Console\Command;
 
@@ -12,6 +13,8 @@ use Illuminate\Console\Command;
  */
 final class AtlasDevBeatTestReportCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:dev:beat-test
         {--evidence= : JSON file with atlas.programming.dev_beat_test_evidence.v1 tasks}
         {--max-seconds=900 : Fixed duration threshold per medium task}
@@ -75,10 +78,4 @@ final class AtlasDevBeatTestReportCommand extends Command
         return $raw === '' || ! ctype_digit($raw) ? null : (int) $raw;
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $raw = trim((string) ($this->option($key) ?: ''));
-
-        return $raw !== '' ? $raw : null;
-    }
 }

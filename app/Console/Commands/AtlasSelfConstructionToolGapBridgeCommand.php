@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionToolGapBridgeService;
 use Illuminate\Console\Command;
 use Illuminate\Database\QueryException;
@@ -17,6 +18,8 @@ use Illuminate\Database\QueryException;
  */
 final class AtlasSelfConstructionToolGapBridgeCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:self-construction:tool-gap-bridge
         {--campaign= : Scope to one campaign_id (default: all)}
         {--window-hours= : Loss observation window in hours (default: config)}
@@ -83,10 +86,4 @@ final class AtlasSelfConstructionToolGapBridgeCommand extends Command
         return $raw === '' || ! ctype_digit($raw) ? null : (int) $raw;
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $raw = trim((string) ($this->option($key) ?: ''));
-
-        return $raw !== '' ? $raw : null;
-    }
 }

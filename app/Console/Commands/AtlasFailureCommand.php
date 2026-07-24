@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\Learning\Failure\BayesianFailureTracker;
 use App\Services\Ai\Learning\Failure\FailureRecurrenceMetricService;
 use App\Services\Ai\Learning\Failure\FailureRepetitionAlerter;
@@ -284,10 +285,4 @@ class AtlasFailureCommand extends Command
         return $exit;
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = trim((string) ($this->option($key) ?? ''));
-
-        return $value !== '' ? $value : null;
-    }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\Learning\Pattern\ProcessPatternEvidenceTracker;
 use App\Services\Ai\Learning\Pattern\ProcessPatternMatcher;
 use App\Services\Ai\Learning\Pattern\ProcessPatternRepository;
@@ -114,12 +115,6 @@ class AtlasPatternCommand extends Command
         return $exit;
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = trim((string) ($this->option($key) ?? ''));
-
-        return $value !== '' ? $value : null;
-    }
 
     /**
      * @return array<string,mixed>

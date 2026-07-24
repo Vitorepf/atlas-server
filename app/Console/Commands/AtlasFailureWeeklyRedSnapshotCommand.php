@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Ai\Learning\Failure\SuiteRedTriage;
 use App\Services\Ai\Learning\Failure\WeeklyRedCountSnapshotStore;
 use Illuminate\Console\Command;
@@ -94,10 +95,4 @@ class AtlasFailureWeeklyRedSnapshotCommand extends Command
         return $exit;
     }
 
-    private function stringOption(string $key): ?string
-    {
-        $value = trim((string) ($this->option($key) ?? ''));
-
-        return $value !== '' ? $value : null;
-    }
 }
