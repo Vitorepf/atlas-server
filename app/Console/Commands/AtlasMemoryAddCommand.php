@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Commands\Concerns\ParsesKeyValueMetadataOption;
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\Memory\AtlasMemoryRegistryService;
 use Illuminate\Console\Command;
@@ -142,22 +143,6 @@ class AtlasMemoryAddCommand extends Command
     /**
      * @return array<string,string>
      */
-    private function metadata(): array
-    {
-        $metadata = [];
-        foreach ((array) $this->option('metadata') as $item) {
-            if (! is_string($item) || ! str_contains($item, '=')) {
-                continue;
-            }
-            [$key, $value] = explode('=', $item, 2);
-            $key = trim($key);
-            if ($key !== '') {
-                $metadata[$key] = trim($value);
-            }
-        }
-
-        return $metadata;
-    }
 
     private function stringOption(string $key): ?string
     {
