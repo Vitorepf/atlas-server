@@ -57,12 +57,13 @@
   },
   "residuals_closed": [
     "P4 preflight/gates/tests for non-qualification of fake green",
-    "P4 durable PG local provision + least-privilege roles proven (atlas-p4-pg)"
+    "P4 durable PG local provision + least-privilege roles proven (atlas-p4-pg)",
+    "MutativeDecisionBinder: Dev/Forge mint sealed decision.issued (no fabricated pre_effect ids)"
   ],
   "residuals_still_open": [
-    "Provider spawn attestation for live journey not available in this environment",
+    "Quality-court authorityEligible + authorized_merge_action for live fixture journey",
+    "Provider spawn attestation for live journey not fully derived for gauntlet",
     "R104-TRANSPORT residual",
-    "R-P2A1-PG-LIVE",
     "mutative REAL_OPERATION eng journey (non-plan-only COVERED provider) not completed"
   ],
   "forbidden_touched": [],
@@ -71,11 +72,12 @@
   "real_operation": {
     "qualified": false,
     "journey_terminal_status": "blocked_ops_partial",
-    "reason": "durable_pg_proven; mutative_eng_journey_open",
+    "reason": "decision_mint_shipped; live residual governor_authority_absent/quality_court",
     "caller_set_capability_flags": "forbidden",
-    "durable_pg_ready": true
+    "durable_pg_ready": true,
+    "pre_effect_decision_seal": true
   },
-  "notes": "P4-DEV GREEN residual-honest only. Not absolute MASTER DONE. No fabricated real_operation_completed. Live upgrade requires ATLAS_P4_PG_* + derived proofs. | Local ATLAS_P4_PG_* provisioned via scripts/aaeos-p4-pg-up.sh; durable roles GREEN.",
+  "notes": "P4-DEV GREEN residual-honest only. Not absolute MASTER DONE. MutativeDecisionBinder shipped; live senior-loop past pre_effect; terminal residual quality-court/governor. No fabricated real_operation_completed.",
   "residual_honest": true,
   "absolute_master_done": false,
   "review_basis": {

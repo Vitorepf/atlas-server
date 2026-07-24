@@ -13,6 +13,7 @@ use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
 use App\Services\Ai\EngineeringKernel\EngineeringModeExecutionOrderFactory;
 use App\Services\Ai\EngineeringKernel\EngineeringOutcome;
 use App\Services\Ai\EngineeringKernel\EngineeringRoleRoster;
+use App\Services\Ai\EngineeringKernel\MutativeDecisionBinder;
 use App\Services\Ai\EngineeringKernel\OutcomeProofGate;
 use App\Services\Ai\EngineeringKernel\Repair\FailureBrainCorpus;
 use App\Services\Ai\EngineeringKernel\Repair\RepairDiagnosisStage;
@@ -321,6 +322,7 @@ class ForgeWorkPacketExecutionCycleService
             $allowedScope = [(string) ($packet->scope ?: 'work-packet/'.$packet->packet_id)];
         }
         $route = array_merge(['provider' => 'atlas_kernel', 'model' => 'shared_quality_foundry'], $providerRoute);
+        $decisionEventId = MutativeDecisionBinder::decisionEventId('forge:'.$cycle->uuid.':'.$attempt);
         $order = (new EngineeringModeExecutionOrderFactory)->make([
             'run_id' => 'forge-cycle-'.$cycle->uuid,
             'delivery_id' => 'forge-packet-'.$packet->packet_id,
@@ -343,12 +345,14 @@ class ForgeWorkPacketExecutionCycleService
                 'cycle_id' => $cycle->uuid,
                 'attempt_number' => $attempt,
                 'lease_id' => (string) ($reservation['id'] ?? ''),
+                'lease_owner' => 'operator:'.trim($operatorId),
                 'fencing_token' => (int) ($reservation['fencing_token'] ?? 0),
                 'sandbox_required' => true,
                 'source_workspace_read_only' => true,
                 'integration_lock_key' => ForgeEliteKernelExecutionAdapter::workspaceLockKey(trim($workspace)),
             ],
-            'decision_receipt' => ['decision_event_id' => 'forge-cycle-decision-'.$cycle->uuid.':attempt:'.$attempt],
+            'decision_receipt' => ['decision_event_id' => $decisionEventId],
+            'decision_event_id' => $decisionEventId,
             'operator_contract' => ['presence' => 'confirmed', 'operator_id' => trim($operatorId)],
             'provider_route' => $route,
             'mutate' => true,
@@ -357,6 +361,17 @@ class ForgeWorkPacketExecutionCycleService
             'experiment_ref' => 'forge/'.$packet->packet_id,
             'idempotency_key' => 'forge-cycle:'.$cycle->uuid.':attempt:'.$attempt,
         ]);
+        $order = app(MutativeDecisionBinder::class)->bind(
+            $order,
+            'forge',
+            $decisionEventId,
+            trim($operatorId),
+            [
+                'cycle_id' => $cycle->uuid,
+                'attempt_number' => $attempt,
+                'packet_id' => (string) $packet->packet_id,
+            ],
+        );
 
         return ($this->kernelExecution ?? app(ForgeWorkPacketExecutionPort::class))->execute($order);
     }

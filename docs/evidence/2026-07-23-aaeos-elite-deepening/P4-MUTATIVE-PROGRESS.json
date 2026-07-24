@@ -1,0 +1,48 @@
+{
+  "schema": "atlas.aaeos.p4.mutative_progress.v1",
+  "branch": "main",
+  "recorded_at": "2026-07-24T19:41:00Z",
+  "absolute_master_done": false,
+  "real_operation_qualified": false,
+  "durable_pg": {
+    "ready": true,
+    "container": "atlas-p4-pg",
+    "port": 55449,
+    "roles_contract": "GREEN",
+    "provisioner": "scripts/aaeos-p4-pg-up.sh"
+  },
+  "product_fix": {
+    "title": "MutativeDecisionBinder seals decision.issued before Dev/Forge kernel execute",
+    "files": [
+      "app/Services/Ai/EngineeringKernel/MutativeDecisionBinder.php",
+      "app/Services/Ai/Programming/AtlasDev/Execution/EliteExecutorKernelDevAdapter.php",
+      "app/Services/Ai/Programming/Forge/ForgeWorkPacketExecutionCycleService.php",
+      "tests/Unit/Ai/EngineeringKernel/MutativeDecisionBinderTest.php"
+    ],
+    "closed_wall": "pre_effect_decision_authority_missing (fabricated decision_event_id)",
+    "tests_green": [
+      "tests/Unit/Ai/EngineeringKernel/MutativeDecisionBinderTest.php",
+      "tests/Feature/Ai/Aaeos/AaeosEffectAuthorityProtocolTest.php"
+    ]
+  },
+  "live_dev_journey": {
+    "entry": "php artisan atlas:dev:senior-loop:run --create-fixture-workspace --json",
+    "plan_only": false,
+    "provider": "hermes_cli",
+    "observed_progression": [
+      "pre_effect decision seal OK (no longer pre_effect_decision_authority_missing)",
+      "provider/sandbox path exercised (provider_calls=1, changed_files in failure capsule)",
+      "governance reached with lease/fencing present",
+      "terminal residual: governor_authority_absent / risk:verification_not_passed (quality court not authorityEligible)"
+    ],
+    "latest_receipt_ref": "storage/app/aaeos-p4-mut-dev/senior-loop-bind.json",
+    "journey_terminal_status": "blocked_ops_partial",
+    "real_operation_completed": false
+  },
+  "residuals_still_open": [
+    "P4 mutative REAL_OPERATION eng journey (quality-court authorityEligible + authorized_merge_action + COVERED provider spawn proof)",
+    "R104-TRANSPORT",
+    "P4-FORGE live completeObra / AUTONOMOS brain→seed→land or honest blocked"
+  ],
+  "honesty": "Do not invent real_operation_completed. Durable PG proven. Decision mint is real product fix enabling further mutative progress."
+}

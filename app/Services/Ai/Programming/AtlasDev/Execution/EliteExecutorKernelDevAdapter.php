@@ -7,6 +7,7 @@ namespace App\Services\Ai\Programming\AtlasDev\Execution;
 use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
 use App\Services\Ai\EngineeringKernel\EngineeringModeExecutionOrderFactory;
 use App\Services\Ai\EngineeringKernel\EngineeringOutcome;
+use App\Services\Ai\EngineeringKernel\MutativeDecisionBinder;
 use Symfony\Component\Process\Process;
 
 final readonly class EliteExecutorKernelDevAdapter implements DevKernelExecutionPort
@@ -14,11 +15,20 @@ final readonly class EliteExecutorKernelDevAdapter implements DevKernelExecution
     public function __construct(
         private EliteExecutorKernel $kernel,
         private ?EngineeringModeExecutionOrderFactory $orders = null,
+        private ?MutativeDecisionBinder $decisionBinder = null,
     ) {}
 
     public function execute(ConfirmedDevRun $run, DevPlan $plan): EngineeringOutcome
     {
-        $order = ($this->orders ?? new EngineeringModeExecutionOrderFactory)->make($this->orderData($run, $plan));
+        $factory = $this->orders ?? new EngineeringModeExecutionOrderFactory;
+        $order = $factory->make($this->orderData($run, $plan));
+        $order = ($this->decisionBinder ?? app(MutativeDecisionBinder::class))->bind(
+            $order,
+            'dev',
+            MutativeDecisionBinder::decisionEventId('dev:'.$run->runHash),
+            $run->operatorId !== '' ? $run->operatorId : 'atlas-dev-operator',
+            ['dev_run_hash' => $run->runHash],
+        );
 
         return $this->kernel->execute($order, ['task_goal' => $run->intent->rawGoal]);
     }
@@ -41,6 +51,7 @@ final readonly class EliteExecutorKernelDevAdapter implements DevKernelExecution
                 'fencing_token' => 1,
             ];
         }
+        $decisionEventId = MutativeDecisionBinder::decisionEventId('dev:'.$run->runHash);
         $order = [
             'run_hash' => $run->runHash,
             'run_id' => $runId,
@@ -58,7 +69,9 @@ final readonly class EliteExecutorKernelDevAdapter implements DevKernelExecution
             'allowed_scope' => $this->allowedScope($plan, $intent),
             'forbidden_scope' => $plan->result->miniSpec->forbiddenFiles,
             'authority_envelope' => $authority,
-            'decision_receipt' => ['decision_event_id' => 'dev-decision-'.$run->runHash],
+            // Placeholder id; MutativeDecisionBinder mints/rebinds sealed ledger event.
+            'decision_receipt' => ['decision_event_id' => $decisionEventId],
+            'decision_event_id' => $decisionEventId,
             'operator_contract' => ['presence' => 'confirmed', 'operator_id' => $run->operatorId],
             'provider_route' => [
                 'provider' => $plan->result->taskContract->providerLock->provider,
