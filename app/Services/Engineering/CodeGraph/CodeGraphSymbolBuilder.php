@@ -61,7 +61,7 @@ class CodeGraphSymbolBuilder
         $nodeCount = $this->insertNodes($model, $resolved['symbol_node_ids'] ?? []);
         $edgeCount = $this->insertEdges($model, $edges);
 
-        return [
+        return array_merge([
             'schema_version' => self::SCHEMA,
             'status' => self::STATUS_WRITTEN,
             'world_model_id' => (string) $model->id,
@@ -69,6 +69,29 @@ class CodeGraphSymbolBuilder
             'symbol_nodes' => $nodeCount,
             'edges_written' => $edgeCount,
             'stats' => $resolved['stats'] ?? [],
+        ], $this->postBuildAudit($workspaceId, $resolved['symbol_node_ids'] ?? [], $edges));
+    }
+
+    /**
+     * AP-815 FUSION beachhead — wire the built-but-unwired advanced code-graph capabilities
+     * onto the LIVE symbol graph: structural HealthAuditor (Q-1) + verifiable snapshot
+     * IntegrityHasher (G-8). Flag-gated (default OFF): when OFF returns [] so build()'s
+     * receipt is byte-identical to before; when ON adds 'health' + 'integrity' keys.
+     * Additive — never mutates the persisted graph, only enriches the build receipt.
+     *
+     * @param  array<int,string>  $nodeIds
+     * @param  array<int,array<string,mixed>>  $edges
+     * @return array<string,mixed>
+     */
+    private function postBuildAudit(string $workspaceId, array $nodeIds, array $edges): array
+    {
+        if (! (bool) config('atlas.code_graph.post_build_audit', false)) {
+            return [];
+        }
+
+        return [
+            'health' => (new CodeGraphHealthAuditor)->audit($nodeIds, $edges),
+            'integrity' => (new CodeGraphIntegrityHasher)->snapshot($workspaceId, $nodeIds, $edges),
         ];
     }
 
