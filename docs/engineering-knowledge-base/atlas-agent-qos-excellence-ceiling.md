@@ -5,21 +5,136 @@ title: Atlas Agent QoS — Excellence Ceiling (operator out of eng loop)
 status: active
 category: programming
 priority: 95
-summary: "Lei de qualidade agentic máxima: M multiplica N com multi-loop spec→author→judge→verify→repair→land→settle; operador só soberania; tempo secundário; sem dial vanity quality_ceiling; owners existentes (Kernel Court/Floor/Repair). Residual MASTER R106 / EXECUTE P2g-QOS."
+summary: "Agent QoS com alvo falsificável M_excellence ≥ 50× (mesmo modelo cru vs Atlas, ex. Kimi). Multi-loop Court+Floor+Repair; operador fora do eng; sem dial vanity; Rivals-only claim. Residuals R106 path-law + R107 measured 50×."
 tags:
   - agent-qos
   - excellence
+  - multiplier-50x
   - aaeos
   - verification-moat
+  - rivals
   - elite-executors
 ---
 
-# Atlas Agent QoS — Excellence Ceiling
+# Atlas Agent QoS — Excellence Ceiling + Multiplicador ≥ 50×
 
-> **Programa:** AAEOS Elite Deepening residual **R106** · fatia **`EXECUTE P2g-QOS`**  
-> **Premissa:** operador **sempre fora do loop de engenharia**; só soberania (intent / plan_seal / standing_mandate / H1–H7).  
-> **Tempo:** secundário. **Qualidade de software:** primária.  
-> **Proibido:** órgão novo, score vanity, flag produtiva `quality_ceiling=max` gameável.
+> **Programa:** AAEOS residual **R106** (path law) · **R107** (measured M ≥ 50×) · fatia **`EXECUTE P2g-QOS`** + prova Rivals  
+> **Premissa:** operador **sempre fora do loop de engenharia**; só soberania.  
+> **Tempo:** secundário. **Qualidade:** primária.  
+> **Alvo de produto (operador):** mesmo modelo (ex. **Kimi K2.7 / K7-class**) **sem Atlas** vs **com Atlas** → Atlas entrega **≥ 50×** no instrumento de excelência abaixo.  
+> **Proibido:** órgão novo; dial vanity; claim “50×” sem suite preregistrada e braços simétricos.
+
+---
+
+## 0. Multiplicador ≥ 50× — lei do instrumento (pétreo)
+
+### 0.1 O que “50×” **não** é
+
+| Proibido como “50×” | Por quê |
+|---|---|
+| 50× mais tokens / mais loops / mais tempo | Custo, não qualidade |
+| Score interno 50× ou GOD_SOTA | Vanity (P0) |
+| “Parece 50× melhor” | Não falsificável |
+| Atlas sozinho sem braço cru | Sem N de controle |
+| Braços assimétricos (cru com FC, Atlas com JSON³) | Falsa derrota/vitória (P1 JSON³) |
+
+### 0.2 Definição formal — `M_excellence`
+
+Para um **mesmo modelo** `μ` (ex. Kimi K2.7-FC / K7-class) e uma **suite preregistrada** `S` de tarefas de engenharia:
+
+```text
+N_raw(μ, S)   = taxa de EXCELLENCE_PASS do braço CRU   (harness mínimo, sem AAEOS/Kernel courts)
+N_atlas(μ, S) = taxa de EXCELLENCE_PASS do braço ATLAS (path QoS depth=max, R104 packaging, courts)
+
+M_excellence(μ, S) = N_atlas(μ, S) / max(N_raw(μ, S), ε)
+```
+
+- **ε** = piso estatístico (default `0.02` = 2% se raw ≈ 0 em amostra pequena; documentado no preregistro).  
+- **Alvo operador:** `M_excellence ≥ 50` em suite preregistrada com n suficiente.  
+- **Claim público “≥50×”** só via **Rivals** (comparative SOTA) + PHASE residual **R107** GREEN — nunca certify inject.
+
+### 0.3 O que é `EXCELLENCE_PASS` (conjunctive — anti-proxy)
+
+Uma unidade passa **só se todos** forem verdade (fail-closed):
+
+| # | Predicado | Cru | Atlas |
+|---|---|---|---|
+| E1 | Solução **aplica** no workspace (não só texto) | apply harness | hermetic apply |
+| E2 | **Critérios de aceitação** da unidade passam (testes/oracles da suite) | sim | sim |
+| E3 | **Anti-fake-green** (não smoke fixo; suite real da unidade) | harness | FalseClaim + Court |
+| E4 | **Sem authority laundering** / sem write fora do allowed set | harness scope | write-set observer |
+| E5 | (Atlas-only, não pune cru) Court+Floor promote quando path mutativo | n/a | obrigatório |
+| E6 | (Atlas-only) R104: não classificar encoding fail como model_failure | n/a | obrigatório |
+
+**Cru não precisa de Court** — senão o Atlas “vence” por burocracia.  
+**Atlas precisa de Court** — senão não há M de qualidade, só N.
+
+Para **C_ARCH** (só desenho): EXCELLENCE_PASS = critérios de arquitetura da suite (multi-candidato / trade-off / adversarial) — cru emite 1 desenho; Atlas path max exige §4.4.3 (≥3 + adversarial). Suite deve **pontuar** isso de forma comparável (ver §0.5).
+
+### 0.4 Por que 50× é ambicioso e ainda assim o alvo
+
+```text
+Se N_raw ≈ 2% de EXCELLENCE_PASS em suite dura (obra-prima),
+então M=50 ⇒ N_atlas ≥ 100% na mesma suite.
+
+Se N_raw = 30% (modelo forte em tasks fáceis),
+M=50 seria impossível por cima de 100% — por isso a suite S
+DEVE ser calibrada no regime em que o cru COLAPSA
+(tarefas onde excelência conjuntiva é rara sem multi-loop).
+```
+
+**Lei de calibragem da suite `S_50`:**
+
+1. Preregistro **antes** de rodar (Rivals preregistration).  
+2. Mix: ≥40% unidades onde raw historical EXCELLENCE_PASS ≤ 5% (hard).  
+3. ≥30% unidades medium; ≤30% easy (sanity que Atlas não regride).  
+4. Mesmo `μ`, mesma seeds/prompts de tarefa, **só o path** muda (cru vs Atlas).  
+5. Simetria de canal: se cru usa FC nativo, Atlas **também** (R104) — senão medição é inválida.  
+6. n mínimo: **≥ 50 unidades** ou power analysis no preregistro; reportar CI.  
+7. Se `N_atlas < N_raw` → `M_excellence < 1` e claim 50× é **proibido** (estado atual em bfcl JSON³ era esse).
+
+### 0.5 Como o QoS **gera** multiplicação (stack de M)
+
+Cada camada multiplica **taxa de excelência**, não tokens:
+
+```text
+M_total ≳ M_channel × M_spec × M_multi × M_judge × M_verify × M_repair × M_settle
+```
+
+| Fator | O que faz | Se ausente |
+|---|---|---|
+| **M_channel (R104)** | Não destrói N resolvido; FC/package | M_total **< 1** (Atlas pior que cru) |
+| **M_spec** | FREEZE discriminante; mata green-on-noop | lixo estruturado passa |
+| **M_multi (C_ARCH)** | ≥3 candidatos + adversarial | “1 chute do Kimi” = cru |
+| **M_judge** | author≠judge; Court mecânico | self-approve = cru |
+| **M_verify** | testes reais + mutation em predicados | fake-green |
+| **M_repair** | 0..N mesmo root até critérios | 1-shot fail = cru |
+| **M_settle** | land só com write-set + canary | mentira de “shipped” |
+
+**Meta de desenho:** com depth=max e R104 GREEN, o produto dos fatores deve **visar** `M_excellence ≥ 50` na suite `S_50`.  
+**Garantia de claim:** só medição — o QoS **estrutura** a máquina de multiplicação; **não** imprime “50×” no certify.
+
+### 0.6 Gates de claim (quando pode dizer “≥50×”)
+
+| Estado | Pode claim 50×? |
+|---|---|
+| R104 aberto | **NÃO** |
+| Suite S_50 não preregistrada | **NÃO** |
+| Braços assimétricos | **NÃO** |
+| `M_excellence` medido ≥ 50 com CI que não cruza 50 se policy exigir | **SIM** (R107 GREEN) |
+| Só path law R106 GREEN | **NÃO** (lei sem prova) |
+| PHPUnit only | **NÃO** (R84) |
+
+### 0.7 Exemplo operador (Kimi)
+
+```text
+Arm A: Kimi K2.7-FC / K7-class CRU   → N_raw
+Arm B: Kimi K2.7-FC / K7-class ATLAS depth=max → N_atlas
+Suite: S_50 preregistrada (eng excellence conjunctive)
+Claim: M_excellence = N_atlas / max(N_raw, ε) ≥ 50
+```
+
+Se Kimi cru já passa 80% da suite fácil, **recalibre S_50** (mais hard) — não baixe a barra de EXCELLENCE_PASS.
 
 ---
 
@@ -27,7 +142,7 @@ tags:
 
 **Não é** latência, tokens/s, “time-to-first-commit” nem “o modelo respondeu”.
 
-**É** a probabilidade de que um trabalho **promova com prova** — estrutura, correção, manutenibilidade, segurança e verificação no nível pedido — **sem babysitting técnico** e **sem mentir sucesso**.
+**É** a máquina que faz `M_excellence ≥ 50` ser **possível e mensurável**: probabilidade de **EXCELLENCE_PASS** com prova — estrutura, correção, manutenibilidade, segurança e verificação — **sem babysitting técnico** e **sem mentir sucesso**.
 
 | Dimensão (conjunta) | Conta | Não conta |
 |---|---|---|
@@ -246,9 +361,28 @@ Se estes não puderem **falhar** o instrumento, o teto é mentira:
 
 | Camada | Estado |
 |---|---|
-| **Desenho / lei (este doc + MASTER R106)** | **TETO FECHADO** nesta seção |
-| **Runtime enforcement** | ABERTO até PHASE-P2G-QOS (+ R104, P2b, P2c) GREEN |
-| **Prova comparativa Atlas ≥ cru** | ABERTO (P4 + Rivals) |
+| **Desenho / lei path (R106 + §4.4)** | **FECHADO** |
+| **Instrumento M≥50× (§0)** | **FECHADO como lei de medição** |
+| **Runtime path QoS** | ABERTO até PHASE-P2G-QOS (+ R104, P2b, P2c) GREEN |
+| **Claim medido M≥50× (R107)** | ABERTO — suite S_50 + Rivals arms simétricos + report |
+
+### 4.4.8 Residual R107 — measured excellence multiplier ≥ 50×
+
+| ID | Gap | Owners | Hard done |
+|---|---|---|---|
+| **R107** | Não existe claim falsificável “Atlas multiplica modelo ≥50×”; risco de vanity | Rivals preregistration + dual arm (raw vs Atlas) + EXCELLENCE_PASS harness; Provider packaging R104; QoS path R106; **sem** novo score organ | (1) suite `S_50` preregistrada; (2) mesmo μ (ex. Kimi K7-class) nos dois braços; (3) simetria de canal (R104); (4) `M_excellence ≥ 50` reportado com n e método; (5) se M&lt;50 claim proibido; (6) certify/cockpit não mostram 50× sem receipt Rivals; (7) re-run após mudança de path revalida |
+
+**R106** = construir a máquina. **R107** = provar o 50×. Ambos necessários para o objetivo do operador.
+
+### 4.4.9 Ordem operacional para chegar a M≥50
+
+```text
+1. R104 GREEN     — M_channel ≥ 1 (parar de perder do cru)
+2. R106 / P2g     — stack multi-loop enforçado (máquina de M)
+3. Calibrar S_50  — suite onde cru colapsa em EXCELLENCE_PASS
+4. Rivals dual-arm Kimi cru vs Atlas max
+5. R107           — só então claim ≥50×
+```
 
 ---
 

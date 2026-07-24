@@ -56,3 +56,9 @@ Product P1 in `atlas-problemas-conhecidos.md` is MASTER residual **R104**, slice
 Owner map: `docs/engineering-knowledge-base/atlas-agent-qos-excellence-ceiling.md`  
 MASTER: §1.12 + SLICE P2g-QOS + `PHASE-P2G-QOS.json`  
 Law: multi-loop excellence; server-resolved depth; no vanity dial; operator out of eng loop.
+
+## Residual R107 (M_excellence ≥ 50×)
+
+Target: same model (e.g. Kimi) raw vs Atlas → measured multiplier ≥ 50 on suite S_50.
+Law: `docs/engineering-knowledge-base/atlas-agent-qos-excellence-ceiling.md` §0.
+Path machine: R106. Channel: R104. Claim: Rivals only — never vanity certify.

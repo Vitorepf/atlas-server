@@ -317,6 +317,8 @@ Operator **always out of engineering loop**. Time delay is secondary. Software e
 
 **Agent QoS** = probability of promote-with-proof (structure, correctness, maintainability, verification) — not latency.
 
+**Alvo multiplicador (operador):** `M_excellence ≥ 50` no mesmo modelo (ex. Kimi) cru vs Atlas — definição/protocolo em `atlas-agent-qos-excellence-ceiling.md` **§0**; claim só residual **R107** (Rivals), nunca certify inject.
+
 **Teto de desenho (fechado no knowledge doc §4.4):** classes C_ARCH…C_MEAS; depth standard|elevated|max server-resolved; C_ARCH×max ≥3 candidatos + adversarial; kill-tests K1–K10; sem dial vanity.
 
 When excellence depth is server-resolved **max** (from mandate/risk/L4–L5 — **not** a productive CLI dial `quality_ceiling=max`):
@@ -419,6 +421,7 @@ Phase exits in SLICE sections win if conflict with residual prose.
 | R104 | JSON³ provider contract: Atlas forces triple-nested patch_plan JSON; native FC unused; `invalid_provider_contract` after model solved N | **P1-JSON** |
 | R105 | Governor merge authority for benchmark/ephemeral workspaces (product P2) | post-R104; separate |
 | R106 | Agent QoS excellence multi-loop not law of path; quality can be skipped or gamed by dials/proxies; architecture vs impl shortcuts | **P2g-QOS** |
+| R107 | No falsifiable claim Atlas multiplies same model ≥50× (e.g. Kimi raw vs Atlas); risk of vanity 50× | **Rivals S_50 + R106 path + R104**; residual measure |
 
 
 **Non-waivable for full DONE:** R33,R34,R35,R38,R40,R43,R46,R51–R104 + R106 when excellence ceiling claimed (R44→R66). HORIZON only where marked. R105 only if measurement-workspace DONE claimed.
@@ -437,6 +440,14 @@ Product source: `docs/engineering-knowledge-base/atlas-problemas-conhecidos.md` 
 |---|---|---|---|
 | R106 | Multi-loop excellence (spec→author→judge→verify→repair→land→settle) is optional/fragmented; dials/proxies can game quality; architecture path can mutate; operator can re-enter as technical reviewer; timeout can promote | `EliteExecutorKernel`, `SovereignSpecFloor`, `VerificationCourtAcceptanceGate`, `SovereignHonestyFloor`, `EngineeringQualityCourt`+`EngineeringRoleRoster`, `RepairOrchestrator`+Forge/TaskServing repair, `QualityFoundryMutationCoverageRunner`/`MutationTestingAdapter`, `AtlasTaskMergeActuator`+canary, `AtlasEvidenceLedger`, `AtlasReviewDeepCommand` (audit-only) — **no new organ**; policy map `atlas-agent-qos-excellence-ceiling.md` **§4.4 teto final** (class matrix + K1–K10) | (1) excellence depth is **server-resolved** (raise-only; no productive CLI dial); (2) architecture vs implementation paths distinct fail-closed; (3) implementation max cannot LAND without Court+Floor promote; repair>0 requires regression_lock+replay_proof; (4) same-family author+judge without mechanical Court cannot land; (5) zero routine `human_action_required`/`needs_review` technical exits; (6) timeout/budget → precise terminal, never promote; (7) review:deep/cockpit non-gating; (8) multi-loop quality claim forbidden while R104 open; (9) goldens for multi-loop + mode parity; (10) M still falsifiable (R88) |
 
+
+
+
+### 3.4 Residual R107 hard-done (M_excellence ≥ 50×)
+
+| ID | Gap | Owners | Hard done |
+|---|---|---|---|
+| R107 | Claim “Atlas multiplica modelo ≥50×” sem instrumento | Rivals preregistration + dual arm raw vs Atlas; EXCELLENCE_PASS suite `S_50`; R104 channel symmetry; R106 path; no vanity organ | (1) S_50 preregistered; (2) same μ both arms; (3) R104 symmetry; (4) measured M_excellence=N_atlas/max(N_raw,ε) ≥ 50 with n/method; (5) M&lt;50 forbids claim; (6) no certify 50× without Rivals receipt; (7) revalidate after path change |
 
 
 ### 3.1 Residual hard-done detail (R64–R103)
