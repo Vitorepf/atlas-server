@@ -73,22 +73,20 @@ final class AaeosP4RealOperationGauntletTest extends TestCase
         $receipt = AaeosP4RealOperationGauntlet::journeyReceipt('forge', [
             'exit_code' => 0,
             'stdout' => 'ok',
-            'command' => 'bin/atlas forge demo --plan-only',
+            'command' => 'bin/atlas forge demo',
         ], [
             'plan_only' => false,
             'env' => [
                 'ATLAS_P4_PG_PRODUCER_URL' => 'pgsql://atlas_p4_producer@localhost/atlas_p4',
                 'ATLAS_P4_PG_VERIFIER_URL' => 'pgsql://atlas_p4_verifier@localhost/atlas_p4',
             ],
-            'provider_spawn_attested' => false,
-            'authority_lineage_present' => true,
         ]);
 
         $this->assertFalse($receipt['real_operation_qualified']);
-        $this->assertContains('real_operation_predicates_incomplete', $receipt['blockers']);
+        $this->assertContains('derived_capability_proofs_incomplete', $receipt['blockers']);
     }
 
-    public function test_full_predicates_yield_real_operation_completed(): void
+    public function test_caller_set_capability_bools_are_forbidden(): void
     {
         $receipt = AaeosP4RealOperationGauntlet::journeyReceipt('dev', [
             'exit_code' => 0,
@@ -102,10 +100,49 @@ final class AaeosP4RealOperationGauntletTest extends TestCase
             ],
             'provider_spawn_attested' => true,
             'authority_lineage_present' => true,
+            'provider_spawn_proof' => [
+                'provider' => 'codex_cli',
+                'provider_receipt_hash' => str_repeat('ab', 32),
+                'spawned' => true,
+            ],
+            'authority_lineage_proof' => [
+                'authority_ref' => 'mandate-1',
+                'authority_hash' => str_repeat('cd', 32),
+                'authority_revision' => 1,
+            ],
+        ]);
+
+        $this->assertFalse($receipt['real_operation_qualified']);
+        $this->assertContains('caller_set_capability_flags_forbidden', $receipt['blockers']);
+    }
+
+    public function test_full_derived_proofs_yield_real_operation_completed(): void
+    {
+        $receipt = AaeosP4RealOperationGauntlet::journeyReceipt('dev', [
+            'exit_code' => 0,
+            'stdout' => 'completed',
+            'command' => 'bin/atlas dev real',
+        ], [
+            'plan_only' => false,
+            'env' => [
+                'ATLAS_P4_PG_PRODUCER_URL' => 'pgsql://atlas_p4_producer@localhost/atlas_p4',
+                'ATLAS_P4_PG_VERIFIER_URL' => 'pgsql://atlas_p4_verifier@localhost/atlas_p4',
+            ],
+            'provider_spawn_proof' => [
+                'provider' => 'codex_cli',
+                'provider_receipt_hash' => str_repeat('ab', 32),
+                'spawned' => true,
+            ],
+            'authority_lineage_proof' => [
+                'authority_ref' => 'mandate-1',
+                'authority_hash' => str_repeat('cd', 32),
+                'authority_revision' => 1,
+            ],
         ]);
 
         $this->assertTrue($receipt['real_operation_qualified']);
         $this->assertSame(AaeosP4RealOperationGauntlet::STATUS_REAL_OPERATION_COMPLETED, $receipt['journey_terminal_status']);
+        $this->assertTrue($receipt['capability_proof_derived_not_caller_set']);
     }
 
     public function test_certify_read_only_boundary(): void
@@ -163,8 +200,16 @@ final class AaeosP4RealOperationGauntletTest extends TestCase
                 'ATLAS_P4_PG_PRODUCER_URL' => 'pgsql://atlas_p4_producer@localhost/atlas_p4',
                 'ATLAS_P4_PG_VERIFIER_URL' => 'pgsql://atlas_p4_verifier@localhost/atlas_p4',
             ],
-            'provider_spawn_attested' => true,
-            'authority_lineage_present' => true,
+            'provider_spawn_proof' => [
+                'provider' => 'hermes',
+                'provider_receipt_hash' => str_repeat('11', 32),
+                'spawned' => true,
+            ],
+            'authority_lineage_proof' => [
+                'authority_ref' => 'mandate-a',
+                'authority_hash' => str_repeat('22', 32),
+                'authority_revision' => 2,
+            ],
         ]);
         $this->assertFalse($receipt['real_operation_qualified']);
         $this->assertContains('autonomos_must_be_direct_daemon_first', $receipt['blockers']);

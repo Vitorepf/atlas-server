@@ -79,28 +79,37 @@ final class AaeosP4RealOperationGauntlet
             $blockers[] = 'operator_task_causal_forbidden';
         }
 
-        $terminal = self::STATUS_PREFLIGHT_REFUSED;
-        if ($blockers !== [] && ! $planOnly) {
-            $terminal = self::STATUS_BLOCKED_OPS_PARTIAL;
-        } elseif ($planOnly && $exit === 0 && $command !== '') {
-            // Plan-only proves entry point; not REAL_OPERATION qualification.
-            $terminal = self::STATUS_BLOCKED_OPS_PARTIAL;
-            $blockers[] = 'plan_only_not_real_operation';
-            if (! $preflight['durable_pg_ready']) {
-                $blockers[] = 'durable_pg_roles_required_for_real_operation';
-            }
-        } elseif (! $planOnly && $exit === 0 && $preflight['durable_pg_ready']
-            && (bool) ($context['provider_spawn_attested'] ?? false)
-            && (bool) ($context['authority_lineage_present'] ?? false)) {
-            $terminal = self::STATUS_REAL_OPERATION_COMPLETED;
-            $blockers = [];
-        } elseif ($exit !== 0) {
-            $terminal = self::STATUS_BLOCKED_OPS_PARTIAL;
-            $blockers[] = 'producer_exit_nonzero';
-        } else {
-            $terminal = self::STATUS_BLOCKED_OPS_PARTIAL;
-            $blockers[] = 'real_operation_predicates_incomplete';
+        // R84: capability proofs must be derived receipts/hashes — never free caller bools.
+        if (array_key_exists('provider_spawn_attested', $context)
+            || array_key_exists('authority_lineage_present', $context)) {
+            $blockers[] = 'caller_set_capability_flags_forbidden';
         }
+
+        $providerProof = self::deriveProviderSpawnProof($context['provider_spawn_proof'] ?? null);
+        $authorityProof = self::deriveAuthorityLineageProof($context['authority_lineage_proof'] ?? null);
+        $blockers = array_merge($blockers, $providerProof['blockers'], $authorityProof['blockers']);
+
+        $hardBlockers = array_values(array_unique($blockers));
+        $terminal = self::STATUS_BLOCKED_OPS_PARTIAL;
+
+        if ($planOnly) {
+            $hardBlockers[] = 'plan_only_not_real_operation';
+            if (! $preflight['durable_pg_ready']) {
+                $hardBlockers[] = 'durable_pg_roles_required_for_real_operation';
+            }
+        } elseif ($exit !== 0) {
+            $hardBlockers[] = 'producer_exit_nonzero';
+        } elseif (! $preflight['durable_pg_ready']) {
+            $hardBlockers[] = 'durable_pg_roles_required_for_real_operation';
+        } elseif (! $providerProof['ok'] || ! $authorityProof['ok']) {
+            $hardBlockers[] = 'derived_capability_proofs_incomplete';
+        } elseif ($hardBlockers === [] && $exit === 0 && $command !== '') {
+            $terminal = self::STATUS_REAL_OPERATION_COMPLETED;
+        } else {
+            $hardBlockers[] = 'real_operation_predicates_incomplete';
+        }
+
+        $blockers = array_values(array_unique($hardBlockers));
 
         return [
             'schema' => self::SCHEMA.'.journey',
@@ -109,18 +118,101 @@ final class AaeosP4RealOperationGauntlet
             'real_operation_qualified' => $terminal === self::STATUS_REAL_OPERATION_COMPLETED,
             'exit_code' => $exit,
             'exit_zero_alone_never_qualifies' => true,
+            'capability_proof_derived_not_caller_set' => true,
             'command' => self::redactSecrets($command),
             'stdout_fingerprint' => hash('sha256', $stdout),
             'plan_only' => $planOnly,
             'aaeos_initiated' => $aaeosInitiated,
             'preflight' => $preflight,
-            'blockers' => array_values(array_unique($blockers)),
-            'authority_lineage_present' => (bool) ($context['authority_lineage_present'] ?? false),
-            'provider_spawn_attested' => (bool) ($context['provider_spawn_attested'] ?? false),
+            'blockers' => $blockers,
+            'provider_spawn_proof' => $providerProof['proof'],
+            'authority_lineage_proof' => $authorityProof['proof'],
             'operator_task_causal_count' => (int) ($context['operator_task_causal_count'] ?? 0),
             'r104_transport_open' => (bool) ($context['r104_transport_open'] ?? true),
             'code_sha' => (string) ($context['code_sha'] ?? ''),
         ];
+    }
+
+    /**
+     * Derived provider spawn proof — receipt hash + provider id, never a free bool.
+     *
+     * @param  mixed  $raw
+     * @return array{ok:bool,blockers:list<string>,proof:array<string,mixed>|null}
+     */
+    public static function deriveProviderSpawnProof(mixed $raw): array
+    {
+        if ($raw === null) {
+            return ['ok' => false, 'blockers' => ['provider_spawn_proof_missing'], 'proof' => null];
+        }
+        if (! is_array($raw)) {
+            return ['ok' => false, 'blockers' => ['provider_spawn_proof_invalid'], 'proof' => null];
+        }
+        $provider = trim((string) ($raw['provider'] ?? ''));
+        $receiptHash = strtolower(trim((string) ($raw['provider_receipt_hash'] ?? '')));
+        $spawned = $raw['spawned'] ?? null;
+        $blockers = [];
+        if ($provider === '') {
+            $blockers[] = 'provider_spawn_proof_provider_missing';
+        }
+        if (preg_match('/^[a-f0-9]{64}$/', $receiptHash) !== 1) {
+            $blockers[] = 'provider_spawn_proof_receipt_hash_invalid';
+        }
+        // spawned must be derived from receipt presence, not an independent free flag alone.
+        if ($spawned !== true || $receiptHash === '' || $provider === '') {
+            if ($spawned === true && ($provider === '' || preg_match('/^[a-f0-9]{64}$/', $receiptHash) !== 1)) {
+                $blockers[] = 'provider_spawn_proof_spawned_without_receipt';
+            }
+            if ($spawned !== true) {
+                $blockers[] = 'provider_spawn_proof_not_spawned';
+            }
+        }
+        $ok = $blockers === [];
+        $proof = $ok ? [
+            'provider' => $provider,
+            'provider_receipt_hash' => $receiptHash,
+            'spawned' => true,
+            'derived' => true,
+        ] : null;
+
+        return ['ok' => $ok, 'blockers' => $blockers, 'proof' => $proof];
+    }
+
+    /**
+     * Derived authority lineage proof — ref + content hash.
+     *
+     * @param  mixed  $raw
+     * @return array{ok:bool,blockers:list<string>,proof:array<string,mixed>|null}
+     */
+    public static function deriveAuthorityLineageProof(mixed $raw): array
+    {
+        if ($raw === null) {
+            return ['ok' => false, 'blockers' => ['authority_lineage_proof_missing'], 'proof' => null];
+        }
+        if (! is_array($raw)) {
+            return ['ok' => false, 'blockers' => ['authority_lineage_proof_invalid'], 'proof' => null];
+        }
+        $ref = trim((string) ($raw['authority_ref'] ?? ''));
+        $hash = strtolower(trim((string) ($raw['authority_hash'] ?? '')));
+        $revision = (int) ($raw['authority_revision'] ?? 0);
+        $blockers = [];
+        if ($ref === '') {
+            $blockers[] = 'authority_lineage_proof_ref_missing';
+        }
+        if (preg_match('/^[a-f0-9]{64}$/', $hash) !== 1) {
+            $blockers[] = 'authority_lineage_proof_hash_invalid';
+        }
+        if ($revision < 1) {
+            $blockers[] = 'authority_lineage_proof_revision_invalid';
+        }
+        $ok = $blockers === [];
+        $proof = $ok ? [
+            'authority_ref' => $ref,
+            'authority_hash' => $hash,
+            'authority_revision' => $revision,
+            'derived' => true,
+        ] : null;
+
+        return ['ok' => $ok, 'blockers' => $blockers, 'proof' => $proof];
     }
 
     /**

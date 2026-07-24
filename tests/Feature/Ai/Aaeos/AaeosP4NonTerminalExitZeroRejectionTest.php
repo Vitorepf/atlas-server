@@ -26,5 +26,6 @@ final class AaeosP4NonTerminalExitZeroRejectionTest extends TestCase
         $this->assertSame(0, $receipt['exit_code']);
         $this->assertFalse($receipt['real_operation_qualified']);
         $this->assertTrue($receipt['exit_zero_alone_never_qualifies']);
+        $this->assertContains('derived_capability_proofs_incomplete', $receipt['blockers']);
     }
 }
