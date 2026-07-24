@@ -33,7 +33,21 @@ class AtlasLedgerReplayService
     {
         $tenantId = $this->proofTenant($tenantId);
         if ($tenantId === null || ! $this->tableAvailable()) {
-            return [];
+            if ($tenantId !== null || ! $this->tableAvailable()) {
+                return [];
+            }
+
+            $tenantIds = $this->ledgerQuery()
+                ->where('envelope_id', $envelopeId)
+                ->distinct()
+                ->pluck('tenant_id')
+                ->filter(fn (mixed $value): bool => trim((string) $value) !== '')
+                ->values();
+            if ($tenantIds->count() !== 1) {
+                return [];
+            }
+
+            $tenantId = (string) $tenantIds->first();
         }
 
         return $this->ledgerQuery()
