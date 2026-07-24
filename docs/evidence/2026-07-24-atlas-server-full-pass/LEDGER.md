@@ -5,22 +5,20 @@
 ```yaml
 branch: main
 execution: in_progress
-full_pass_commits: 30+
-unit_proof: "35+ tests green"
-mcp_service_loc: ~878
-next: PipelineRunExecutor Http exit | HTML render split | more Readiness peels
+full_pass_commits: 36+
+unit_proof_targeted: green
+mcp_service_loc: 878
+next: PipelineRunExecutor Http exit | EnterpriseReport HTML | Readiness peels | ProviderCatalog
 ```
 
-## Continuous landings
+## Continuous progress
 
-Shared helpers (partial list): LoadsFactsJsonOption, ResolvesSilentJsonOption, ResolvesGitProjectRoot, ParsesKeyValueMetadataOption, ReadsNonEmptyStringOption, GitWorkspaceStateReader, MemoryLimitBytes, CliInvocationModel, MemoryEntrySafetySummary, CodeGraphIntOrNull, ControlPlaneStatusSection, AcosDeltaSeriesJsonl, SchemaVersionedJsonBlockParser, DiskJsonIndexLoader, DatabaseIdsContaining, CanonicalValue, Clamp01, FirstNonEmptyString, NonEmptyStringOrFallback, CodexReviewMergeLaterCycleChain, OpenBrainMcpToolCatalog.
+Large set of shared Support/* and Commands/Concerns/* helpers; MCP tool catalog density extract; CodexReviewMerge later-cycle trait; honesty renames; loop ACDE legacy comments.
 
-Honesty renames: BriefGrounding, SuiteRedTriage. Loop config legacy documented.
+## Residual DEBT (honest)
 
-## Residual (honest)
-
-File-by-file receipts for 13399 paths incomplete. Monstruos (Session, HTML, PipelineRun Http, AiWorker completeAttempt, config split, ProviderCatalog) remain DEBT.
+13399 file receipts incomplete. Remaining monstruos listed in DEBTS.md.
 
 ## Floors blocked
 
-RSI/Evidence/Readiness probe/keep-list AtlasLoop*
+RSI Session, Evidence redesign, Readiness probe hub, AtlasLoop* keep-list.
