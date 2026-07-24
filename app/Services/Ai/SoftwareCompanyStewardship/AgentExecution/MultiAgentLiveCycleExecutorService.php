@@ -105,7 +105,7 @@ final class MultiAgentLiveCycleExecutorService
             : MultiAgentLaneOrchestratorService::MODE_PLAN_ONLY;
         $useReal = (bool) ($input['use_real_services'] ?? false);
 
-            $circuitBreaker = (new MultiAgentCircuitBreaker)->evaluate([
+        $circuitBreaker = (new MultiAgentCircuitBreaker)->evaluate([
             ...(is_array($input['circuit_breaker'] ?? null) ? $input['circuit_breaker'] : []),
             'execution_requested' => $executionReady,
         ]);

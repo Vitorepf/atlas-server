@@ -26,6 +26,8 @@ use Illuminate\Support\Facades\File;
  */
 final class AtlasContinuousStewardshipLoopService
 {
+    use ContinuousStewardshipClock;
+
     public const STATE_SCHEMA = 'atlas.continuous_stewardship.loop_state.v1';
 
     public const TICK_SCHEMA = 'atlas.continuous_stewardship.loop_tick.v1';
@@ -630,21 +632,5 @@ final class AtlasContinuousStewardshipLoopService
         $slug = trim($slug, '_');
 
         return $slug !== '' ? $slug : 'unknown';
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
-    }
-
-    private function time(string $value): ?int
-    {
-        if (trim($value) === '') {
-            return null;
-        }
-
-        $timestamp = strtotime($value);
-
-        return $timestamp === false ? null : $timestamp;
     }
 }

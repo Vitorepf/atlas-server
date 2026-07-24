@@ -65,6 +65,7 @@ final class AtlasLessonQualityService
             $candidate = $this->candidateForFeedback($event, $candidateById);
             if (! $candidate instanceof AiLearningCandidate) {
                 $baselineByFlow[(string) $event->flow_id][] = $event;
+
                 continue;
             }
 

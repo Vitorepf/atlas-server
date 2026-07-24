@@ -33,9 +33,4 @@ final readonly class OperatorContext
             preferences: is_array($input['preferences'] ?? null) ? $input['preferences'] : [],
         );
     }
-
-    private static function string(mixed $value): string
-    {
-        return trim((string) $value);
-    }
 }

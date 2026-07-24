@@ -8,6 +8,8 @@ use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainTaskOutcome
 
 class AtlasLearningDistiller
 {
+    use CompoundingArrayHelper;
+
     public const SCHEMA_VERSION = 'atlas.ai.compounding.learning_candidate.v1';
 
     /**
@@ -198,11 +200,6 @@ class AtlasLearningDistiller
     /**
      * @return array<int|string,mixed>
      */
-    private function array(mixed $value): array
-    {
-        return is_array($value) ? $value : [];
-    }
-
     private function score(mixed $value, int $default): int
     {
         if (! is_numeric($value)) {

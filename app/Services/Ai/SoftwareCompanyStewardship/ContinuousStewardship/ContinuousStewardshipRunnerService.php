@@ -38,6 +38,8 @@ use Throwable;
  */
 final class ContinuousStewardshipRunnerService
 {
+    use ContinuousStewardshipClock;
+
     public const RECEIPT_SCHEMA = 'atlas.software_company_stewardship.continuous_runner.v1';
 
     public const RECORD_SCHEMA = 'atlas.software_company_stewardship.continuous_runner_record.v1';
@@ -1050,11 +1052,6 @@ final class ContinuousStewardshipRunnerService
         return $slug !== '' ? $slug : 'unknown';
     }
 
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
-    }
-
     private function today(): string
     {
         return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format('Y-m-d');
@@ -1068,16 +1065,5 @@ final class ContinuousStewardshipRunnerService
         }
 
         return (new DateTimeImmutable('@'.$timestamp))->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d');
-    }
-
-    private function time(string $value): ?int
-    {
-        if (trim($value) === '') {
-            return null;
-        }
-
-        $timestamp = strtotime($value);
-
-        return $timestamp === false ? null : $timestamp;
     }
 }

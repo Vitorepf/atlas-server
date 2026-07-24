@@ -8,9 +8,6 @@ use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\Concerns\HasStewardshipStorageRoot;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use App\Support\AtlasSecurity;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * AP-795 · AP-793 Agent Execution Session Store (Required Port #5).
@@ -35,6 +32,8 @@ use DateTimeZone;
  */
 final class AgentExecutionSessionStoreService
 {
+    use AgentExecutionClock;
+
     public const SCHEMA = 'atlas.agent_execution.session_store.v1';
 
     /** Keys that must never survive into a persisted record, even redacted. */
@@ -344,10 +343,5 @@ final class AgentExecutionSessionStoreService
             AppendOnlyJsonlStore::read($this->sessionsFilePath()),
             static fn (array $record): bool => isset($record['session_hash']) && is_string($record['session_hash']),
         ));
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

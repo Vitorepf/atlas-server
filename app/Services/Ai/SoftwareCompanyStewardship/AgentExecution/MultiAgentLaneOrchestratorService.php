@@ -605,5 +605,4 @@ class MultiAgentLaneOrchestratorService
 
         return in_array($value, ['critical', 'high', 'medium', 'low'], true) ? $value : 'medium';
     }
-
 }

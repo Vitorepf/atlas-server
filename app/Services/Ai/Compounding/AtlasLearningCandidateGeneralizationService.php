@@ -135,6 +135,7 @@ final class AtlasLearningCandidateGeneralizationService
             }
             if (isset($seenHashes[$hash])) {
                 $duplicates++;
+
                 continue;
             }
             $seenHashes[$hash] = true;

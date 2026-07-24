@@ -7,11 +7,11 @@ namespace App\Services\Ai\Compounding;
 use App\Services\Ai\Cognition\AtlasCognitiveFunctionAtlasService;
 use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
 use App\Services\Ai\Reconciliation\AtlasAutonomousReconciliationRuntimeService;
+use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use App\Services\Ai\Teos\AtlasTeosI4CounterfactualTreeService;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
-use App\Services\Ai\Support\AppendOnlyJsonlStore;
 
 /**
  * Compounding Level 8/9 Distillation Service.

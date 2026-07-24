@@ -40,9 +40,9 @@ class OperationEnvelopeFactory
             operator: $operator,
             origin: $origin,
             input: $input,
-            routing: new RoutingState(),
+            routing: new RoutingState,
             decision: null,
-            execution: new ExecutionState(),
+            execution: new ExecutionState,
             output: null,
             audit: new AuditState(
                 traceId: (string) ($payload['trace_id'] ?? $envelopeId),

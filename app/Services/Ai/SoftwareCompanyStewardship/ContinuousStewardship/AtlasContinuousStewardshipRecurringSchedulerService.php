@@ -21,6 +21,8 @@ use DateTimeZone;
  */
 final class AtlasContinuousStewardshipRecurringSchedulerService
 {
+    use ContinuousStewardshipClock;
+
     public const SCHEDULE_SCHEMA = 'atlas.continuous_stewardship.recurring_scheduler.v1';
 
     public const RUN_SCHEMA = 'atlas.continuous_stewardship.recurring_scheduler_run.v1';
@@ -612,21 +614,5 @@ final class AtlasContinuousStewardshipRecurringSchedulerService
         $slug = trim($slug, '_');
 
         return $slug !== '' ? $slug : 'unknown';
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
-    }
-
-    private function time(string $value): ?int
-    {
-        if (trim($value) === '') {
-            return null;
-        }
-
-        $timestamp = strtotime($value);
-
-        return $timestamp === false ? null : $timestamp;
     }
 }

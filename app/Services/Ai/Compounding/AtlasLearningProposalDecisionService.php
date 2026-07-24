@@ -86,16 +86,21 @@ final class AtlasLearningProposalDecisionService
 
     /** Risk bands a proposal can carry. */
     public const RISK_LOW = 'low';
+
     public const RISK_MEDIUM = 'medium';
+
     public const RISK_HIGH = 'high';
 
     /** Verdict statuses. */
     public const STATUS_ADMITTED = 'admitted';
+
     public const STATUS_NEEDS_MORE_EVIDENCE = 'needs_more_evidence';
+
     public const STATUS_REJECTED = 'rejected';
 
     /** Application stages — the doc's self::FIELD_SUGESTAO__DECISAO__APLICACAO split. */
     public const APPLY_AUTO = 'auto';
+
     public const APPLY_REVIEW = 'human_review';
 
     /**
@@ -103,64 +108,123 @@ final class AtlasLearningProposalDecisionService
      * cannot become a canon-bound proposal. Range 0.0–1.0.
      */
     public const WEAK_SIGNAL_FLOOR = 0.5;
+
     public const FIELD_STATUS = 'status';
+
     public const FIELD_EVIDENCE_REFS = 'evidence_refs';
+
     public const FIELD_KIND = 'kind';
+
     public const FIELD_RISK = 'risk';
+
     public const FIELD_ROUTING = 'routing';
+
     public const FIELD_SAMPLE_SIZE = 'sample_size';
+
     public const FIELD_STRENGTH = 'strength';
+
     public const FIELD_SUGGESTED_ACTION = 'suggested_action';
+
     public const FIELD_SUMMARY = 'summary';
+
     public const FIELD_CHALLENGER = 'challenger';
+
     public const FIELD_INCUMBENT = 'incumbent';
+
     public const FIELD_EFFECT_SIZE = 'effect_size';
+
     public const FIELD_JUSTIFICATION = 'justification';
+
     public const FIELD_MAY_AUTO_APPLY = 'may_auto_apply';
+
     public const FIELD_REQUIRES_REVIEW = 'requires_review';
+
     public const FIELD_SCHEMA_VERSION = 'schema_version';
+
     public const FIELD_RETRIEVAL_HINT = 'retrieval_hint';
+
     public const FIELD_TASK = 'task';
+
     public const FIELD_APPLICATION = 'application';
+
     public const FIELD_CANON_READY = 'canon_ready';
+
     public const FIELD_CANON_READY_COUNT = 'canon_ready_count';
+
     public const FIELD_CRITICAL = 'critical';
+
     public const FIELD_DECISION = 'decision';
+
     public const FIELD_DOCUMENTATION_HEALTH = 'documentation_health';
+
     public const FIELD_GATE = 'gate';
+
     public const FIELD_EVAL_GATE = 'eval_gate';
+
     public const FIELD_HUMAN_OR_POLICY_DECIDES = 'human_or_policy_decides';
+
     public const FIELD_LEARNING_EMITS_PROPOSAL = 'learning_emits_proposal';
+
     public const FIELD_MEMORY = 'memory';
+
     public const FIELD_PROPOSE_CHANGE_FOR_REVIEW = 'propose_change_for_review';
+
     public const FIELD_PROPOSE_DEFAULT_ROUTE_CHANGE = 'propose_default_route_change';
+
     public const FIELD_RANKED = 'ranked';
+
     public const FIELD_RENDER_TO_HUMAN = 'render_to_human';
+
     public const FIELD_RETRIEVAL = 'retrieval';
+
     public const FIELD_FAILURE_PATTERN = 'failure_pattern';
+
     public const FIELD_HEURISTIC = 'heuristic';
+
     public const FIELD_RETRIEVAL_HINTS = 'retrieval_hints';
+
     public const FIELD_ROUTER = 'router';
+
     public const FIELD_SUGGESTION = 'suggestion';
+
     public const FIELD_TASK_CLASS = 'task_class';
+
     public const FIELD_TERMINAL_STAGE = 'terminal_stage';
+
     public const FIELD_TOTAL = 'total';
+
     public const FIELD_UNSPECIFIED_LEARNING_SIGNAL = 'unspecified learning signal';
+
     public const FIELD_WIN_RATE = 'win_rate';
+
     public const FIELD_ACCUMULATE_MORE_SIGNAL = 'accumulate_more_signal';
+
     public const FIELD_DISCARD = 'discard';
+
     public const FIELD_GATHER_EVIDENCE = 'gather_evidence';
+
     public const FIELD_NO_EVIDENCE_CANNOT_BECOME_CANON = 'no_evidence_cannot_become_canon';
+
     public const FIELD_PATTERN_MEETS_EVIDENCE_AND_STRENGTH_THRESHOLD = 'pattern_meets_evidence_and_strength_threshold';
+
     public const FIELD_POLICY = 'policy';
+
     public const FIELD_PROPOSE_CHANGE = 'propose_change';
+
     public const FIELD_ROUTE__S_DEFAULT_TO__S_OVER__S = 'route %s default to %s over %s';
+
     public const FIELD_SIGNAL_KIND_NOT_RECOGNISED = 'signal_kind_not_recognised';
+
     public const FIELD_SUGESTAO__DECISAO__APLICACAO = 'sugestao, decisao, aplicacao';
+
     public const FIELD_UNKNOWN = 'unknown';
+
     public const FIELD_WEAK_SIGNAL_BELOW_FLOOR = 'weak_signal_below_floor';
+
     public const FLOAT_0_8 = 0.8;
+
     public const FLOAT_0_6 = 0.6;
+
     public const INT_2 = 2;
 
     /**
@@ -170,14 +234,14 @@ final class AtlasLearningProposalDecisionService
      * error), output = a proposal carrying justification, risk and a suggested
      * action — and the hard invariant that a proposal is never an application.
      *
-     * @param  array<string,mixed>  $signal {
-     *     kind: string,                  // one of CRITICAL_KINDS|NON_CRITICAL_KINDS
-     *     summary?: string,
-     *     evidence_refs?: list<string>,  // empty => never canon
-     *     sample_size?: int,             // observations behind the signal
-     *     effect_size?: float,           // 0.0–1.0 magnitude of the observed delta
-     *     suggested_action?: string,
-     * }
+     * @param  array<string,mixed>  $signal  {
+     *                                       kind: string,                  // one of CRITICAL_KINDS|NON_CRITICAL_KINDS
+     *                                       summary?: string,
+     *                                       evidence_refs?: list<string>,  // empty => never canon
+     *                                       sample_size?: int,             // observations behind the signal
+     *                                       effect_size?: float,           // 0.0–1.0 magnitude of the observed delta
+     *                                       suggested_action?: string,
+     *                                       }
      * @return array<string,mixed>
      */
     public function evaluate(array $signal): array
@@ -302,6 +366,7 @@ final class AtlasLearningProposalDecisionService
             if ($aRisk !== $bRisk) {
                 return $aRisk <=> $bRisk;
             }
+
             // Then higher strength.
             return ($b[self::FIELD_STRENGTH] ?? 0.0) <=> ($a[self::FIELD_STRENGTH] ?? 0.0);
         });
@@ -326,10 +391,10 @@ final class AtlasLearningProposalDecisionService
      * A provider-comparison signal is a `routing` (critical) proposal — so even
      * a strong, well-evidenced result CANNOT auto-apply; it must be reviewed.
      *
-     * @param  array<string,mixed>  $comparison {
-     *     challenger: string, incumbent: string, task_class: string,
-     *     win_rate?: float, sample_size?: int, evidence_refs?: list<string>,
-     * }
+     * @param  array<string,mixed>  $comparison  {
+     *                                           challenger: string, incumbent: string, task_class: string,
+     *                                           win_rate?: float, sample_size?: int, evidence_refs?: list<string>,
+     *                                           }
      * @return array<string,mixed>
      */
     public function evaluateProviderComparison(array $comparison): array

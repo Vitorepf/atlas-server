@@ -9,6 +9,8 @@ use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\AtlasDecide\AtlasConductorRoutingMemory;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\Learning\Harness\AtlasHarnessInstructionSurface;
+use App\Services\Ai\Learning\Harness\AtlasHarnessSurface;
 use Throwable;
 
 /**
@@ -115,7 +117,7 @@ final class AtlasLearningProposalApplier
             $change = ['task_category' => (string) ($ps['task_category'] ?? ''), 'role' => (string) ($ps['role'] ?? '')];
         } elseif ($kind === 'harness_config') {
             $ps = is_array($proposal->proposed_state) ? $proposal->proposed_state : [];
-            $result = app(\App\Services\Ai\Learning\Harness\AtlasHarnessSurface::class)
+            $result = app(AtlasHarnessSurface::class)
                 ->reverseOverride((string) ($ps['key'] ?? ''));
             if (! $result['reversed']) {
                 return $this->refuse('harness_config_reverse_failed:'.(string) $result['reason']);
@@ -123,7 +125,7 @@ final class AtlasLearningProposalApplier
             $change = ['key' => $result['key'], 'restored' => $result['restored']];
         } elseif ($kind === 'harness_instruction') {
             $ps = is_array($proposal->proposed_state) ? $proposal->proposed_state : [];
-            $result = app(\App\Services\Ai\Learning\Harness\AtlasHarnessInstructionSurface::class)
+            $result = app(AtlasHarnessInstructionSurface::class)
                 ->reverseOverride((string) ($ps['key'] ?? ''));
             if (! $result['reversed']) {
                 return $this->refuse('harness_instruction_reverse_failed:'.(string) $result['reason']);
@@ -185,7 +187,7 @@ final class AtlasLearningProposalApplier
             return null;
         }
 
-        $result = app(\App\Services\Ai\Learning\Harness\AtlasHarnessSurface::class)
+        $result = app(AtlasHarnessSurface::class)
             ->applyOverride($key, $value, (string) $proposal->getKey());
         if (! $result['applied']) {
             return null;
@@ -215,7 +217,7 @@ final class AtlasLearningProposalApplier
             return null;
         }
 
-        $result = app(\App\Services\Ai\Learning\Harness\AtlasHarnessInstructionSurface::class)
+        $result = app(AtlasHarnessInstructionSurface::class)
             ->applyOverride($section, $text, (string) $proposal->getKey());
         if (! $result['applied']) {
             return null;
@@ -250,7 +252,7 @@ final class AtlasLearningProposalApplier
             return null;
         }
 
-        $entry = new AtlasMemoryEntry();
+        $entry = new AtlasMemoryEntry;
         $entry->forceFill([
             'memory_type' => (string) $proposal->kind,
             'scope_type' => 'global',

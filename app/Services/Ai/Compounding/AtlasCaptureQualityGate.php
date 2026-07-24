@@ -24,9 +24,13 @@ final class AtlasCaptureQualityGate
     public const SCHEMA = 'atlas.ai.capture_quality_gate.v1';
 
     public const REASON_OK = 'ok';
+
     public const REASON_CONTENTLESS = 'contentless';
+
     public const REASON_META_STUB = 'meta_stub';
+
     public const REASON_FIXTURE_ECHO = 'fixture_echo';
+
     public const REASON_LOW_SUBSTANCE = 'low_substance';
 
     /** Generic "a signal happened" phrasing carrying no actual learned content. */

@@ -20,6 +20,8 @@ use Throwable;
  */
 class AtlasLearningProposalService
 {
+    use CompoundingArrayHelper;
+
     public const SCHEMA_VERSION = 'atlas.ai.compounding.learning_proposal.v1';
 
     public const CRITICAL_KINDS = [
@@ -403,11 +405,6 @@ class AtlasLearningProposalService
     /**
      * @return array<int|string,mixed>
      */
-    private function array(mixed $value): array
-    {
-        return is_array($value) ? $value : [];
-    }
-
     private function string(mixed $value): ?string
     {
         if (! is_scalar($value)) {

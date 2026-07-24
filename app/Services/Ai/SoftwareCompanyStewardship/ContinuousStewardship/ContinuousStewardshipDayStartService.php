@@ -6,9 +6,6 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\ContinuousStewardship;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * AP-778 · real, auditable first-start wrapper for the 24h stewardship loop.
@@ -19,6 +16,8 @@ use DateTimeZone;
  */
 final class ContinuousStewardshipDayStartService
 {
+    use ContinuousStewardshipClock;
+
     public const RECEIPT_SCHEMA = 'atlas.software_company_stewardship.continuous_24h_start.v1';
 
     public const RECORD_SCHEMA = 'atlas.software_company_stewardship.continuous_24h_start_record.v1';
@@ -358,10 +357,5 @@ final class ContinuousStewardshipDayStartService
         $slug = preg_replace('/[^a-z0-9_\-]+/', '_', $slug) ?: 'default';
 
         return trim($slug, '_') ?: 'default';
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

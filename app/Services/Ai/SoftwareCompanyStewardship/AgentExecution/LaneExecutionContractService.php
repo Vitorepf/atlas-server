@@ -6,9 +6,6 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AgentExecution;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * AP-802 · Lane Execution Contract hardening.
@@ -41,6 +38,8 @@ use DateTimeZone;
  */
 final class LaneExecutionContractService
 {
+    use AgentExecutionClock;
+
     public const SCHEMA = 'atlas.agent_execution.lane_execution_contract_set.v1';
 
     public const LANE_CONTRACT_SCHEMA = 'atlas.agent_execution.lane_contract.v1';
@@ -994,10 +993,5 @@ final class LaneExecutionContractService
             'parallel_runtime_created' => false,
             'sandcastle_clone' => false,
         ];
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

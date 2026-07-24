@@ -19,9 +19,9 @@ interface DistillerAuthorAdapter
     /**
      * @param  array<string,mixed>  $signals
      * @return array{claim:string, evidence_refs:list<string>}|null
-     *         Null when the adapter cannot author for this outcome (e.g. missing
-     *         inputs, provider unreachable, privacy class local-only mismatch).
-     *         Callers MUST fall back to the template author (degrade honest).
+     *                                                              Null when the adapter cannot author for this outcome (e.g. missing
+     *                                                              inputs, provider unreachable, privacy class local-only mismatch).
+     *                                                              Callers MUST fall back to the template author (degrade honest).
      */
     public function authorClaim(AiRunOutcome $outcome, array $signals): ?array;
 }

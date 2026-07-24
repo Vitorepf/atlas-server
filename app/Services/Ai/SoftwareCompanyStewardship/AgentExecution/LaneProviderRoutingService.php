@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AgentExecution;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Programming\AtlasForgeProviderTopologyService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
 use App\Support\AtlasSecurity;
 
@@ -18,7 +19,7 @@ use App\Support\AtlasSecurity;
  * auth mode, availability and an honest reason/blocker.
  *
  * Atlas Decide is authoritative when present: a normalized provider topology
- * (mapped from {@see \App\Services\Ai\Programming\AtlasForgeProviderTopologyService})
+ * (mapped from {@see AtlasForgeProviderTopologyService})
  * supplies provider availability and per-role assignments. When no topology is
  * supplied the plan degrades HONESTLY — it stays a `deferred` plan carrying the
  * `atlas_decide_unavailable` blocker, never a silent fallback and never a claim
@@ -461,5 +462,4 @@ final class LaneProviderRoutingService
 
         return $lanes;
     }
-
 }

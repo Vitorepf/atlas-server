@@ -3,10 +3,13 @@
 namespace App\Services\Ai\Compounding;
 
 use App\Models\AiRunOutcome;
+use App\Services\Ai\Aemor\Envelope\OutcomeEnvelopeBridge;
 use Illuminate\Support\Str;
 
 class AtlasCompoundingOutcomeEvaluator
 {
+    use CompoundingArrayHelper;
+
     public const SCHEMA_VERSION = 'atlas.ai.compounding.outcome.v1';
 
     /**
@@ -43,7 +46,7 @@ class AtlasCompoundingOutcomeEvaluator
             'payload_hash' => CompoundingHash::make($this->hashable($input)),
         ]);
 
-        $envelope = app(\App\Services\Ai\Aemor\Envelope\OutcomeEnvelopeBridge::class)->project('compounding', $payload);
+        $envelope = app(OutcomeEnvelopeBridge::class)->project('compounding', $payload);
         if ($envelope !== null) {
             $payload['outcome_envelope'] = $envelope;
         }
@@ -66,11 +69,6 @@ class AtlasCompoundingOutcomeEvaluator
     /**
      * @return array<int|string,mixed>
      */
-    private function array(mixed $value): array
-    {
-        return is_array($value) ? $value : [];
-    }
-
     private function string(mixed $value): ?string
     {
         if (! is_scalar($value)) {

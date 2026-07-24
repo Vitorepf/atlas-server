@@ -329,6 +329,7 @@ final class MultiAgentRepairPlannerService
         if ($decision === self::DECISION_TRANSIENT_RETRY) {
             return self::BRANCH_REUSE_CANDIDATE;
         }
+
         // A transient failure with no budget keeps the candidate branch for a
         // later retry; everything else routes to operator review.
         return $transient ? self::BRANCH_REUSE_CANDIDATE : self::BRANCH_NONE;
@@ -750,7 +751,6 @@ final class MultiAgentRepairPlannerService
     }
 
     /**
-     * @param  mixed  $value
      * @return list<array<string,string>>
      */
     private function normalizeGateFailures(mixed $value): array
@@ -786,7 +786,6 @@ final class MultiAgentRepairPlannerService
     }
 
     /**
-     * @param  mixed  $value
      * @return list<array{failure_signature:string,attempts:int}>
      */
     private function normalizePriorCapsules(mixed $value): array
@@ -930,5 +929,4 @@ final class MultiAgentRepairPlannerService
 
         return $copy;
     }
-
 }

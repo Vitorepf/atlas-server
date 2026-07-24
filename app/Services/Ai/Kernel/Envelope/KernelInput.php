@@ -38,11 +38,6 @@ final readonly class KernelInput
         return new self($primaryType, $primaryText, $attachments, $hints, $locale, $hash);
     }
 
-    private static function string(mixed $value): string
-    {
-        return trim((string) $value);
-    }
-
     /**
      * @param  array<string,mixed>  $payload
      */

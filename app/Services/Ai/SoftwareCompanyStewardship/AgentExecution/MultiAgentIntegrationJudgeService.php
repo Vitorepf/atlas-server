@@ -7,9 +7,6 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AgentExecution;
 use App\Services\Ai\Governance\GovernanceFloorRegistry;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * AP-798 · Multi-Agent Integration Judge.
@@ -25,6 +22,8 @@ use DateTimeZone;
  */
 final class MultiAgentIntegrationJudgeService
 {
+    use AgentExecutionClock;
+
     public const SCHEMA = 'atlas.agent_execution.integration_judgement.v1';
 
     public const STATUS_ACCEPTED = 'accepted_for_merge_governor';
@@ -926,10 +925,5 @@ final class MultiAgentIntegrationJudgeService
         $slug = preg_replace('/[^a-z0-9_\-]+/', '_', $slug) ?: self::DEFAULT_AREA_ID;
 
         return trim($slug, '_-') ?: self::DEFAULT_AREA_ID;
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 }

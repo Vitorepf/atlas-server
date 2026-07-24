@@ -7,6 +7,8 @@ use InvalidArgumentException;
 
 class AtlasRagFeedbackService
 {
+    use CompoundingArrayHelper;
+
     public const SCHEMA_VERSION = 'atlas.ai.rag.feedback.v1';
 
     /**
@@ -124,11 +126,6 @@ class AtlasRagFeedbackService
     /**
      * @return array<int|string,mixed>
      */
-    private function array(mixed $value): array
-    {
-        return is_array($value) ? $value : [];
-    }
-
     private function string(mixed $value): ?string
     {
         if (! is_scalar($value)) {

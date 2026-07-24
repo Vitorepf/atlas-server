@@ -34,11 +34,6 @@ final readonly class Provenance
         );
     }
 
-    private static function string(mixed $value): string
-    {
-        return trim((string) $value);
-    }
-
     private static function optionalString(mixed $value): ?string
     {
         $string = self::string($value);

@@ -12,9 +12,6 @@ use App\Services\Ai\SoftwareCompanyStewardship\ProductMode\ProductModeOperationa
 use App\Services\Ai\SoftwareCompanyStewardship\ProductMode\ProductModeOperationalControlsReadModelService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipRuntimeResultBridgeService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
-use DateTimeImmutable;
-use DateTimeInterface;
-use DateTimeZone;
 
 /**
  * AP-777 · Continuous Stewardship 24h Readiness Gate.
@@ -25,6 +22,8 @@ use DateTimeZone;
  */
 final class ContinuousStewardshipDayReadinessService
 {
+    use ContinuousStewardshipClock;
+
     public const REPORT_SCHEMA = 'atlas.software_company_stewardship.continuous_24h_readiness.v1';
 
     public const STATUS_READY = 'ready_for_24h_run';
@@ -294,11 +293,6 @@ final class ContinuousStewardshipDayReadinessService
         $slug = preg_replace('/[^a-z0-9_\-]+/', '_', $slug) ?: 'default';
 
         return trim($slug, '_') ?: 'default';
-    }
-
-    private function now(): string
-    {
-        return (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
     }
 
     /**
