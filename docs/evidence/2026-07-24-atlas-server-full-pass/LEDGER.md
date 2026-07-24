@@ -3,30 +3,24 @@
 ## State
 
 ```yaml
-program: atlas-server-full-pass-file-by-file
 branch: main
 execution: in_progress
-unit_proof: "31 tests / 88 assertions (package-proof.log)"
-mcp_service_loc: ~875
-next: PipelineRunExecutor leave Http OR HTML render split OR Readiness more peels
+full_pass_commits: 30+
+unit_proof: "35+ tests green"
+mcp_service_loc: ~878
+next: PipelineRunExecutor Http exit | HTML render split | more Readiness peels
 ```
 
-## Session landings (continuous)
+## Continuous landings
 
-Reuse helpers: LoadsFactsJsonOption, ResolvesSilentJsonOption, ResolvesGitProjectRoot, ParsesKeyValueMetadataOption, ReadsNonEmptyStringOption, GitWorkspaceStateReader, MemoryLimitBytes, CliInvocationModel, MemoryEntrySafetySummary, CodeGraphIntOrNull, ControlPlaneStatusSection (+safeCount), AcosDeltaSeriesJsonl, SchemaVersionedJsonBlockParser, DiskJsonIndexLoader, DatabaseIdsContaining, CanonicalValue, CodexReviewMergeLaterCycleChain.
+Shared helpers (partial list): LoadsFactsJsonOption, ResolvesSilentJsonOption, ResolvesGitProjectRoot, ParsesKeyValueMetadataOption, ReadsNonEmptyStringOption, GitWorkspaceStateReader, MemoryLimitBytes, CliInvocationModel, MemoryEntrySafetySummary, CodeGraphIntOrNull, ControlPlaneStatusSection, AcosDeltaSeriesJsonl, SchemaVersionedJsonBlockParser, DiskJsonIndexLoader, DatabaseIdsContaining, CanonicalValue, Clamp01, FirstNonEmptyString, NonEmptyStringOrFallback, CodexReviewMergeLaterCycleChain, OpenBrainMcpToolCatalog.
 
-Honesty: BriefGrounding, SuiteRedTriage (Helper BC); loop config ACDE legacy comments.
+Honesty renames: BriefGrounding, SuiteRedTriage. Loop config legacy documented.
 
-Density: OpenBrainMcpToolCatalog (~1084L extracted from tools()).
+## Residual (honest)
 
-## Residual DEBT
+File-by-file receipts for 13399 paths incomplete. Monstruos (Session, HTML, PipelineRun Http, AiWorker completeAttempt, config split, ProviderCatalog) remain DEBT.
 
-PipelineRunExecutor still under Http; EnterpriseReport HTML monolog; Readiness OneShotTick forest; AiWorker completeAttempt; config/atlas.php physical split; ProviderCatalog; file-by-file receipts 13399.
+## Floors blocked
 
-## Floors
-
-RSI Session, Evidence redesign, Readiness probe hub, AtlasLoop* keep-list — blocked.
-
-## Honesty
-
-Corpus-wide zero-bug claim rejected; continuous package-green full-pass hygiene continues.
+RSI/Evidence/Readiness probe/keep-list AtlasLoop*
