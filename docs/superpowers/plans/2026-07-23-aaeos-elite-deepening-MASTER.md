@@ -1,6 +1,6 @@
 # AAEOS Elite Deepening — MASTER Implementation Plan
 
-> Version: v10 — mother-block-of-law, provider-governance M-lever, falsifiable M, cycle-4 consolidation (R83–R93); incorporates the crash-safe/real-proof disk-truth additions
+> Version: v10 — mother-block-of-law, provider-governance M-lever, falsifiable M, cycle-4 consolidation §7.7 R87–R97; §7.6 R83–R86 is the concurrent author's crash-safe/real-proof/schema/ITT set (kept, re-verified)
 > Date: 2026-07-23
 > State: PLAN_ONLY
 > Implementation: P0–P4 NOT_STARTED
@@ -14,7 +14,7 @@ This is the only master plan for this program. LEDGER.md and SCOREBOARD.md are i
 
 The target is not a bigger AAEOS. It is a smaller optional Crown that reliably routes into the engineering systems Atlas already owns, while those systems enforce authority, evidence, recovery and claims at their real effect boundaries.
 
-AAEOS is nonetheless the **mother block** of all Atlas agentic software engineering: it is the constitution and governance authority — the product law (§1), the effect-authority protocol (§4), the proof taxonomy (§6) and the residual government (§7) that every mode obeys. "Optional" and "thin" describe its **muscle** (it re-implements no executor), never its **law**: the governance is central and non-bypassable even though the muscle stays in native owners. The reason this mother block exists is the multiplier **M** — governance, refusal, proof, memory, recovery and mandate applied over untrusted provider output N. M is only real if measured (R84), so this plan keeps M falsifiable and never a vanity number.
+AAEOS is nonetheless the **mother block** of all Atlas agentic software engineering: it is the constitution and governance authority — the product law (§1), the effect-authority protocol (§4), the proof taxonomy (§6) and the residual government (§7) that every mode obeys. "Optional" and "thin" describe its **muscle** (it re-implements no executor), never its **law**: the governance is central and non-bypassable even though the muscle stays in native owners. The reason this mother block exists is the multiplier **M** — governance, refusal, proof, memory, recovery and mandate applied over untrusted provider output N. M is only real if measured (R88), so this plan keeps M falsifiable and never a vanity number.
 
 This version replaces the duplicated v2–v6 structure. Historical facts and residual IDs are retained here; repeated phase catalogs, receipt schemas, DONE lists, file maps and architecture diagrams are deleted.
 
@@ -200,7 +200,7 @@ This is a protocol across existing owners, not a new package or product.
 2. PRE-AUTHORIZE: the native tool/actuator gateway resolves an authorized_effect_ceiling from a server-owned action registry/tool contract, arguments, target, active authority receipt and current world state.
 3. ACT: the concrete actuator performs at most the authorized effect.
 4. POST-ATTEST: the actuator/settler derives observed_effect_class from actual tool invocation, write-set, landed SHA or external receipt.
-5. SETTLE: evidence binds authorization, observed effect and outcome. A mismatch gives zero capability credit and triggers refuse-next, revoke, rollback or compensation as applicable. Rollback/compensation is owned by AtlasTaskMergeActuator::prepareRevert(CanarySettlementRequest)→AuthorizedRevertAction (and revert() for a landed packet); AAEOS never actuates a revert itself. A release proven bad after a green settle is compensated through that owner with its own authorized action and evidence, not re-litigated as a fresh effect (R86).
+5. SETTLE: evidence binds authorization, observed effect and outcome. A mismatch gives zero capability credit and triggers refuse-next, revoke, rollback or compensation as applicable. Rollback/compensation is owned by AtlasTaskMergeActuator::prepareRevert(CanarySettlementRequest)→AuthorizedRevertAction (and revert() for a landed packet); AAEOS never actuates a revert itself. A release proven bad after a green settle is compensated through that owner with its own authorized action and evidence, not re-litigated as a fresh effect (R90).
 
 Land-only observation is insufficient for an external irreversible effect. An effect cannot be blocked retroactively.
 
@@ -427,7 +427,7 @@ No default numeric value substitutes for unknown. No composite certifies DONE.
 | R41 | v6 invented conflicting mode axes | v7 deletes; derive from existing contracts |
 | R42 | 17-phase/human-review runbook presented as operate | P3 demote/alignment |
 | R43 | AAEOS uses CLI-to-CLI for Brain/Seed | P1a application extraction |
-| R44 | Spine can self-green from empty declarations (AaeosEngineeringSpine::assertShared(mode,[]) defaults to shared constants → ok:true with zero refs; AaeosCycleRuntime:75 calls it with []) | FOLDED into R66 (see R93): R66 closes R44 by construction at the strictly stronger settlement-receipt-readback bar; not separately closable |
+| R44 | Spine can self-green from empty declarations (AaeosEngineeringSpine::assertShared(mode,[]) defaults to shared constants → ok:true with zero refs; AaeosCycleRuntime:75 calls it with []) | FOLDED into R66 (see R97): R66 closes R44 by construction at the strictly stronger settlement-receipt-readback bar; not separately closable |
 | R45 | attention queues risk becoming authority | P2: existing Ledger decision events + read-model projection only |
 | R46 | principal/capability/spec-witness independence not proved | P2 owner hardening, same floor in all modes |
 | R47 | durable sustained government | HORIZON after P4: preregistered ITT window; no Mission Runtime |
@@ -505,25 +505,25 @@ Cycle 4 used 13 lens-distinct specialist passes and a final anti-duplication jud
 
 R83–R86 are hard blockers. They deepen existing durable facts and owners; they authorize no new runtime organ.
 
-### 7.6 v10 cycle-4 consolidation + strategic reach R83–R93
+### 7.7 v10 cycle-4 consolidation + strategic reach R87–R97
 
-Cycle-4 attacked v9 for accretion, executability and the strategic M-frontier, and re-verified every claimed owner on disk (all present). Root REJECTED the over-fusion of R54/R66/R75/R80 into one row (it would launder four distinct owner+phase done-conditions) and accepted only the genuinely-redundant R44 fold plus reuse-wires whose owners exist. AAEOS is repositioned as the mother block of governance/LAW (§0/§1.3): thin in muscle, central and non-bypassable in law; M is made falsifiable (R84).
+Concurrent-authorship note: §7.6 (R83–R86) is the other author's cycle-4 set (crash-safety/exactly-once, real-proof harness, schema migration, ITT amplification) — independently re-verified against disk and kept. This §7.7 is this session's cycle-4 set, renumbered R87–R97 to remove the R83–R86 collision. Cycle-4 attacked v9 for accretion, executability and the strategic M-frontier, re-verified every claimed owner on disk (all present), REJECTED the over-fusion of R54/R66/R75/R80 (it would launder four distinct owner+phase done-conditions), and accepted only the genuinely-redundant R44 fold plus reuse-wires whose owners exist. AAEOS is repositioned as the mother block of governance/LAW (§0/§1.3): thin in muscle, central and non-bypassable in law; M is made falsifiable (R88).
 
 | ID | Gap surpassing v9 | Existing owner reused / deleted | Hard done condition |
 |---|---|---|---|
-| R83 | the AiProviderManager governance/bypass owner — the operator-named structural M-lever — is absent from the §3.2 map; muscle may spawn a provider ungoverned | reuse ProviderGovernanceCoverageLedger + ProviderGovernanceConsult + GovernanceConsultSkipCounter (schema atlas.ai.governance.provider_coverage.v1) | §3.2 names the owner; every muscle provider spawn is recorded covered (governed) or bypass; no second bypass meter |
-| R84 | M — the multiplier that is the plan's reason to exist — has no falsifiable instrument; v7–v9 deleted the N×M framing | reuse ProviderGovernanceCoverageLedger coverage rate + EngineeringOutcome | §6 emits governed_spawn_coverage = governed_provider_spawns / total_provider_spawns (unknown-not-zero; empty ledger = honest 0.0); M is governed reach + provider-proposal refuse/repair rate, never a vanity score |
-| R85 | H4 authorizes delegated learning but names no owner; the memory-M seam is unfenced | reuse AtlasMemoryLearningPromotionService + AtlasHeldEvidenceMinerService + AtlasOpenBrainContextPackService | H4 + §3.2 name the delegated-learning owner (reversible, auditable, propose-only); §11 forbids a second memory promoter / evidence→memory bridge under AAEOS |
-| R86 | §4 SETTLE names "compensation as applicable" with no owner; a landed-then-proven-bad release has no path | reuse AtlasTaskMergeActuator::prepareRevert(CanarySettlementRequest)→AuthorizedRevertAction (+ revert()) | a green-settled release later proven bad is compensated through that owner with its own authorized action + evidence; AAEOS never actuates a revert |
-| R87 | Dev OneShot is blocked if the AAEOS Dev path invokes the operator plan-approval gate (a routine technical action) | name AtlasDevPlanApprovalGate + AtlasDevProviderExecutionBlock read-only; AAEOS Dev routes the gate-free AtlasDevExecutionService path | §8 P1a names both read-only; a test proves the AAEOS Dev journey reaches provider execution with zero operator approval action (OneShot preserved) while the direct CLI path keeps its gate |
-| R88 | P2's five sub-slices declare no order; three edit AtlasEvidenceLedger.php | declare the ordered DAG over the existing P2a–P2e structure | §8 P2 states P2a (ledger/evidence foundation) first, then dependent slices; same-file/same-owner commit rule applies; no new phase |
-| R89 | AaeosHygieneLegacyAliases::register() eager-autoloads 40 AEOS canonical classes at every boot with zero legacy-FQCN consumers | reuse the lazy spl_autoload_register pattern proven in sibling RootSinglesLegacyAliases | register() is lazy; boot loads no AEOS canonical class until a legacy FQCN is resolved; R73 partition guard asserts it; no alias removed (respects R26) |
-| R90 | the 2026 verification moat is not first-class: atlas:review:deep (the operator-verdict command) is unmentioned; only the passive cockpit readout exists | reuse AtlasReviewDeepCommand (atlas.review.deep_packet.v1) + the R75 journey-manifest projection shared with atlas:cli:cockpit | the operator verification artifact = observer-minted effect + proof + admission + journey manifest, derived by ONE verification read model both cockpit and review:deep consume; review:deep's independent risk-derivation path is deleted |
-| R91 | R76's OneShot capture of "reserved decisions" contradicts the zero-touch Autônomos invariant and P4's zero-touch gauntlet | reuse R81/§4.4 AtlasEvidenceLedger escalation events (DecisionDrafted/EscalationRequested/DecisionIssued) | reserved-decision captures in the OneShot ledger are DERIVED FROM the §4.4 escalation events, not counted as operator per-task actions; zero-touch Autônomos stays consistent |
-| R92 | R75's terminal-status enum has no stated boundary against R79 repair-continuation (is a repair a new journey?) | reuse AtlasRepairOrchestrator, Forge cycle owner, TaskServing give-back already named in R79 | every repair/replan/re-review (R79) is an intra-journey continuation appended to R75's single-root ordered manifest, never a new journey/root; a repaired journey has one root and one qualifying terminal state |
-| R93 | duplicate/latent-duplicate accounting and over-fusion risk in the evidence-integrity family | reuse §6/§10 single fresh-process readback; §7 residual discipline | R44 folded into R66 (single stronger bar); R66 CONSUMES R80's non-circular readback rather than re-asserting it (R66 keeps only the spine-gate-site hole); NO-FUSE GUARD: theme-shared rows with distinct owner+phase+done-condition (R54/R66/R75/R80; R68/R82; R70/R78) stay distinct and independently closable |
+| R87 | the AiProviderManager governance/bypass owner — the operator-named structural M-lever — is absent from the §3.2 map; muscle may spawn a provider ungoverned | reuse ProviderGovernanceCoverageLedger + ProviderGovernanceConsult + GovernanceConsultSkipCounter (schema atlas.ai.governance.provider_coverage.v1) | §3.2 names the owner; every muscle provider spawn is recorded covered (governed) or bypass; no second bypass meter |
+| R88 | M — the multiplier that is the plan's reason to exist — has no falsifiable instrument; v7–v9 deleted the N×M framing | reuse ProviderGovernanceCoverageLedger coverage rate + EngineeringOutcome | §6 emits governed_spawn_coverage = governed_provider_spawns / total_provider_spawns (unknown-not-zero; empty ledger = honest 0.0); M is governed reach + provider-proposal refuse/repair rate, never a vanity score |
+| R89 | H4 authorizes delegated learning but names no owner; the memory-M seam is unfenced | reuse AtlasMemoryLearningPromotionService + AtlasHeldEvidenceMinerService + AtlasOpenBrainContextPackService | H4 + §3.2 name the delegated-learning owner (reversible, auditable, propose-only); §11 forbids a second memory promoter / evidence→memory bridge under AAEOS |
+| R90 | §4 SETTLE names "compensation as applicable" with no owner; a landed-then-proven-bad release has no path | reuse AtlasTaskMergeActuator::prepareRevert(CanarySettlementRequest)→AuthorizedRevertAction (+ revert()) | a green-settled release later proven bad is compensated through that owner with its own authorized action + evidence; AAEOS never actuates a revert |
+| R91 | Dev OneShot is blocked if the AAEOS Dev path invokes the operator plan-approval gate (a routine technical action) | name AtlasDevPlanApprovalGate + AtlasDevProviderExecutionBlock read-only; AAEOS Dev routes the gate-free AtlasDevExecutionService path | §8 P1a names both read-only; a test proves the AAEOS Dev journey reaches provider execution with zero operator approval action (OneShot preserved) while the direct CLI path keeps its gate |
+| R92 | P2's five sub-slices declare no order; three edit AtlasEvidenceLedger.php | declare the ordered DAG over the existing P2a–P2e structure | §8 P2 states P2a (ledger/evidence foundation) first, then dependent slices; same-file/same-owner commit rule applies; no new phase |
+| R93 | AaeosHygieneLegacyAliases::register() eager-autoloads 40 AEOS canonical classes at every boot with zero legacy-FQCN consumers | reuse the lazy spl_autoload_register pattern proven in sibling RootSinglesLegacyAliases | register() is lazy; boot loads no AEOS canonical class until a legacy FQCN is resolved; R73 partition guard asserts it; no alias removed (respects R26) |
+| R94 | the 2026 verification moat is not first-class: atlas:review:deep (the operator-verdict command) is unmentioned; only the passive cockpit readout exists | reuse AtlasReviewDeepCommand (atlas.review.deep_packet.v1) + the R75 journey-manifest projection shared with atlas:cli:cockpit | the operator verification artifact = observer-minted effect + proof + admission + journey manifest, derived by ONE verification read model both cockpit and review:deep consume; review:deep's independent risk-derivation path is deleted |
+| R95 | R76's OneShot capture of "reserved decisions" contradicts the zero-touch Autônomos invariant and P4's zero-touch gauntlet | reuse R81/§4.4 AtlasEvidenceLedger escalation events (DecisionDrafted/EscalationRequested/DecisionIssued) | reserved-decision captures in the OneShot ledger are DERIVED FROM the §4.4 escalation events, not counted as operator per-task actions; zero-touch Autônomos stays consistent |
+| R96 | R75's terminal-status enum has no stated boundary against R79 repair-continuation (is a repair a new journey?) | reuse AtlasRepairOrchestrator, Forge cycle owner, TaskServing give-back already named in R79 | every repair/replan/re-review (R79) is an intra-journey continuation appended to R75's single-root ordered manifest, never a new journey/root; a repaired journey has one root and one qualifying terminal state |
+| R97 | duplicate/latent-duplicate accounting and over-fusion risk in the evidence-integrity family | reuse §6/§10 single fresh-process readback; §7 residual discipline | R44 folded into R66 (single stronger bar); R66 CONSUMES R80's non-circular readback rather than re-asserting it (R66 keeps only the spine-gate-site hole); NO-FUSE GUARD: theme-shared rows with distinct owner+phase+done-condition (R54/R66/R75/R80; R68/R82; R70/R78) stay distinct and independently closable |
 
-R83–R93 reuse or delete existing owners only; R93 removes one row (R44) and forbids future laundering. None may be waived into DONE.
+R87–R97 reuse or delete existing owners only; R97 removes one row (R44) and forbids future laundering. None may be waived into DONE.
 
 ## 8. Single implementation plan
 
@@ -603,6 +603,8 @@ Production paths:
 - app/Providers/AtlasDevServiceProvider.php
 - app/Services/Ai/Programming/Forge/Execution/ForgeCommissioning.php
 - app/Services/Ai/Programming/Forge/Execution/ForgeObraRuntime.php
+- app/Services/Ai/Programming/AtlasForgeLiveExecutionService.php
+- app/Console/Commands/AtlasForgeLiveExecuteCommand.php
 - app/Services/Ai/SelfConstruction/ContinuousRuntime/AtlasSelfConstructionContinuousRuntimeCycleRunner.php
 - app/Services/Ai/SelfConstruction/RuntimeDaemon/AtlasSelfConstructionRuntimeDaemonCycle.php
 - app/Services/Ai/SelfConstruction/RuntimeDaemon/AtlasSelfConstructionNativeActionExecutor.php
@@ -614,6 +616,7 @@ Required behavior:
 
 - Dev accepts native DevIntent/ConfirmedDevRun lineage, preserves the productive SeniorEngineerLoopExecutor→KernelRunExecutor→AtlasDevExecutionService chain and its current provider binding; it never injects Kernel or owns retry directly.
 - Forge constructs strict ForgeCommissioning in its native owner, rejects unknown/malformed packet data, calls ForgeObraRuntime and returns the Obra ref; P1a does not enable provider execution before P1b authority replay is green.
+- the existing Forge live command/service stops being a simulate-only production path: until P1b is green it may commission/inspect only; after P1b/P2 it drives the native Obra owner rather than a test double.
 - Autônomos invokes the productive native daemon composition through one typed service seam extracted from the existing command owner, not Artisan and not a step-by-step AAEOS orchestration; it returns native cycle/task refs. The extraction may move command-private composition but may not create another runtime.
 - brain scope is positional with a documented default;
 - seed uses only real signature fields;
@@ -630,6 +633,7 @@ Test paths:
 - tests/Unit/Ai/Aaeos/Control/AaeosNativeAutonomosDispatchContractTest.php (NEW)
 - tests/Feature/Ai/Aaeos/AaeosDirectModeAblationTest.php (NEW)
 - tests/Unit/Ai/Programming/Forge/Execution/ForgeObraRuntimeContractTest.php (existing; extend)
+- tests/Unit/Ai/Programming/AtlasForgeLiveExecutionServiceTest.php (existing; invert simulate-only production claim)
 - tests/Unit/Ai/SelfConstruction/ContinuousRuntime/AtlasSelfConstructionContinuousRuntimeCycleRunnerTest.php (existing; extend)
 - tests/Unit/Ai/SelfConstruction/RuntimeDaemon/AtlasSelfConstructionRuntimeDaemonCycleTest.php (existing; extend)
 - tests/Unit/Ai/SelfConstruction/NativeWorker/AtlasNativeWorkerClaimExecuteReportCycleTest.php (existing; extend)
@@ -727,9 +731,11 @@ P2a — evidence/outcome integrity:
   - app/Services/Ai/EngineeringKernel/EngineeringOutcome.php
   - app/Services/Ai/Aaeos/Control/AaeosCycleRuntime.php
   - app/Services/Ai/Programming/Forge/ForgeWorkPacketExecutionCycleService.php
+  - database/migrations/2026_07_23_231000_harden_atlas_ledger_chain_and_journey_queries.php (NEW)
 - harden AtlasEvidenceLedger canonical event/envelope/chain verification;
 - add event-type + half-open UTC window query and cycle-id idempotency/divergence semantics;
 - implement the non-circular receipt-core/event binding and ordered journey manifest from R75/R80;
+- assign one transactional chain position/head under concurrent first writers and recompute event hash, predecessor and causal DAG rather than trusting caller time;
 - bind every EngineeringOutcome status to authority;
 - require failure_reason for adverse terminal outcomes;
 - preserve precise causes through Forge and AAEOS.
@@ -738,6 +744,9 @@ P2a — evidence/outcome integrity:
   - tests/Unit/Ai/EngineeringKernel/TypedEngineeringContractTest.php (existing; extend)
   - tests/Feature/Ai/Aaeos/AaeosJourneyManifestIntegrityTest.php (NEW)
   - tests/Feature/Ai/Aaeos/AaeosFreshProcessJourneyReplayTest.php (NEW)
+  - tests/Feature/Ai/Aaeos/AaeosPostgresDurabilityContractTest.php (NEW; isolated non-canonical schema)
+  - tests/Feature/Ai/Aaeos/AaeosJourneyStateMachinePropertyTest.php (NEW)
+  - tests/Feature/Ai/Aaeos/AaeosJourneyManifestDagPropertyTest.php (NEW)
   - tests/Unit/Ai/EngineeringKernel/EngineeringOutcomeAdverseReasonTest.php (NEW)
 
 P2b — independence and sovereignty receipts:
@@ -747,16 +756,26 @@ P2b — independence and sovereignty receipts:
   - app/Services/Ai/Kernel/Decision/DecisionReceiptHash.php
   - app/Services/Ai/Kernel/Decision/DecisionReceiptIssuer.php
   - app/Services/Ai/Kernel/Decision/DecisionReceiptRuntimeGuard.php
+  - app/Services/Ai/Kernel/Evidence/LedgerProjectionRegistry.php
+  - app/Console/Commands/AtlasCliCockpitCommand.php
   - app/Services/Ai/Kernel/Decision/Reversibility/ReceiptReversibilityConsentGate.php
   - app/Services/AtlasCode/HumanDecisionReceiptSigner.php
   - app/Services/Ai/EngineeringKernel/Spec/SpecSourceIndependence.php
   - app/Services/Ai/EngineeringKernel/Spec/SelfComposedWitnessResolver.php
   - app/Services/Ai/EngineeringKernel/Spec/AdvisorWitnessResolver.php
   - app/Services/Ai/EngineeringKernel/Spec/SovereignSpecFloor.php
+  - app/Services/Ai/EngineeringKernel/VerificationCourtAcceptanceGate.php
+  - app/Services/Ai/EngineeringKernel/RoleEvidenceReceipt.php
+  - app/Services/Ai/Programming/AtlasDev/Schemas/Components/ProviderLock.php
+  - app/Services/Ai/AiWorker.php
+  - app/Http/Resources/AiDecisionResource.php
+  - app/Services/Ai/Programming/AtlasForgeRuntimeDispatchService.php
+  - app/Services/Tools/AtlasToolEvidenceStore.php
 - use principal_id, capability_id/version, issuer_key_id and producer path from trusted issuance;
 - prevent the same capability from minting author + judge + governor;
 - reuse/promote the existing Ed25519 signer/verifier into the Decision owner;
 - sign every authority-bearing payload field listed in §5.1 and fail closed when receipt/revocation head is absent, stale or mismatched;
+- resolve issuer_key_id through the trusted keyring; bind model-family from trusted issuance; enforce the Decision v3 dual-read/canary/contract rollout and mixed-worker block-before-effect matrix;
 - wire the existing ReceiptReversibilityConsentGate only for true H3/unrecoverable effects;
 - derive scoped ephemeral capabilities mechanically inside an active authority ceiling.
 - Test paths:
@@ -767,6 +786,11 @@ P2b — independence and sovereignty receipts:
   - tests/Unit/Ai/EngineeringKernel/Spec/SpecAdversaryContractTest.php (existing; extend)
   - tests/Unit/Ai/EngineeringKernel/Spec/SovereignSpecFloorTest.php (existing; extend)
   - tests/Feature/Ai/Aaeos/AaeosStandingMandateAuthorityTest.php (NEW)
+  - tests/Feature/Architecture/DecisionReceiptDeterminismTest.php (existing; extend)
+  - tests/Feature/Ai/EngineeringKernel/PreLandSeamTest.php (existing; extend)
+  - tests/Feature/Ai/Aaeos/AaeosSeparationOfDutiesTest.php (NEW)
+  - tests/Feature/Ai/Aaeos/AaeosReceiptConsumerCensusTest.php (NEW)
+  - tests/Feature/Ai/Aaeos/AaeosMixedVersionWorkerCompatibilityTest.php (NEW)
 
 P2c — unattended durability:
 
@@ -780,15 +804,18 @@ P2c — unattended durability:
   - app/Services/Ai/Programming/AtlasDev/SeniorLoop/SeniorEngineerLoopExecutor.php
   - app/Services/Ai/Programming/AtlasDev/Repair/RepairOrchestrator.php
   - app/Services/Ai/Programming/AtlasDev/Repair/DevRepairLoopService.php
-  - app/Http/Controllers/AtlasDev/Support/PipelineRunExecutor.php
+  - app/Http/Controllers/AtlasDev/Support/KernelRunExecutor.php
   - app/Services/Ai/Programming/Forge/Execution/ForgeObraRuntime.php
   - app/Services/Ai/Programming/Forge/ForgeLongHorizonStateService.php
   - app/Services/Ai/Programming/Forge/ForgeWorkPacketExecutionCycleService.php
+  - database/migrations/2026_07_23_230000_harden_ai_forge_execution_atomicity.php (NEW)
 - add a RED stale-resume/revocation test first;
 - bind the exact authority ref/hash/revision from native origination through packet and lease without remint;
 - revalidate at origination, claim, renewal and pre-effect boundary;
 - normalize worker retry/repair signals into a TaskServing-owned transition; unknown outcome remains invalid and never silently gives back;
-- make Dev's existing RepairOrchestrator the retry owner reached through a production DevPlanRunFacade adapter; SeniorEngineerLoopExecutor owns the journey, while PipelineRunExecutor must not remain a second independent retry loop;
+- make Dev's existing RepairOrchestrator the retry owner through the productive KernelRunExecutor/AtlasDevExecutionService chain; persist prepared/observed attempts in existing ReceiptStorage; SeniorEngineerLoopExecutor owns the journey;
+- reconcile commit→queue→lease/report and lease-file→derived-registry crash splits before accepting another claim/effect;
+- resume the single running Forge cycle and deterministic provider execution id before selecting another packet;
 - harden Forge cycle position and terminal transitions with unique constraint + transaction/lock/CAS;
 - prove one terminal winner and divergent replay conflict.
 - Test paths:
@@ -798,10 +825,18 @@ P2c — unattended durability:
   - tests/Unit/Ai/Programming/AtlasDev/Repair/RepairOrchestratorTest.php (existing; extend)
   - tests/Feature/Ai/Programming/AtlasDev/Repair/DevRepairLoopServiceTest.php (existing; extend)
   - tests/Unit/Ai/Programming/AtlasDev/Http/PipelineRunExecutorTest.php (existing; extend)
+  - tests/Feature/Ai/Programming/AtlasDev/SeniorEngineerLoopCrashResumeTest.php (NEW)
   - tests/Feature/Ai/Programming/Forge/ForgeWorkPacketExecutionCycleServiceTest.php (existing; extend)
   - tests/Feature/Ai/Programming/Forge/ForgeLongHorizonStateServiceTest.php (existing; extend)
   - tests/Feature/Ai/Aaeos/AaeosAuthorityLineageResumeTest.php (NEW)
   - tests/Feature/Ai/Aaeos/AaeosNativeRepairContinuationTest.php (NEW)
+  - tests/Feature/Ai/AtlasTaskServingResolveLoopE2ETest.php (existing; extend)
+  - tests/Feature/Ai/AtlasTaskServingLeaseOwnershipTest.php (existing; extend)
+  - tests/Unit/Ai/SelfConstruction/AgentControlPlaneClaimLeaseRegistryRebuildTest.php (existing; extend)
+  - tests/Feature/Ai/Aaeos/AaeosTaskLeaseCrashRecoveryTest.php (NEW)
+  - tests/Feature/Ai/Aaeos/AaeosEffectProtocolCrashCutpointModelTest.php (NEW)
+  - tests/Feature/Ai/Aaeos/ForgeWorkPacketExecutionCycleMigrationTest.php (NEW)
+  - tests/Feature/Ai/Aaeos/AaeosLedgerJourneyMigrationTest.php (NEW)
 
 P2d — Spine:
 
@@ -827,6 +862,36 @@ P2e — asynchronous H1–H7 continuation:
 - persist the reserved-effect event and continuation ref; project only through existing attention/cockpit readers;
 - replay a later valid DecisionIssued before continuation; unrelated work remains runnable.
 - Test path: tests/Feature/Ai/Aaeos/AaeosSovereignContinuationTest.php (NEW).
+- Additional test path: tests/Feature/Ai/Aaeos/AaeosCockpitAttentionPartitionTest.php (NEW).
+
+P2f — operator-experience truth and removal of technical human loops:
+
+- Production paths:
+  - app/Services/Engineering/EngineeringRunOperatorActionService.php
+  - app/Services/Ai/Product/ProductIntentClarificationContract.php
+  - app/Services/Ai/Product/ProductIntentCourt.php
+  - app/Services/Ai/EngineeringKernel/Spec/AtlasSpecGateAdapter.php
+  - app/Services/Ai/Programming/AtlasDev/PlanVisible/AtlasDevPlanApprovalGate.php
+  - app/Services/Ai/Programming/AtlasDev/PlanVisible/AtlasDevProviderExecutionBlock.php
+  - app/Console/Commands/AtlasCliDevPlanCommand.php
+  - app/Services/Ai/Programming/Forge/ForgeContinuationPackBuilder.php
+  - app/Services/Ai/Programming/Forge/ForgeWorkPacketExecutionCycleCanon.php
+  - app/Services/Ai/Programming/Forge/Intelligence/ForgeFailureIntelligenceService.php
+  - app/Services/Ai/Programming/Forge/Intelligence/ForgeObraScopeGuardService.php
+  - app/Services/Ai/SelfConstruction/ControlPlane/AgentControlPlaneTaskPacketBuilder.php
+  - app/Services/Ai/Kernel/Evidence/AtlasEvidenceLedger.php
+- instrument the complete native ingress/request census with authenticated producer seals; classify Atlas-requested work separately from elective operator control;
+- consume Dev's initial authority once; PlanVisible remains optional audit and a replan never asks ship/reject again;
+- convert every non-H1–H7 Forge human hint/review into native Court/repair/continuation; commissioning is the last routine operator boundary;
+- reject Autônomos credit for operator_intake/default operator ids, reviewed human exceptions or a task-causal sovereign decision;
+- derive OneShot as a monotonic fold over operator events, metamorphically invariant under 0/1/100 internal attempts.
+- Test paths:
+  - tests/Unit/Ai/Product/ProductIntentCourtTest.php (existing; extend)
+  - tests/Unit/Ai/Programming/AtlasDev/PlanVisible/AtlasDevPlanApprovalGateTest.php (existing; invert repeated approval)
+  - tests/Feature/Ai/Programming/AtlasDev/AtlasDevProviderExecutionBlockTest.php (existing; extend)
+  - tests/Feature/Ai/Aaeos/AaeosOperatorIngressCaptureCoverageTest.php (NEW)
+  - tests/Feature/Ai/Aaeos/AaeosOneShotOperatorEvidenceTest.php (NEW)
+  - tests/Feature/Ai/Aaeos/AaeosModeHumanLoopAbsenceTest.php (NEW)
 
 Each P2 sub-slice is a separate scoped commit and receipt.
 
@@ -839,21 +904,35 @@ Production/document paths:
 - app/Services/Ai/Compat/AaeosHygieneLegacyAliases.php
 - app/Services/Ai/Aaeos/Control/AaeosModeToDualCoreRoute.php
 - app/Services/Ai/Aaeos/Control/AaeosScorecardProjector.php
+- app/Services/Ai/Aaeos/Control/AaeosOrgStateProjector.php (delete after zero-reader census)
+- app/Services/Ai/Aaeos/Control/AaeosCycleOutcomeRecorder.php (delete after zero-reader census)
 - app/Services/Ai/SelfConstruction/Maestro/Cost/AtlasMaestroCostAggregator.php
-- app/Services/Ai/Rivals/Core/RivalsClaimAuthority.php
+- app/Console/Commands/AtlasAaeosCycleCommand.php (delete or thin deprecated alias after runtime census)
+- app/Console/Commands/AtlasCliCockpitCommand.php
+- app/Services/Ai/SelfConstruction/AtlasTaskLandingReviewPublisher.php
+- app/Console/Commands/AtlasTaskReviewDecideCommand.php
+- app/Console/Commands/AtlasReviewDeepCommand.php
+- app/Services/Engineering/EngineeringReviewService.php
 - app/Services/Ai/CODEMAP.md
 - docs/engineering-knowledge-base/atlas-agentic-engineering-os-runbook.md
 - docs/engineering-knowledge-base/atlas-agentic-engineering-os.md
 - docs/engineering-knowledge-base/atlas-elite-executors-dev-forge-autonomos.md
+- docs/loop-soak-run-profile.md (delete/tombstone active instructions after backlink census)
+- docs/loop-soak-runbook.md (delete/tombstone active instructions after backlink census)
+- docs/loop-task-class-discovery.md (delete/tombstone active instructions after backlink census)
 
 Required behavior:
 
 - delete the two LOC/file-existence hygiene graders; retain only live scoring cores proven by the P1 architecture guard;
+- delete the self-declared OrgState projector and control-plane LearningCandidate recorder only after standing reader/event census proves zero; EngineeringOutcome/Ledger and native learning owners retain truth;
+- after native parity, remove synthetic dispatcher packs/worklists; converge `atlas:aaeos:cycle` onto `atlas:aaeos:run` as a temporary logic-free alias only when usage telemetry requires it;
 - keep compatibility aliases unless classmap/runtime parity proves a named alias dead; no bulk alias deletion is authorized;
 - 17 phases and `human_review` are historical/governance material, not the daily operate path;
 - replace invented plan_seal/session labels with native commissioning/authority hashes and canonical enums;
 - terminal-first: the existing `atlas:cli:cockpit` consumes read-only proof/economy refs through its current projection owner; no new shell or authority;
-- Rivals recomputes comparative authority inputs; the AAEOS projector only presents the result;
+- landing review/cockpit becomes optional read-only inspection: Court rejection returns to agents; no qualified landing waits for an operator approve/reject. The cockpit partitions technical history from actionable H1–H7 attention and shows Court verdict, findings, commands, evidence refs, rejection→repair chain, artifact hash and freshness;
+- comparative Rivals hardening remains HORIZON R50 and is not a P3 change; the presenter only shows a pre-existing current valid claim or `not_claimed`;
+- active docs/config no longer teach dead `atlas:loop:*`; historical evidence is preserved;
 - Quarantine path/import count remains zero.
 
 Test paths:
@@ -861,14 +940,21 @@ Test paths:
 - tests/Unit/Ai/Aaeos/Control/AaeosControlPlaneTest.php (existing; extend with field-reader census)
 - tests/Feature/Ai/Aaeos/AaeosAeosPartitionGuardTest.php (NEW)
 - tests/Feature/Ai/Aaeos/AaeosEconomyIntentToTreatProjectionTest.php (NEW)
-- tests/Feature/Ai/Aaeos/AaeosRivalsClaimRecomputationTest.php (NEW)
 - tests/Feature/Ai/Aaeos/AaeosCanonicalDocsAndAliasTest.php (NEW)
+- tests/Feature/Ai/AtlasCliCockpitCommandTest.php (existing; extend)
+- tests/Feature/Ai/TaskLandingReviewCockpitTest.php (existing; invert mandatory approval semantics)
+- tests/Feature/Ai/AtlasCliInboxOperatorActionsTest.php (existing; extend)
+- tests/Feature/Ai/Aaeos/AaeosOneShotCockpitNonBlockingTest.php (NEW)
+- tests/Feature/Ai/Aaeos/AaeosVerificationCockpitProjectionTest.php (NEW)
+- tests/Feature/Ai/Aaeos/AaeosLegacyDispatchPackConsumerCensusTest.php (NEW)
+- tests/Feature/Ai/Aaeos/AaeosSelfDeclaredOrgStateAbsenceTest.php (NEW)
+- tests/Feature/Ai/Aaeos/AaeosDeadLoopSurfaceAbsenceTest.php (NEW)
 
 P3 does not broaden runtime capability.
 
 ### P4 — real-journey gauntlet, OneShot UX proof and freeze
 
-Preconditions: P0–P3 receipts green; all automated/source portions of R33/R34/R51–R82 green; ops preflight explicit. R5/R25/R36/R62/R75/R76 require the live P4 journeys themselves and are therefore P4 exit conditions, not circular preconditions.
+Preconditions: P0–P3 receipts green; all automated/source portions of R33/R34/R51–R86 green; ops preflight explicit. R5/R25/R36/R62/R75/R76/R84 require the live P4 journeys themselves and are therefore P4 exit conditions, not circular preconditions.
 
 P4 gives Atlas the time required to reach a governed result. It does not impose a one-pass or speed target. Every rejection loops internally to the correct planning, implementation, verification or repair stage until accepted or terminated with an explicit mandate/budget/no-progress cause. A safely blocked/failed/cancelled journey is honest evidence, but it does not qualify that mode as REAL_OPERATION and keeps P4 incomplete.
 
@@ -916,6 +1002,11 @@ Every mode requires a completed REAL_OPERATION journey with:
 
 P4 execution/test paths:
 
+- app/Console/Commands/AtlasDevSeniorLoopRunCommand.php (real producer; existing)
+- app/Console/Commands/AtlasForgeLiveExecuteCommand.php (real producer after P1/P2; existing)
+- app/Console/Commands/AtlasSelfConstructionRuntimeDaemonCommand.php (real producer; existing)
+- app/Console/Commands/AtlasAaeosCertifyCommand.php (independent verifier; existing)
+- app/Console/Commands/AtlasCliCockpitCommand.php (fresh terminal readback; existing)
 - tests/Feature/Ai/Aaeos/AaeosDevRealJourneyTest.php (NEW)
 - tests/Feature/Ai/Aaeos/AaeosForgeRealObraJourneyTest.php (NEW)
 - tests/Feature/Ai/Aaeos/AaeosAutonomosRealJourneyTest.php (NEW)
@@ -925,6 +1016,8 @@ P4 execution/test paths:
 - docs/evidence/2026-07-23-aaeos-elite-deepening/PHASE-P4-FORGE.json (generated)
 - docs/evidence/2026-07-23-aaeos-elite-deepening/PHASE-P4-AUTONOMOS.json (generated)
 - docs/evidence/2026-07-23-aaeos-elite-deepening/PHASE-P4-FREEZE.json (generated)
+
+The three producer journeys run with `APP_ENV` outside testing, a controlled disposable real workspace, durable PostgreSQL, real provider/tool invocation where the mode requires it, and canonical Git/artifact/effect observation. PHPUnit, SQLite `:memory:`, fixtures, fake providers and simulate-only services may test readers/invalidators but may not produce the qualifying receipts. A second process with a new container and connection runs certify/cockpit and subtract-one invalidators. The real command line, environment attestation, workspace base/result SHA, DB/backend identity hash, provider/tool receipt and exit code are recorded.
 
 P4 exit status is `aaeos_mt_real_journey_verified` only when all three mode journeys qualify. The separate derived UX label `operator_experience=oneshot` requires one commissioning episode, complete event capture and zero routine technical request/action; any allowed intent clarification is typed and enumerated, while Autônomos remains strict zero-touch. Sustained and comparative remain `not_claimed` unless their separate evidence actually exists.
 
@@ -995,8 +1088,8 @@ No phase auto-authorizes the next.
 The MT is DONE only if every item below is proven:
 
 1. P0, P1a, P1b, P2, P3 and P4 receipts exist and are green.
-2. R1–R93 are closed, accepted as explicitly non-applicable, or assigned to a named horizon only where this plan already marks HORIZON.
-3. R43, R46 and R51–R93 are closed; none may be waived as debt (R44 is folded into R66, not separately closable — R93).
+2. R1–R97 are closed, accepted as explicitly non-applicable, or assigned to a named horizon only where this plan already marks HORIZON.
+3. R43, R46 and R51–R97 are closed; none may be waived as debt (R44 is folded into R66, not separately closable — R97).
 4. Dev, Forge and Autônomos each have a completed REAL_OPERATION journey through their native owner chain; internal retries, reviews and repairs are preserved in evidence.
 5. runtime_write_performed, effect and proof claims match canonical events and fresh readback.
 6. every adverse terminal state has a precise failure_reason.
