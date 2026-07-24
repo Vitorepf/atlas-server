@@ -41,7 +41,8 @@
 - [ ] AtlasAaeosCommand further thin (loadSignals/service extract residual)
 - [x] AtlasLedgerReplayService SLO summary/review → LedgerReplaySupport (22 unit tests)
 - [x] AtlasLedgerReplayService SLO + repair summary/review → LedgerReplaySupport (22 unit green)
-- [ ] AtlasLedgerReplayService remaining families (inbox/agent/decision/kernel)
+- [x] AtlasLedgerReplayService agent/decision/inbox summary+review → Support (careful multi-arg; 22 unit green)
+- [ ] AtlasLedgerReplayService kernel pipeline summary residual
 - [x] AtlasDecideService pure helpers → DecideProviderNormalization (confidence/quality/mode/research/task-type)
 - [x] AtlasDecideService operationalDecision stages (resolveSelection/buildExplanation/assemble; 39 unit green)
 - [ ] AtlasDecideService executionGraph peel residual

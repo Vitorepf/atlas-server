@@ -660,4 +660,463 @@ class LedgerReplaySupport
         ];
     }
 
+    public function agentBehaviorSummary(Collection $events): array
+    {
+        $findingCodes = $events->pluck('finding_codes')->flatten()->filter()->values();
+        $findingSeverities = $events->pluck('finding_severities')->flatten()->filter()->values();
+        $scoreAvg = $events->isEmpty()
+            ? null
+            : round($events->pluck('score')->map(fn (mixed $score): int => (int) $score)->avg(), 2);
+        $reviewSignal = $this->agentBehaviorReviewSignal($events, $findingCodes);
+
+        return [
+            'agent_behavior_event_count' => $events->count(),
+            'finding_count' => $findingCodes->count(),
+            'status_counts' => $events->pluck('status')->filter()->countBy()->all(),
+            'finding_code_counts' => $findingCodes->countBy()->all(),
+            'finding_severity_counts' => $findingSeverities->countBy()->all(),
+            'provider_counts' => $events->pluck('provider')->filter()->countBy()->all(),
+            'agent_slug_counts' => $events->pluck('agent_slug')->filter()->countBy()->all(),
+            'average_score' => $scoreAvg,
+            'review_signal' => $reviewSignal,
+            'events' => $events->all(),
+        ];
+    }
+
+    public function agentBehaviorReviewSignal(Collection $events, Collection $findingCodes): array
+    {
+        if ($events->isEmpty()) {
+            return [
+                'status' => 'unknown',
+                'severity' => 'low',
+                'review_required' => false,
+                'reasons' => ['no_agent_behavior_gate_events_in_window'],
+                'recommended_action' => 'wait_for_agent_behavior_evidence',
+            ];
+        }
+
+        $recurring = $findingCodes
+            ->countBy()
+            ->filter(fn (int $count): bool => $count >= 2)
+            ->keys()
+            ->values()
+            ->all();
+
+        if ($recurring !== []) {
+            return [
+                'status' => 'warning',
+                'severity' => 'medium',
+                'review_required' => true,
+                'reasons' => array_map(fn (string $code): string => 'recurring_agent_behavior_finding:'.$code, $recurring),
+                'recommended_action' => 'open_reviewable_agent_behavior_quality_proposal',
+            ];
+        }
+
+        return [
+            'status' => 'ok',
+            'severity' => 'none',
+            'review_required' => false,
+            'reasons' => [],
+            'recommended_action' => 'none',
+        ];
+    }
+
+    public function decisionReceiptEventSummary(Collection $events): array
+    {
+        $invalidEvents = $events->filter(fn (array $event): bool => in_array('mismatch', [
+            $event['receipt_integrity_status'] ?? null,
+            $event['chain_integrity_status'] ?? null,
+        ], true));
+        $latest = $events->last();
+
+        return [
+            'decision_event_count' => $events->count(),
+            'valid_receipt_hash_count' => $events->where('receipt_integrity_status', 'ok')->count(),
+            'valid_chain_hash_count' => $events->where('chain_integrity_status', 'ok')->count(),
+            'invalid_count' => $invalidEvents->count(),
+            'latest_receipt_id' => is_array($latest) ? ($latest['receipt_id'] ?? null) : null,
+            'latest_chain_hash' => is_array($latest) ? ($latest['chain_hash'] ?? null) : null,
+            'review_signal' => $this->decisionReceiptReviewSignal($events, $invalidEvents),
+            'events' => $events->all(),
+        ];
+    }
+
+    public function decisionReceiptReviewSignal(Collection $events, Collection $invalidEvents): array
+    {
+        if ($events->isEmpty()) {
+            return [
+                'status' => 'unknown',
+                'severity' => 'low',
+                'review_required' => false,
+                'reasons' => ['no_decision_receipt_events_for_envelope'],
+                'recommended_action' => 'wait_for_decision_receipt_evidence',
+            ];
+        }
+
+        if ($invalidEvents->isNotEmpty()) {
+            return [
+                'status' => 'breach',
+                'severity' => 'high',
+                'review_required' => true,
+                'reasons' => array_values(array_unique($invalidEvents
+                    ->flatMap(fn (array $event): array => [
+                        ($event['receipt_integrity_status'] ?? null) === 'mismatch' ? 'decision_receipt_hash_mismatch' : null,
+                        ($event['chain_integrity_status'] ?? null) === 'mismatch' ? 'decision_receipt_chain_hash_mismatch' : null,
+                    ])
+                    ->filter()
+                    ->all())),
+                'recommended_action' => 'open_reviewable_decision_receipt_replay_proposal',
+            ];
+        }
+
+        return [
+            'status' => 'ok',
+            'severity' => 'none',
+            'review_required' => false,
+            'reasons' => [],
+            'recommended_action' => 'none',
+        ];
+    }
+
+    public function inboxActionSummary(Collection $events): array
+    {
+        $reviewedPatchCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_patch')
+            ->count();
+        $withDiffRefsCount = $events
+            ->filter(fn (array $event): bool => (int) ($event['diff_ref_count'] ?? 0) > 0)
+            ->count();
+        $rivalsReviewRecordedCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'record_rivals_review')
+            ->count();
+        $rivalsReviewWithScoresCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'record_rivals_review')
+            ->filter(fn (array $event): bool => is_numeric($event['rivals_regret_score'] ?? null)
+                && is_numeric($event['rivals_alignment_score'] ?? null)
+                && is_numeric($event['rivals_agency_score'] ?? null))
+            ->count();
+        $providerCostRateActionCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'configure_provider_cost_rates')
+            ->count();
+        $providerCostRateAppliedCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'configure_provider_cost_rates')
+            ->filter(fn (array $event): bool => (bool) ($event['provider_cost_rate_applied'] ?? false))
+            ->count();
+        $retrievalRegressionReviewCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_retrieval_regression')
+            ->count();
+        $retrievalRegressionReviewedCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_retrieval_regression')
+            ->filter(fn (array $event): bool => (bool) ($event['retrieval_regression_reviewed'] ?? false))
+            ->count();
+        $retrievalShadowScopeReviewCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_retrieval_shadow_scope')
+            ->count();
+        $retrievalShadowScopeReviewedCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_retrieval_shadow_scope')
+            ->filter(fn (array $event): bool => (bool) ($event['retrieval_shadow_scope_reviewed'] ?? false))
+            ->count();
+        $retrievalShadowScopeReceiptCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_retrieval_shadow_scope')
+            ->filter(fn (array $event): bool => filled($event['retrieval_shadow_scope_decision_receipt_hash'] ?? null))
+            ->count();
+        $retrievalShadowScopeRuntimeAllowedCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_retrieval_shadow_scope')
+            ->filter(fn (array $event): bool => (bool) ($event['retrieval_shadow_scope_shadow_execution_allowed_now'] ?? false))
+            ->count();
+        $externalVectorRagPreflightReviewCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_external_vector_rag_preflight')
+            ->count();
+        $externalVectorRagPreflightReviewedCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_external_vector_rag_preflight')
+            ->filter(fn (array $event): bool => (bool) ($event['external_vector_rag_preflight_reviewed'] ?? false))
+            ->count();
+        $externalVectorRagPreflightReceiptCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_external_vector_rag_preflight')
+            ->filter(fn (array $event): bool => filled($event['external_vector_rag_preflight_decision_receipt_hash'] ?? null))
+            ->count();
+        $externalVectorRagPreflightUnsafeActivationCount = $events
+            ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_external_vector_rag_preflight')
+            ->filter(fn (array $event): bool => (bool) ($event['external_vector_rag_preflight_embedding_allowed_now'] ?? false)
+                || (bool) ($event['external_vector_rag_preflight_vector_write_allowed_now'] ?? false)
+                || (bool) ($event['external_vector_rag_preflight_constellation_allowed_now'] ?? false))
+            ->count();
+        $reviewSignal = $this->inboxActionReviewSignal(
+            $events,
+            $reviewedPatchCount,
+            $withDiffRefsCount,
+            $rivalsReviewRecordedCount,
+            $rivalsReviewWithScoresCount,
+            $providerCostRateActionCount,
+            $providerCostRateAppliedCount,
+            $retrievalRegressionReviewCount,
+            $retrievalRegressionReviewedCount,
+            $retrievalShadowScopeReviewCount,
+            $retrievalShadowScopeReviewedCount,
+            $retrievalShadowScopeReceiptCount,
+            $retrievalShadowScopeRuntimeAllowedCount,
+            $externalVectorRagPreflightReviewCount,
+            $externalVectorRagPreflightReviewedCount,
+            $externalVectorRagPreflightReceiptCount,
+            $externalVectorRagPreflightUnsafeActivationCount,
+        );
+
+        return [
+            'inbox_action_count' => $events->count(),
+            'action_counts' => $events->pluck('action')->filter()->countBy()->all(),
+            'actor_type_counts' => $events->pluck('actor_type')->filter()->countBy()->all(),
+            'category_counts' => $events->pluck('inbox_item_category')->filter()->countBy()->all(),
+            'severity_counts' => $events->pluck('inbox_item_severity')->filter()->countBy()->all(),
+            'recommended_action_counts' => $events->pluck('recommended_action')->filter()->countBy()->all(),
+            'reviewed_patch_count' => $reviewedPatchCount,
+            'with_diff_refs_count' => $withDiffRefsCount,
+            'rivals_review_recorded_count' => $rivalsReviewRecordedCount,
+            'rivals_review_with_scores_count' => $rivalsReviewWithScoresCount,
+            'retrieval_regression_review_count' => $retrievalRegressionReviewCount,
+            'retrieval_regression_reviewed_count' => $retrievalRegressionReviewedCount,
+            'retrieval_regression_decision_counts' => $events
+                ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_retrieval_regression')
+                ->pluck('retrieval_regression_decision')
+                ->filter()
+                ->countBy()
+                ->all(),
+            'retrieval_shadow_scope_review_count' => $retrievalShadowScopeReviewCount,
+            'retrieval_shadow_scope_reviewed_count' => $retrievalShadowScopeReviewedCount,
+            'retrieval_shadow_scope_decision_receipt_count' => $retrievalShadowScopeReceiptCount,
+            'retrieval_shadow_scope_runtime_allowed_count' => $retrievalShadowScopeRuntimeAllowedCount,
+            'retrieval_shadow_scope_decision_counts' => $events
+                ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_retrieval_shadow_scope')
+                ->pluck('retrieval_shadow_scope_decision')
+                ->filter()
+                ->countBy()
+                ->all(),
+            'external_vector_rag_preflight_review_count' => $externalVectorRagPreflightReviewCount,
+            'external_vector_rag_preflight_reviewed_count' => $externalVectorRagPreflightReviewedCount,
+            'external_vector_rag_preflight_decision_receipt_count' => $externalVectorRagPreflightReceiptCount,
+            'external_vector_rag_preflight_unsafe_activation_count' => $externalVectorRagPreflightUnsafeActivationCount,
+            'external_vector_rag_preflight_decision_counts' => $events
+                ->filter(fn (array $event): bool => ($event['action'] ?? null) === 'review_external_vector_rag_preflight')
+                ->pluck('external_vector_rag_preflight_decision')
+                ->filter()
+                ->countBy()
+                ->all(),
+            'provider_cost_rate_action_count' => $providerCostRateActionCount,
+            'provider_cost_rate_applied_count' => $providerCostRateAppliedCount,
+            'provider_cost_rate_provider_counts' => $events->pluck('provider_cost_rate_provider')->filter()->countBy()->all(),
+            'provider_cost_rate_model_counts' => $events
+                ->map(fn (array $event): ?string => ($event['provider_cost_rate_provider'] ?? null) && ($event['provider_cost_rate_model'] ?? null)
+                    ? $event['provider_cost_rate_provider'].':'.$event['provider_cost_rate_model']
+                    : null)
+                ->filter()
+                ->countBy()
+                ->all(),
+            'review_signal' => $reviewSignal,
+            'events' => $events->all(),
+        ];
+    }
+
+    public function inboxActionReviewSignal(
+        Collection $events,
+        int $reviewedPatchCount,
+        int $withDiffRefsCount,
+        int $rivalsReviewRecordedCount,
+        int $rivalsReviewWithScoresCount,
+        int $providerCostRateActionCount,
+        int $providerCostRateAppliedCount,
+        int $retrievalRegressionReviewCount,
+        int $retrievalRegressionReviewedCount,
+        int $retrievalShadowScopeReviewCount,
+        int $retrievalShadowScopeReviewedCount,
+        int $retrievalShadowScopeReceiptCount,
+        int $retrievalShadowScopeRuntimeAllowedCount,
+        int $externalVectorRagPreflightReviewCount,
+        int $externalVectorRagPreflightReviewedCount,
+        int $externalVectorRagPreflightReceiptCount,
+        int $externalVectorRagPreflightUnsafeActivationCount,
+    ): array {
+        if ($events->isEmpty()) {
+            return [
+                'status' => 'unknown',
+                'severity' => 'low',
+                'review_required' => false,
+                'reasons' => ['no_inbox_action_events_in_window'],
+                'recommended_action' => 'wait_for_inbox_action_evidence',
+            ];
+        }
+
+        if ($retrievalRegressionReviewCount > 0 && $retrievalRegressionReviewedCount < $retrievalRegressionReviewCount) {
+            return [
+                'status' => 'warning',
+                'severity' => 'medium',
+                'review_required' => true,
+                'reasons' => ['review_retrieval_regression_action_without_review_marker'],
+                'recommended_action' => 'open_memory_retrieval_regression_review',
+            ];
+        }
+
+        if ($retrievalShadowScopeRuntimeAllowedCount > 0) {
+            return [
+                'status' => 'warning',
+                'severity' => 'high',
+                'review_required' => true,
+                'reasons' => ['retrieval_shadow_scope_review_allowed_runtime_execution'],
+                'recommended_action' => 'review_retrieval_shadow_scope',
+            ];
+        }
+
+        if ($retrievalShadowScopeReviewCount > 0 && $retrievalShadowScopeReviewedCount < $retrievalShadowScopeReviewCount) {
+            return [
+                'status' => 'warning',
+                'severity' => 'medium',
+                'review_required' => true,
+                'reasons' => ['review_retrieval_shadow_scope_action_without_review_marker'],
+                'recommended_action' => 'review_retrieval_shadow_scope',
+            ];
+        }
+
+        if ($retrievalShadowScopeReviewCount > 0 && $retrievalShadowScopeReceiptCount < $retrievalShadowScopeReviewCount) {
+            return [
+                'status' => 'warning',
+                'severity' => 'medium',
+                'review_required' => true,
+                'reasons' => ['review_retrieval_shadow_scope_action_without_decision_receipt'],
+                'recommended_action' => 'review_retrieval_shadow_scope',
+            ];
+        }
+
+        if ($externalVectorRagPreflightUnsafeActivationCount > 0) {
+            return [
+                'status' => 'warning',
+                'severity' => 'high',
+                'review_required' => true,
+                'reasons' => ['external_vector_rag_preflight_review_allowed_unsafe_activation'],
+                'recommended_action' => 'review_external_vector_rag_preflight',
+            ];
+        }
+
+        if ($externalVectorRagPreflightReviewCount > 0 && $externalVectorRagPreflightReviewedCount < $externalVectorRagPreflightReviewCount) {
+            return [
+                'status' => 'warning',
+                'severity' => 'medium',
+                'review_required' => true,
+                'reasons' => ['review_external_vector_rag_preflight_action_without_review_marker'],
+                'recommended_action' => 'review_external_vector_rag_preflight',
+            ];
+        }
+
+        if ($externalVectorRagPreflightReviewCount > 0 && $externalVectorRagPreflightReceiptCount < $externalVectorRagPreflightReviewCount) {
+            return [
+                'status' => 'warning',
+                'severity' => 'medium',
+                'review_required' => true,
+                'reasons' => ['review_external_vector_rag_preflight_action_without_decision_receipt'],
+                'recommended_action' => 'review_external_vector_rag_preflight',
+            ];
+        }
+
+        if ($rivalsReviewRecordedCount > 0 && $rivalsReviewWithScoresCount < $rivalsReviewRecordedCount) {
+            return [
+                'status' => 'warning',
+                'severity' => 'medium',
+                'review_required' => true,
+                'reasons' => ['record_rivals_review_action_without_scores'],
+                'recommended_action' => 'open_reviewable_inbox_action_evidence_proposal',
+            ];
+        }
+
+        if ($providerCostRateActionCount > 0 && $providerCostRateAppliedCount < $providerCostRateActionCount) {
+            return [
+                'status' => 'warning',
+                'severity' => 'medium',
+                'review_required' => true,
+                'reasons' => ['configure_provider_cost_rates_action_without_applied_rate'],
+                'recommended_action' => 'configure_provider_cost_rates',
+            ];
+        }
+
+        if ($reviewedPatchCount > 0 && $withDiffRefsCount === 0) {
+            return [
+                'status' => 'warning',
+                'severity' => 'medium',
+                'review_required' => true,
+                'reasons' => ['review_patch_action_without_diff_refs'],
+                'recommended_action' => 'open_reviewable_inbox_action_evidence_proposal',
+            ];
+        }
+
+        if ($retrievalShadowScopeReviewCount > 0
+            && $retrievalShadowScopeReviewedCount === $retrievalShadowScopeReviewCount
+            && $retrievalShadowScopeReceiptCount === $retrievalShadowScopeReviewCount
+        ) {
+            return [
+                'status' => 'ok',
+                'severity' => 'none',
+                'review_required' => false,
+                'reasons' => ['memory_retrieval_shadow_scope_review_recorded'],
+                'recommended_action' => 'none',
+            ];
+        }
+
+        if ($retrievalRegressionReviewCount > 0 && $retrievalRegressionReviewedCount === $retrievalRegressionReviewCount) {
+            return [
+                'status' => 'ok',
+                'severity' => 'none',
+                'review_required' => false,
+                'reasons' => ['memory_retrieval_regression_review_recorded'],
+                'recommended_action' => 'none',
+            ];
+        }
+
+        if ($externalVectorRagPreflightReviewCount > 0
+            && $externalVectorRagPreflightReviewedCount === $externalVectorRagPreflightReviewCount
+            && $externalVectorRagPreflightReceiptCount === $externalVectorRagPreflightReviewCount
+        ) {
+            return [
+                'status' => 'ok',
+                'severity' => 'none',
+                'review_required' => false,
+                'reasons' => ['external_vector_rag_preflight_review_recorded'],
+                'recommended_action' => 'none',
+            ];
+        }
+
+        if ($rivalsReviewRecordedCount > 0 && $rivalsReviewWithScoresCount === $rivalsReviewRecordedCount) {
+            return [
+                'status' => 'ok',
+                'severity' => 'none',
+                'review_required' => false,
+                'reasons' => ['rivals_strategy_human_scores_recorded'],
+                'recommended_action' => 'none',
+            ];
+        }
+
+        if ($providerCostRateActionCount > 0 && $providerCostRateAppliedCount === $providerCostRateActionCount) {
+            return [
+                'status' => 'ok',
+                'severity' => 'none',
+                'review_required' => false,
+                'reasons' => ['provider_cost_rates_configured'],
+                'recommended_action' => 'none',
+            ];
+        }
+
+        if ($reviewedPatchCount > 0 && $withDiffRefsCount > 0) {
+            return [
+                'status' => 'ok',
+                'severity' => 'none',
+                'review_required' => false,
+                'reasons' => ['human_review_action_with_patch_context_recorded'],
+                'recommended_action' => 'none',
+            ];
+        }
+
+        return [
+            'status' => 'ok',
+            'severity' => 'none',
+            'review_required' => false,
+            'reasons' => [],
+            'recommended_action' => 'none',
+        ];
+    }
+
 }
