@@ -55,6 +55,9 @@ final class AaeosScorecardProjector
             'god_sota' => $composite !== null && $composite >= 9.0 && $quarantineImports === 0 && $purityOk,
             'target_composite' => 9.0,
             'runtime_write_performed' => false,
+            // P1b.3: scorecard never mints decision/authority seals — only projects
+            // measurement provenance already present in runtimeHints.
+            'native_authority_projection' => $this->projectNativeObservationRefs($runtimeHints),
             'counters' => [
                 'cycles_total' => (int) ($runtimeHints['cycles_total'] ?? 0),
                 'halts_sovereign' => (int) ($runtimeHints['halts_sovereign'] ?? 0),
@@ -66,6 +69,37 @@ final class AaeosScorecardProjector
                 'spine_violations' => (int) ($runtimeHints['spine_violations'] ?? 0),
             ],
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $runtimeHints
+     * @return array<string,mixed>
+     */
+    private function projectNativeObservationRefs(array $runtimeHints): array
+    {
+        $projection = [
+            'schema' => 'atlas.aaeos.native_authority_projection.v1',
+            'self_minted' => false,
+            'projected' => [],
+            'refused_self_mint' => [],
+        ];
+        foreach (['minted_decision_event_id', 'self_sealed_authority', 'observed_authority'] as $banned) {
+            if (array_key_exists($banned, $runtimeHints)) {
+                $projection['refused_self_mint'][] = $banned;
+            }
+        }
+        foreach (['decision_event_id', 'decision_receipt_hash', 'engineering_outcome_hash', 'measurement_event_ids'] as $key) {
+            if (! array_key_exists($key, $runtimeHints)) {
+                continue;
+            }
+            $value = $runtimeHints[$key];
+            if ($value === null || $value === '' || $value === []) {
+                continue;
+            }
+            $projection['projected'][$key] = $value;
+        }
+
+        return $projection;
     }
 
     private function countQuarantineImports(): int

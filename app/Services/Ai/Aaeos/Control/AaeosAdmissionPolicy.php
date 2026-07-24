@@ -32,6 +32,20 @@ final class AaeosAdmissionPolicy
         $mode = (string) ($modeSelection['mode'] ?? '');
         $level = (int) ($difficulty['level'] ?? AaeosDifficultyLevel::L1);
 
+        // P1b.3: admission never self-mints observed authority. Caller may only
+        // pass native refs for projection; fabricated "observed" seals are refused.
+        if (array_key_exists('self_minted_authority', $objective)
+            || array_key_exists('self_minted_authority', $world)
+            || (bool) ($objective['mint_observed_authority'] ?? false)
+            || (bool) ($world['mint_observed_authority'] ?? false)) {
+            return $this->pack(
+                AaeosAdmissionVerdict::REPAIR_REQUIRED,
+                ['aaeos_cannot_self_mint_observed_authority'],
+                $mode,
+                $level,
+            );
+        }
+
         if (! AaeosExecutorMode::isValid($mode)) {
             return $this->pack(AaeosAdmissionVerdict::REPAIR_REQUIRED, ['invalid_mode'], $mode, $level);
         }

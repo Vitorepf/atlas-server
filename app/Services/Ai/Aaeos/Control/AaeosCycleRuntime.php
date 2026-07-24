@@ -96,6 +96,8 @@ final class AaeosCycleRuntime
             'admission' => $admit,
             'world' => $worldArray,
             'dispatch' => $dispatch,
+            // P1b.3: projection of native authority/observation refs only — never self-minted.
+            'native_authority_projection' => $this->projectNativeAuthorityRefs($hints, $dispatch, $admit),
             'spine' => [
                 'delivery' => 'N9',
                 'evidence' => 'N11',
@@ -107,18 +109,11 @@ final class AaeosCycleRuntime
 
         $receipt['effect_level'] = $this->effectLevel($receipt);
 
-        if (! $dryRun) {
-            $evidence = $this->recordEvidence($receipt);
-            $receipt['evidence_status'] = $evidence['status'];
-            $receipt['runtime_write_performed'] = $evidence['written'];
-            $receipt['runtime_write_kind'] = $evidence['written'] ? 'aaeos_cycle_receipt' : null;
-            $receipt['receipt_core'] = $evidence['receipt_core'];
-            $receipt['receipt_core_hash'] = $evidence['receipt_core_hash'];
-            $receipt['evidence_event_id'] = $evidence['evidence_event_id'];
-            $receipt['evidence_event_hash'] = $evidence['evidence_event_hash'];
+        if ($dryRun) {
+            return $this->finalizeEvidenceProjection($receipt, 'skipped', false);
         }
 
-        return $receipt;
+        return $this->recordEvidence($receipt)['receipt'];
     }
 
     /**
@@ -223,25 +218,10 @@ final class AaeosCycleRuntime
 
     /**
      * @param  array<string,mixed>  $receipt
-     * @return array{
-     *     status:string,
-     *     written:bool,
-     *     receipt_core:array<string,mixed>,
-     *     receipt_core_hash:string,
-     *     evidence_event_id:string|null,
-     *     evidence_event_hash:string|null
-     * }
+     * @return array{receipt:array<string,mixed>}
      */
     private function recordEvidence(array $receipt): array
     {
-        $receiptCore = self::receiptCore($receipt);
-        $receiptCoreHash = self::receiptCoreHash($receiptCore);
-        $empty = [
-            'receipt_core' => $receiptCore,
-            'receipt_core_hash' => $receiptCoreHash,
-            'evidence_event_id' => null,
-            'evidence_event_hash' => null,
-        ];
         $ledger = $this->ledger;
         if ($ledger === null) {
             try {
@@ -249,15 +229,21 @@ final class AaeosCycleRuntime
                     $ledger = app(AtlasEvidenceLedger::class);
                 }
             } catch (Throwable) {
-                return ['status' => 'skipped_no_container', 'written' => false, ...$empty];
+                return ['receipt' => $this->finalizeEvidenceProjection($receipt, 'skipped_no_container', false)];
             }
         }
 
         if ($ledger === null) {
-            return ['status' => 'skipped_no_ledger', 'written' => false, ...$empty];
+            return ['receipt' => $this->finalizeEvidenceProjection($receipt, 'skipped_no_ledger', false)];
         }
 
         try {
+            // The event binds this *final* successful projection. Event references are
+            // deliberately excluded from the core, so they can be attached after the
+            // append without making the receipt self-referential.
+            $finalReceipt = $this->finalizeEvidenceProjection($receipt, 'recorded', true);
+            $receiptCore = (array) $finalReceipt['receipt_core'];
+            $receiptCoreHash = (string) $finalReceipt['receipt_core_hash'];
             $event = $ledger->record(
                 LedgerEventType::AaeosCycleRecorded,
                 [
@@ -277,18 +263,92 @@ final class AaeosCycleRuntime
                 ],
             );
 
-            return $event === null
-                ? ['status' => 'skipped_table_missing', 'written' => false, ...$empty]
-                : [
-                    'status' => 'recorded',
-                    'written' => true,
-                    ...$empty,
-                    'evidence_event_id' => (string) $event->event_id,
-                    'evidence_event_hash' => (string) $event->event_hash,
-                ];
+            if ($event === null) {
+                return ['receipt' => $this->finalizeEvidenceProjection($receipt, 'skipped_table_missing', false)];
+            }
+
+            $finalReceipt['evidence_event_id'] = (string) $event->event_id;
+            $finalReceipt['evidence_event_hash'] = (string) $event->event_hash;
+
+            return ['receipt' => $finalReceipt];
         } catch (Throwable) {
-            return ['status' => 'skipped_error', 'written' => false, ...$empty];
+            return ['receipt' => $this->finalizeEvidenceProjection($receipt, 'skipped_error', false)];
         }
+    }
+
+    /**
+     * Finalize the exact receipt projection that the advertised core hash
+     * represents. This is intentionally done before evidence append on the
+     * successful path, so the ledger payload and returned receipt attest to
+     * identical runtime/evidence fields.
+     *
+     * @param  array<string,mixed>  $receipt
+     * @return array<string,mixed>
+     */
+    private function finalizeEvidenceProjection(array $receipt, string $evidenceStatus, bool $written): array
+    {
+        $receipt['evidence_status'] = $evidenceStatus;
+        $receipt['runtime_write_performed'] = $written;
+        $receipt['runtime_write_kind'] = $written ? 'aaeos_cycle_receipt' : null;
+        $receipt['evidence_event_id'] = null;
+        $receipt['evidence_event_hash'] = null;
+        $receipt['receipt_core'] = self::receiptCore($receipt);
+        $receipt['receipt_core_hash'] = self::receiptCoreHash($receipt['receipt_core']);
+
+        return $receipt;
+    }
+
+    /**
+     * P1b.3: project only native authorization/observation refs already present
+     * on owner seams. Never invent decision/event ids or seal authority here.
+     *
+     * @param  array<string,mixed>  $hints
+     * @param  array<string,mixed>  $dispatch
+     * @param  array<string,mixed>  $admit
+     * @return array<string,mixed>
+     */
+    private function projectNativeAuthorityRefs(array $hints, array $dispatch, array $admit): array
+    {
+        $refs = [
+            'schema' => 'atlas.aaeos.native_authority_projection.v1',
+            'self_minted' => false,
+            'authority_source' => 'native_only',
+            'projected' => [],
+            'refused_self_mint' => [],
+        ];
+
+        // Caller-supplied "observed" authority without a native owner ref is laundering.
+        foreach (['observed_authority', 'minted_decision_event_id', 'self_sealed_authority'] as $banned) {
+            if (array_key_exists($banned, $hints) && ($hints[$banned] ?? null) !== null) {
+                $refs['refused_self_mint'][] = $banned;
+            }
+        }
+
+        $candidates = [
+            'confirmed_dev_run' => $hints['confirmed_dev_run'] ?? null,
+            'forge_commissioning' => $hints['forge_commissioning'] ?? null,
+            'decision_event_id' => $hints['decision_event_id'] ?? data_get($dispatch, 'live.decision_event_id'),
+            'decision_receipt_hash' => $hints['decision_receipt_hash'] ?? data_get($dispatch, 'live.decision_receipt_hash'),
+            'land_nonce' => data_get($dispatch, 'live.land_nonce'),
+            'engineering_outcome_hash' => data_get($dispatch, 'live.engineering_outcome_hash')
+                ?? data_get($dispatch, 'live.outcome.outcome_hash'),
+            'admission_verdict' => $admit['verdict'] ?? null,
+        ];
+
+        foreach ($candidates as $key => $value) {
+            if ($value === null || $value === '' || $value === []) {
+                continue;
+            }
+            // Only project scalars/arrays that already exist — never fabricate hashes/ids.
+            if (is_string($value) || is_int($value) || is_bool($value) || is_array($value)) {
+                $refs['projected'][$key] = $value;
+            }
+        }
+
+        $refs['has_native_authority'] = $refs['projected'] !== []
+            && ! array_key_exists('minted_decision_event_id', $hints);
+
+        return $refs;
     }
 
     /**
@@ -305,7 +365,7 @@ final class AaeosCycleRuntime
         );
 
         /** @var array<string,mixed> $canonical */
-        $canonical = self::canonicalize($receipt);
+        $canonical = json_decode(AtlasEvidenceLedger::canonicalJson($receipt), true, 512, JSON_THROW_ON_ERROR);
 
         return $canonical;
     }
@@ -315,27 +375,7 @@ final class AaeosCycleRuntime
      */
     public static function receiptCoreHash(array $receiptCore): string
     {
-        return hash('sha256', json_encode(
-            self::canonicalize($receiptCore),
-            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR,
-        ));
-    }
-
-    private static function canonicalize(mixed $value): mixed
-    {
-        if (! is_array($value)) {
-            return $value;
-        }
-
-        if (! array_is_list($value)) {
-            ksort($value);
-        }
-
-        foreach ($value as $key => $item) {
-            $value[$key] = self::canonicalize($item);
-        }
-
-        return array_is_list($value) ? array_values($value) : $value;
+        return hash('sha256', AtlasEvidenceLedger::canonicalJson($receiptCore));
     }
 
     /**
