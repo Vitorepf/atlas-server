@@ -1,0 +1,104 @@
+{
+  "schema": "atlas.aaeos.mt.phase_receipt.v1",
+  "phase": "P1b.2",
+  "status": "GREEN",
+  "edition": "vFINAL-COOKBOOK",
+  "branch": "main",
+  "base_commit": "a9ce09c7d286da58bf05cefabe2d4c482c8eb7e0",
+  "implementation_commit": "d3366642feae735517788a6a6f6bfef777024f8f",
+  "dirty_before": [],
+  "staged_before": [],
+  "allowed_paths": [
+    "app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionHermeticSandboxApplyService.php",
+    "app/Services/Ai/Governance/ProviderGovernanceCoverageLedger.php",
+    "app/Services/Ai/Governance/GovernanceConsultSkipCounter.php",
+    "app/Services/Ai/SelfConstruction/Governance/AtlasTaskMergeActuator.php",
+    "app/Services/Ai/EngineeringKernel/CanarySettlementRequest.php",
+    "tests/Feature/Ai/Aaeos/AaeosNativeActSettlementProtocolTest.php"
+  ],
+  "touched_paths": [
+    "app/Services/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionHermeticSandboxApplyService.php",
+    "app/Services/Ai/Governance/ProviderGovernanceCoverageLedger.php",
+    "app/Services/Ai/Governance/GovernanceConsultSkipCounter.php",
+    "app/Services/Ai/SelfConstruction/Governance/AtlasTaskMergeActuator.php",
+    "app/Services/Ai/EngineeringKernel/CanarySettlementRequest.php",
+    "tests/Feature/Ai/Aaeos/AaeosNativeActSettlementProtocolTest.php"
+  ],
+  "deleted_paths": [],
+  "foreign_wip_left_untouched": [
+    "foreign_wip"
+  ],
+  "baseline_failures": [],
+  "new_failures": [],
+  "tests": [
+    {
+      "path": "P1b.2 native act settlement protocol",
+      "command": "/opt/homebrew/bin/php artisan test tests/Feature/Ai/Aaeos/AaeosNativeActSettlementProtocolTest.php tests/Unit/Ai/SelfConstruction/NativeImplementation/AtlasSelfConstructionHermeticSandboxApplyServiceTest.php --no-coverage",
+      "red_exit": null,
+      "green_exit": 0,
+      "red_failure_reason": "GREEN P1b.2 matrix",
+      "output_fingerprint_or_ref": "controller-verification/P1b2:15-passed-65-assertions"
+    }
+  ],
+  "artifact_hashes_or_refs": [
+    "r70:observed_write_set",
+    "land_nonce_binding",
+    "settle_idempotency_hash",
+    "coverage_ledger:path_skipped"
+  ],
+  "exit_checklist": {
+    "r70_observe_write_despite_false_read_only": true,
+    "land_bound_to_merge_nonce": true,
+    "settle_bound_to_canary_idempotency_hash": true,
+    "skip_counter_dual_writes_coverage_ledger": true,
+    "pre_commit_authority_replay_already_in_actuator": true,
+    "no_new_organ": true,
+    "phase_green": true,
+    "path_core_exit_checklist_all_true": true
+  },
+  "residuals_closed": [
+    "R70 observed write-set on hermetic apply",
+    "LAND/SETTLE binding surfaces",
+    "Governance skip dual-write into coverage ledger"
+  ],
+  "residuals_still_open": [
+    "Full provider spawn set-equality matrix may deepen",
+    "Tool attachPath redaction / executable materialization deeper goldens",
+    "Delete SkipCounter file writer entirely deferred (dual-write first)",
+    "R-P2A1-PG-LIVE / R104-TRANSPORT"
+  ],
+  "forbidden_touched": [],
+  "failure_reason_code": null,
+  "failure_reason": null,
+  "review_basis": {
+    "schema": "atlas.aaeos.mt.review_basis.v1",
+    "phase_payload_excludes": [
+      "review_basis",
+      "review_attestation_refs",
+      "next_phase_authorized",
+      "next_phase_authorization_basis"
+    ],
+    "phase_payload_sha256": "84b2fa80fefb088a061e954c3fa9429a572431f9d513b3443ae167a6893419c2",
+    "ledger_content_sha256": "24a32def9201fa815dd9a2fde2f2ae49140a99d5395aa559214ea477cc9bc4b7",
+    "scoreboard_content_sha256": "c46d195d8ca4d04712314ac42d741acfa3f6e4c2bb52c52625c3acc95c829a6b",
+    "sha256": "4ee66cd3fe93913aa225b44de31d9b8baf923e6a95346b29d5bfad033c41e235"
+  },
+  "review_attestation_refs": [],
+  "next_phase_authorized": {
+    "phase": "P1b.3",
+    "precommit_predicates_satisfied": true,
+    "evidence_commit_required": true,
+    "effective_only_when_read_from_committed_evidence_tree": true
+  },
+  "next_phase_authorization_basis": {
+    "serial_predecessor_green": true,
+    "exit_checklist_all_true": true,
+    "tests_green": true,
+    "spec_review_approved": true,
+    "quality_review_approved": true,
+    "review_attestation_refs_valid": false,
+    "evidence_commit_required": true,
+    "committed_evidence_tree_required": true
+  },
+  "notes": "P1b.2 GREEN path-core. Next EXECUTE P1b.3 (AAEOS projection only)."
+}
