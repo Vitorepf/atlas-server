@@ -317,6 +317,8 @@ Operator **always out of engineering loop**. Time delay is secondary. Software e
 
 **Agent QoS** = probability of promote-with-proof (structure, correctness, maintainability, verification) — not latency.
 
+**Teto de desenho (fechado no knowledge doc §4.4):** classes C_ARCH…C_MEAS; depth standard|elevated|max server-resolved; C_ARCH×max ≥3 candidatos + adversarial; kill-tests K1–K10; sem dial vanity.
+
 When excellence depth is server-resolved **max** (from mandate/risk/L4–L5 — **not** a productive CLI dial `quality_ceiling=max`):
 
 1. Multi-loop is **required**: spec → author → judge → verify → repair 0..N (same root) → land → canary settle.  
@@ -433,7 +435,7 @@ Product source: `docs/engineering-knowledge-base/atlas-problemas-conhecidos.md` 
 
 | ID | Gap | Existing owner reused | Hard done condition |
 |---|---|---|---|
-| R106 | Multi-loop excellence (spec→author→judge→verify→repair→land→settle) is optional/fragmented; dials/proxies can game quality; architecture path can mutate; operator can re-enter as technical reviewer; timeout can promote | `EliteExecutorKernel`, `SovereignSpecFloor`, `VerificationCourtAcceptanceGate`, `SovereignHonestyFloor`, `EngineeringQualityCourt`+`EngineeringRoleRoster`, `RepairOrchestrator`+Forge/TaskServing repair, `QualityFoundryMutationCoverageRunner`/`MutationTestingAdapter`, `AtlasTaskMergeActuator`+canary, `AtlasEvidenceLedger`, `AtlasReviewDeepCommand` (audit-only) — **no new organ**; policy map `atlas-agent-qos-excellence-ceiling.md` | (1) excellence depth is **server-resolved** (raise-only; no productive CLI dial); (2) architecture vs implementation paths distinct fail-closed; (3) implementation max cannot LAND without Court+Floor promote; repair>0 requires regression_lock+replay_proof; (4) same-family author+judge without mechanical Court cannot land; (5) zero routine `human_action_required`/`needs_review` technical exits; (6) timeout/budget → precise terminal, never promote; (7) review:deep/cockpit non-gating; (8) multi-loop quality claim forbidden while R104 open; (9) goldens for multi-loop + mode parity; (10) M still falsifiable (R88) |
+| R106 | Multi-loop excellence (spec→author→judge→verify→repair→land→settle) is optional/fragmented; dials/proxies can game quality; architecture path can mutate; operator can re-enter as technical reviewer; timeout can promote | `EliteExecutorKernel`, `SovereignSpecFloor`, `VerificationCourtAcceptanceGate`, `SovereignHonestyFloor`, `EngineeringQualityCourt`+`EngineeringRoleRoster`, `RepairOrchestrator`+Forge/TaskServing repair, `QualityFoundryMutationCoverageRunner`/`MutationTestingAdapter`, `AtlasTaskMergeActuator`+canary, `AtlasEvidenceLedger`, `AtlasReviewDeepCommand` (audit-only) — **no new organ**; policy map `atlas-agent-qos-excellence-ceiling.md` **§4.4 teto final** (class matrix + K1–K10) | (1) excellence depth is **server-resolved** (raise-only; no productive CLI dial); (2) architecture vs implementation paths distinct fail-closed; (3) implementation max cannot LAND without Court+Floor promote; repair>0 requires regression_lock+replay_proof; (4) same-family author+judge without mechanical Court cannot land; (5) zero routine `human_action_required`/`needs_review` technical exits; (6) timeout/budget → precise terminal, never promote; (7) review:deep/cockpit non-gating; (8) multi-loop quality claim forbidden while R104 open; (9) goldens for multi-loop + mode parity; (10) M still falsifiable (R88) |
 
 
 
@@ -1545,6 +1547,7 @@ tests/Feature/Ai/Aaeos/AaeosSeparationOfDutiesTest.php                       # E
 Re-read excellence map doc + §1.12. Confirm R104 status. FOREIGN_WIP untouched.
 
 ### P2g.1 RED
+- C_ARCH×max with only 1 architecture candidate → must not FREEZE (`architecture_under_sampled`)
 - architecture request with mutate permission without reclass → must fail closed  
 - implementation without FREEZE/criteria → no land  
 - same-family author+judge without mechanical court facts → no promote  
@@ -1568,7 +1571,9 @@ Re-read excellence map doc + §1.12. Confirm R104 status. FOREIGN_WIP untouched.
 
 ### P2g-QOS exit checklist
 - [ ] No vanity dial; depth server-resolved  
-- [ ] Multi-loop law enforced for max depth  
+- [ ] Multi-loop law enforced for max depth
+- [ ] Class×depth matrix + C_ARCH ≥3 candidates enforced (or RED proves missing wiring)
+- [ ] Kill-tests K1–K10 present as tests or explicit PHASE residual  
 - [ ] Architecture cannot land product code  
 - [ ] Timeout never promotes  
 - [ ] Operator technical gates absent  
