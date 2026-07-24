@@ -1,7 +1,7 @@
 # AAEOS Elite Deepening — LEDGER
 
 **Master:** docs/superpowers/plans/2026-07-23-aaeos-elite-deepening-MASTER.md
-**Current plan:** v8 — zero-duplicate authority protocol (cycle-2 survivors R64–R74)
+**Current plan:** v12 — executable public surfaces, authority-cutover ordering and consumer-complete retirement parity (R101–R103)
 **State:** PLAN_ONLY
 **P0–P4:** NOT_STARTED
 **Code authorization:** absent; requires literal EXECUTE P0
@@ -21,14 +21,29 @@ v6 correctly separated engineering from sovereignty and rejected Mission Runtime
 - allowed critical authority residuals to become debt while still claiming DONE;
 - used one-shot language as if it could describe one technical attempt.
 
-v7 replaces those points with:
+v7–v12 replace those points with:
 
 - native owner chain and existing dispatcher interface;
 - PRE-AUTHORIZE → ACT → POST-ATTEST → SETTLE at concrete effect owners;
 - ExecutionOrder, DecisionReceipt, Kernel/Courts/Governor, native actuators and AtlasEvidenceLedger as the only owners;
 - derived internal/sustained/comparative claim scopes;
 - a single phase plan, residual ledger and completion predicate;
-- OneShot Experience Law: one operator commissioning experience, unlimited appropriate internal planning/review/rejection/repair cycles.
+- OneShot Experience Law: one operator commissioning episode, unlimited appropriate internal planning/review/rejection/repair cycles, proved from complete canonical operator-event capture;
+- one native journey lineage/manifest instead of spliceable scalar refs;
+- full signed/revocable standing authority and typed native ingress;
+- repair/continuation owned by Dev, Forge and TaskServing rather than AAEOS;
+- full Dev journey, full Forge Obra and direct zero-touch Autônomos as the P4 unit.
+- crash/restart convergence on the existing Git/Ledger/lease/Forge/Dev facts;
+- REAL_OPERATION produced outside tests and independently reverified;
+- versioned Decision/cycle/event-payload rollout rather than in-place semantic mutation;
+- ITT/no-amplification efficiency plus governed provider reach, never retry-count optimization;
+- optional verification/cockpit read models that never require an operator technical verdict.
+- a productive intent-first daily CLI: Atlas, not the operator, chooses provider/cadence/batch/scope and internal review/repair mechanics under signed authority;
+- one exact native Autônomos service seam shared by the daemon command and AAEOS, plus observed unrelated work progress during an H1–H7 reservation.
+- refusal-only structural parity until Ledger v2 + Decision v3 + trusted keys/revocation + AWIS identity are green; only then may provider/tool/sandbox/ACT activate;
+- fresh-process proof of the real `atlas dev`, `atlas forge`, direct Autônomos and routed daily entries, not internal producer commands alone;
+- Forge forward progress through the existing supervisor/runtime and Autônomos cold-start from durable server facts; no new scheduler;
+- PostgreSQL append-only Ledger v2 envelope and consumer-complete retirement rather than unsafe bulk deletion.
 
 ## OneShot invariant
 
@@ -39,6 +54,11 @@ OneShot describes operator experience only.
 - Internal attempts, review cycles, repair cycles and elapsed time remain observable.
 - The operator is not asked to perform routine technical actions.
 - A small number of genuine intent clarifications is allowed and must be enumerated.
+- Missing operator-event capture is unknown, never zero; caller-supplied counters cannot prove OneShot.
+- Forge has zero post-seal actions; Autônomos has zero per-task requests/actions/clarifications/waits.
+- Dev consumes initial intent authority once; neither direct Dev nor AAEOS-routed Dev asks repeated ship/reject.
+- Elective audit/pause/revoke is operator-initiated control, distinct from technical work requested by Atlas.
+- Productive daily execution cannot require `--live`, provider, worker, batch or implementation-scope choreography from the operator; `--dry-run` remains elective audit.
 
 ## Phase cursor
 
@@ -46,10 +66,10 @@ OneShot describes operator experience only.
 |---|---|---|
 | P0 truth/port | NOT_STARTED | hardcoded writes/scores; run≠cycle; human field; admission taxonomy |
 | P1a native dispatch | NOT_STARTED | CLI→CLI; R33–R35; duplicate adapter stack |
-| P1b code effect authority | NOT_STARTED | regex/self-report; pre/post effect split; order decision binding |
-| P2 shared authority/evidence/durability | NOT_STARTED | Ledger integrity/query; principals; adverse outcomes; Forge CAS; Spine refs |
-| P3 deletion/canonical alignment | NOT_STARTED | aliases; 17-phase operate narrative; dead presenters |
-| P4 real journey | NOT_STARTED | no per-mode REAL_OPERATION journey or OneShot UX evidence |
+| P1b code effect authority | NOT_STARTED | real provider/tool/path boundaries; trust anchor; crash-safe settlement |
+| P2 shared authority/evidence/durability | NOT_STARTED | Ledger/Postgres concurrency; Decision v3; cycle/event payload v2; native crash recovery; OneShot capture; async H1–H7 |
+| P3 deletion/canonical alignment | NOT_STARTED | aliases; dead presenters/packs/review gates; terminal projection |
+| P4 real journey | NOT_STARTED | no non-testing real producer, independent replay, invalidator matrix or per-mode OneShot evidence |
 
 ## Closed factual points
 
@@ -70,7 +90,7 @@ OneShot describes operator experience only.
 |---|---|
 | R33–R35 | live Autônomos transport contract is broken/misreported |
 | R38/R40 | executor identity and technical/sovereign taxonomy are wrong in code |
-| R43/R44/R46 | native application seam, Spine evidence and independence are incomplete |
+| R43/R46/R66 | native application seam, Spine evidence and independence are incomplete; R44 is folded into R66 |
 | R51–R53 | intent suspicion, pre-effect authority and order binding are unsafe |
 | R54/R55 | canonical evidence and adverse outcomes are not strong enough |
 | R56/R57 | Autônomos journey and Forge terminal semantics can overclaim |
@@ -78,6 +98,16 @@ OneShot describes operator experience only.
 | R60/R61 | planned duplicate port and conflicting vocabulary |
 | R62 | first effect is not a completed journey |
 | R63 | reversibility/signing owners are not globally wired |
+| R64–R74 | cycle-2 admission/proof/Spine/independence/economy/observer/deletion/partition/route blockers |
+| R75/R76 | journey refs can be spliced and OneShot can be self-reported without canonical operator-event coverage |
+| R77/R78 | standing mandate and typed native ingress/authority lineage are incomplete |
+| R79/R80 | per-mode rejection-to-repair and non-circular durable replay are not closed |
+| R81/R82 | H1–H7 continuation and equal Spec Floor are not mechanically enforced |
+| R83–R86 | crash/Postgres convergence, real-proof separation, version rollout and ITT/no-amplification are unproved |
+| R87–R90 | provider-governance reach, falsifiable M, delegated learning and compensation owners are not wired end-to-end |
+| R91–R97 | direct Dev OneShot, P2 ordering, lazy compatibility, optional verification projection and residual coherence remain unproved |
+| R98–R100 | exact shared Autônomos seam, intent-only productive CLI and observed non-global-halt continuation remain unproved |
+| R101–R103 | authority cutover order, AWIS native-mode identity and public-entry/retirement parity remain unproved |
 
 None of the rows above can be debt-laundered into MT DONE.
 
@@ -87,9 +117,9 @@ None of the rows above can be debt-laundered into MT DONE.
 |---|---|---|---|---|
 | 1 | v6 | specialized runtime, authority, modes, evidence, plan logic, minimalism, economics and adversarial reviews; plus user-provided six-critic and Claude panels | accepted native-owner reuse and pre/post authority; rejected duplicate/bloat and technical OneShot | v7 |
 | 2 | v7 | 15-lens reuse/delete panel: admission totality, effect×proof seal, economy, model-family collusion, land-observer, measure-first teeth, AEOS duplication, spine fusion, delete-dormant, adversary | accepted 11 reuse/delete/fuse survivors R64–R74; rejected capability_proof/axis/cockpit as already-in-v7 and 6-state-enum/new-service/new-fields as duplication | v8 |
-| 3 | current | pending | pending | pending |
-| 4 | current | pending | pending | pending |
-| 5 | current | pending | pending | pending |
+| 3 | v8 | 13 total lens-distinct passes: original 9 plus disclosed supplements for proof/testing, owner-minimalism/human-loop abuse, direct-path deletion census and causal Autônomos progress | original judgment produced R75–R82/v9; supplement judged duplicates against current and accepted only R98–R100 | v9; correction integrated v11 |
+| 4 | v9 | two independent panels: 13 executable/UX/recovery/security/DB/proof/efficiency/formal/terminal/schema/minimalism/governance lenses + judge, and 14 anti-accretion/strategic lenses + adversary | accepted R83–R97; merged operator/state/authority into R75–R82; corrected direct Dev/review so neither asks a technical operator verdict; rejected new stores/outbox/queues/retry owners/compliance organs | v10 |
+| 5 | v11 | 13 lens-distinct passes across phase executability, OneShot UX, native modes, Ledger/PostgreSQL, security, rollout, real proof, routing, deletion, efficiency and terminal/review; final anti-dup judge | accepted only R101–R103; merged all other findings into existing residuals and rejected new scheduler/store/outbox/router/executor/metrics owners | v12 |
 | 6 | current | pending | pending | pending |
 | 7 | current | pending | pending | pending |
 | 8 | current | pending | pending | pending |
@@ -104,7 +134,11 @@ None of the rows above can be debt-laundered into MT DONE.
 | 2026-07-23 | v5 RSS constitutional/anti-bloat direction |
 | 2026-07-23 | v6 CRES draft and P1 split |
 | 2026-07-23 | v7 replaces land-only authority; removes duplicate planned owners; adds R52–R63 and OneShot Experience Law |
-| 2026-07-23 | v8 cycle-2 reuse/delete survivors R64–R74; zero new organs; two dead self-grading projectors deleted; spine↔settlement proof fusion; economy view with observer denominator |
+| 2026-07-23 | v8 accepts only reuse/delete/fuse survivors R64–R74 |
+| 2026-07-23 | v9 makes OneShot operator-only and evidence-derived; closes plan gaps in journey identity, native ingress, authority, repair and P4 semantics |
+| 2026-07-23 | v10 adds R83–R97: crash/restart and Postgres truth, real producer vs verifier, version rollout, ITT/no-amplification, governed provider M, learning/compensation, direct Dev OneShot, ordered P2 and optional unified verification; zero new runtime organs |
+| 2026-07-23 | v11 discloses and closes the cycle-3 lens-count deficit in the plan: exact Autônomos seam, intent-only productive daily CLI and observed unrelated progress under sovereign reservation become R98–R100; no code executed |
+| 2026-07-23 | v12 cycle-5 accepts R101–R103 only: no ACT before Decision v3/keyring/revocation, AWIS mode parity, and public-entry/consumer-complete retirement parity; Ledger/Forge/Autônomos/terminal/provider/budget findings deepen existing owners; no code executed |
 
 ## Honest next state
 
