@@ -24,14 +24,14 @@ class HermesProfileHomeProvisioner
 
     public function __construct(
         private readonly Filesystem $files,
-        private readonly HermesLearningHomeLinker $learning = new HermesLearningHomeLinker(new Filesystem()),
+        private readonly HermesLearningHomeLinker $learning = new HermesLearningHomeLinker(new Filesystem),
     ) {}
 
     /**
      * Materialize a managed HERMES_HOME for one mesh profile.
      *
      * @param  array{toolsets?:string[],provider?:?string,model?:?string,skills?:string[]}  $profile
-     * @return string|null  the managed HERMES_HOME directory, or null when nothing to specialize
+     * @return string|null the managed HERMES_HOME directory, or null when nothing to specialize
      */
     public function provision(string $role, array $profile, ?string $traceId = null): ?string
     {

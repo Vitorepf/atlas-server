@@ -10,6 +10,7 @@ use Illuminate\Support\Str;
 class HermesMemoryAdapter
 {
     use HermesAdapterReceipt;
+    use HermesWorkspaceHelper;
 
     /**
      * @param  array<string,mixed>  $resultPacket
@@ -218,21 +219,6 @@ class HermesMemoryAdapter
         $scope = 'workspace:'.$workspace;
 
         return strlen($scope) <= 255 ? $scope : 'workspace_hash:'.hash('sha256', $workspace);
-    }
-
-    private function workspace(AiJob $job): ?string
-    {
-        $workspace = data_get($job->payload, 'workspace')
-            ?: data_get($job->payload, 'tool_permissions.workspace')
-            ?: data_get($job->metadata, 'workspace');
-
-        if (! is_string($workspace) || trim($workspace) === '') {
-            return null;
-        }
-
-        $workspace = trim($workspace);
-
-        return realpath($workspace) ?: $workspace;
     }
 
     private function uuidOrNull(mixed $value): ?string

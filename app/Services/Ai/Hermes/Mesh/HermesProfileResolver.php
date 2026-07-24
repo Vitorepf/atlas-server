@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Hermes\Mesh;
 
 use App\Services\Ai\Hermes\HermesAdapterReceipt;
+use App\Services\Ai\Hermes\HermesDelegationAdapter;
 use App\Services\Ai\Hermes\Support\HermesStringListNormalizer;
 use Illuminate\Support\Str;
 
@@ -22,7 +23,7 @@ use Illuminate\Support\Str;
  * Fail-closed: if the role is absent OR the catalog is empty/invalid, it
  * resolves to a MINIMAL READ profile (toolsets=['file'], no provider, no model,
  * no skills) and marks `role_known=>false`. The manifest filter mirrors
- * {@see \App\Services\Ai\Hermes\HermesDelegationAdapter::allowedChildToolsets}
+ * {@see HermesDelegationAdapter::allowedChildToolsets}
  * exactly: it only prunes toolsets WHEN the manifest carries at least one
  * `toolset` entry; in the stateless case (no toolset entries) the configured
  * toolsets are kept verbatim. `hermes_profile_can_decide` is always false and

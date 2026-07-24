@@ -32,7 +32,7 @@ class HermesKanbanSwarmService
     use HermesAdapterReceipt;
 
     public function __construct(
-        private readonly HermesKanbanCli $cli = new HermesKanbanProcessCli(),
+        private readonly HermesKanbanCli $cli = new HermesKanbanProcessCli,
     ) {}
 
     /**

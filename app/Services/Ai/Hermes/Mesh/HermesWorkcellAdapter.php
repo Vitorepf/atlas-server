@@ -9,7 +9,7 @@ use App\Services\Ai\Hermes\HermesDelegationAdapter;
 
 /**
  * Hermes Workcell Adapter (canonical name) — the Hermes implementation of the
- * provider-neutral {@see \App\Services\Ai\AgenticWorkcell\Contracts\WorkcellAdapter}
+ * provider-neutral {@see WorkcellAdapter}
  * contract. A RUNTIME ADAPTER that runs UNDER the Workcell Fabric (AAWR /
  * AtlasAgenticWorkcellRuntimeService), NOT an architecture layer and NOT a peer
  * of it. It turns ONE mission into a governed many-agent Hermes fleet that

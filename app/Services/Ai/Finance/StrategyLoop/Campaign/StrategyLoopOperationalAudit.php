@@ -13,6 +13,8 @@ namespace App\Services\Ai\Finance\StrategyLoop\Campaign;
  */
 final class StrategyLoopOperationalAudit
 {
+    use CampaignCheckHelper;
+
     /** @var list<string> */
     private const REQUIRED_FAMILIES = ['trend-breakout-v1', 'mean-reversion-v1', 'momentum-v1'];
 
@@ -326,7 +328,7 @@ final class StrategyLoopOperationalAudit
     }
 
     /**
-     * @param array<string,mixed> $profile
+     * @param  array<string,mixed>  $profile
      */
     private function timeframeProfileIsGoverned(array $profile, string $interval): bool
     {
@@ -341,7 +343,7 @@ final class StrategyLoopOperationalAudit
     }
 
     /**
-     * @param array<string,mixed> $policy
+     * @param  array<string,mixed>  $policy
      */
     private function timeframePolicyIsGoverned(array $policy, string $interval): bool
     {
@@ -359,7 +361,7 @@ final class StrategyLoopOperationalAudit
     }
 
     /**
-     * @param array<string,mixed> $registry
+     * @param  array<string,mixed>  $registry
      */
     private function timeframePolicyPresent(array $registry): bool
     {
@@ -383,7 +385,7 @@ final class StrategyLoopOperationalAudit
     }
 
     /**
-     * @param array<string,mixed> $featureSet
+     * @param  array<string,mixed>  $featureSet
      */
     private function featureSetIsGoverned(array $featureSet, string $expectedId = StrategyFeatureSetProfile::PRICE_ONLY): bool
     {
@@ -421,7 +423,7 @@ final class StrategyLoopOperationalAudit
     }
 
     /**
-     * @param array<string,mixed> $registry
+     * @param  array<string,mixed>  $registry
      */
     private function featureSetPolicyPresent(array $registry): bool
     {
@@ -543,6 +545,7 @@ final class StrategyLoopOperationalAudit
             $verdict = (string) ($report['verdict'] ?? '');
             if ($campaignId === '' || $verdict === '') {
                 $terminalReportsHaveEvidence = false;
+
                 continue;
             }
             $expected[$campaignId.'|'.$verdict] = str_starts_with($verdict, 'NULL_')
@@ -568,6 +571,7 @@ final class StrategyLoopOperationalAudit
             }
             if (! $schemaOk || (string) ($row['knowledge_kind'] ?? '') !== $expected[$key]) {
                 $terminalReportsHaveEvidence = false;
+
                 continue;
             }
             $matched[$key] = true;
@@ -723,15 +727,6 @@ final class StrategyLoopOperationalAudit
     }
 
     /** @param array<string,mixed> $extra */
-    private function check(string $name, bool $passed, string $detail, array $extra = []): array
-    {
-        return [
-            'name' => $name,
-            'passed' => $passed,
-            'detail' => $detail,
-        ] + $extra;
-    }
-
     private function scenarioRegistryPath(bool $dryRun): string
     {
         return $dryRun

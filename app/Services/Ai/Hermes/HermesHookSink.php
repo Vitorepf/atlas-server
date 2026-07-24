@@ -218,7 +218,7 @@ class HermesHookSink
 
         foreach ($allowedTools as $allowed) {
             $allowed = strtolower(trim($allowed));
-            if ($allowed === '' ) {
+            if ($allowed === '') {
                 continue;
             }
             if ($allowed === '*' || $allowed === $needle) {

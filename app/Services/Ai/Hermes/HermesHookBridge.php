@@ -59,7 +59,7 @@ class HermesHookBridge
     ];
 
     public function __construct(
-        private readonly Filesystem $files = new Filesystem(),
+        private readonly Filesystem $files = new Filesystem,
     ) {}
 
     /**

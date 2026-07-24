@@ -47,7 +47,7 @@ class HermesExecutiveMeshPlanner
      * @param  array<string,mixed>  $parentMission  shaped as `atlas.hermes.executive_mission.v1`
      * @param  array<int,array<string,mixed>>  $subtasks  ordered child specs
      * @param  array<string,mixed>  $policy  resolved operator policy; `enabled === true` only when Atlas adapter
-     * @return array<string,mixed>  sealed `atlas.hermes.mesh_plan.v1`
+     * @return array<string,mixed> sealed `atlas.hermes.mesh_plan.v1`
      */
     public function plan(AiJob $job, array $parentMission, array $subtasks, array $policy): array
     {
@@ -143,7 +143,7 @@ class HermesExecutiveMeshPlanner
      * Build the per-child plan rows. Objectives are hashed, never stored raw.
      *
      * @param  array<int,array<string,mixed>>  $subtasks
-     * @return array{0:array<int,array<string,mixed>>,1:bool}  [children, everyChildHasObjective]
+     * @return array{0:array<int,array<string,mixed>>,1:bool} [children, everyChildHasObjective]
      */
     private function buildChildren(array $subtasks): array
     {

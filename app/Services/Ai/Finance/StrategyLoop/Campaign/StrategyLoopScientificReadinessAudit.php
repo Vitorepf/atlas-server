@@ -13,6 +13,8 @@ namespace App\Services\Ai\Finance\StrategyLoop\Campaign;
  */
 final class StrategyLoopScientificReadinessAudit
 {
+    use CampaignCheckHelper;
+
     /** @return array<string,mixed> */
     public function audit(bool $dryRun = false, ?string $campaignId = null, bool $includeRuntime = false): array
     {
@@ -198,8 +200,8 @@ final class StrategyLoopScientificReadinessAudit
     }
 
     /**
-     * @param array<string,mixed> $operational
-     * @param array<string,mixed> $adversarial
+     * @param  array<string,mixed>  $operational
+     * @param  array<string,mixed>  $adversarial
      */
     private function knowledgeOutputsProposeOnly(array $operational, array $adversarial): bool
     {
@@ -217,12 +219,4 @@ final class StrategyLoopScientificReadinessAudit
     }
 
     /** @param array<string,mixed> $extra */
-    private function check(string $name, bool $passed, string $detail, array $extra = []): array
-    {
-        return [
-            'name' => $name,
-            'passed' => $passed,
-            'detail' => $detail,
-        ] + $extra;
-    }
 }

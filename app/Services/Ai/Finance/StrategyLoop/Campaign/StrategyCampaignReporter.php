@@ -310,7 +310,7 @@ final class StrategyCampaignReporter
             'NULL_FAMILY_EXHAUSTED' => "After the pre-registered budget of {$rounds} rounds / {$totalCandidates} candidates, {$family} on {$symbol}-{$interval} is exhausted for this campaign scope without robust edge.",
             'NULL_STRONG' => "After {$rounds} rounds / {$totalCandidates} candidates, {$family} on {$symbol}-{$interval} did not demonstrate robust edge under the configured gates.",
             'NULL_WEAK' => "{$family} on {$symbol}-{$interval} has not certified yet, but the campaign budget is too small for a strong negative conclusion.",
-            default => "The campaign is inconclusive; do not promote any strategy without fresh validation.",
+            default => 'The campaign is inconclusive; do not promote any strategy without fresh validation.',
         };
     }
 

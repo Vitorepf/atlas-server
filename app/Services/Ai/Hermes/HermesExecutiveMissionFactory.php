@@ -9,7 +9,7 @@ use Illuminate\Support\Str;
 class HermesExecutiveMissionFactory
 {
     public function __construct(
-        private readonly HermesMissionCapabilitiesFactory $capabilities = new HermesMissionCapabilitiesFactory(),
+        private readonly HermesMissionCapabilitiesFactory $capabilities = new HermesMissionCapabilitiesFactory,
     ) {}
 
     /**

@@ -336,24 +336,24 @@ final class StrategyScenarioRegistry
         }
 
         return [
-                'schema_version' => 'atlas.finance.strategy_scenario_registry.v1',
-                'created_at' => gmdate('c'),
-                'updated_at' => gmdate('c'),
-                'strategy_families' => $families,
-                'feature_sets' => array_combine(
-                    $featureProfiler->activeFeatureSetIds(),
-                    array_map(fn (string $id): array => $featureProfiler->describe($id), $featureProfiler->activeFeatureSetIds()),
-                ),
-                'feature_set_activation_roadmap' => $featureProfiler->activationRoadmap(),
-                'deferred_feature_set_backlog' => $featureProfiler->deferredBacklog(),
-                'timeframe_profiles' => $timeframeProfiles,
-                'sequential_roadmap' => $roadmap,
-                'deferred_timeframe_backlog' => $deferred,
-                'scenario_knowledge_matrix' => [],
-                'do_not_start_in_parallel' => true,
-                'avoid_until_ready' => ['15m', '5m', 'leverage', 'perps_funding', 'survivorship_biased_top_coins'],
-                'scenarios' => [],
-            ];
+            'schema_version' => 'atlas.finance.strategy_scenario_registry.v1',
+            'created_at' => gmdate('c'),
+            'updated_at' => gmdate('c'),
+            'strategy_families' => $families,
+            'feature_sets' => array_combine(
+                $featureProfiler->activeFeatureSetIds(),
+                array_map(fn (string $id): array => $featureProfiler->describe($id), $featureProfiler->activeFeatureSetIds()),
+            ),
+            'feature_set_activation_roadmap' => $featureProfiler->activationRoadmap(),
+            'deferred_feature_set_backlog' => $featureProfiler->deferredBacklog(),
+            'timeframe_profiles' => $timeframeProfiles,
+            'sequential_roadmap' => $roadmap,
+            'deferred_timeframe_backlog' => $deferred,
+            'scenario_knowledge_matrix' => [],
+            'do_not_start_in_parallel' => true,
+            'avoid_until_ready' => ['15m', '5m', 'leverage', 'perps_funding', 'survivorship_biased_top_coins'],
+            'scenarios' => [],
+        ];
     }
 
     /** @return array<string,mixed>|null */

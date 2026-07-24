@@ -12,6 +12,7 @@ use Illuminate\Support\Str;
 class HermesProcedureAdapter
 {
     use HermesAdapterReceipt;
+    use HermesWorkspaceHelper;
 
     /**
      * @param  array<string,mixed>  $resultPacket
@@ -233,21 +234,6 @@ class HermesProcedureAdapter
         $riskLevel = $this->string($candidate['risk_level'] ?? null, 16) ?: 'medium';
 
         return in_array($riskLevel, ['low', 'medium', 'high'], true) ? $riskLevel : 'medium';
-    }
-
-    private function workspace(AiJob $job): ?string
-    {
-        $workspace = data_get($job->payload, 'workspace')
-            ?: data_get($job->payload, 'tool_permissions.workspace')
-            ?: data_get($job->metadata, 'workspace');
-
-        if (! is_string($workspace) || trim($workspace) === '') {
-            return null;
-        }
-
-        $workspace = trim($workspace);
-
-        return realpath($workspace) ?: $workspace;
     }
 
     private function string(mixed $value, int $limit): ?string

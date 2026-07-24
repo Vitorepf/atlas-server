@@ -22,13 +22,13 @@ class HermesManagedMcpConfigProvisioner
 
     public function __construct(
         private readonly Filesystem $files,
-        private readonly HermesLearningHomeLinker $learning = new HermesLearningHomeLinker(new Filesystem()),
+        private readonly HermesLearningHomeLinker $learning = new HermesLearningHomeLinker(new Filesystem),
     ) {}
 
     /**
      * @param  array<int,array<string,mixed>>  $allowedServers
      * @param  array<string,mixed>  $mission
-     * @return string|null  the managed HERMES_HOME directory, or null when nothing to provision
+     * @return string|null the managed HERMES_HOME directory, or null when nothing to provision
      */
     public function write(array $allowedServers, AiJob $job, array $mission): ?string
     {

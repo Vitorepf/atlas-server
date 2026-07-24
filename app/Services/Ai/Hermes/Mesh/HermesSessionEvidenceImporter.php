@@ -36,7 +36,7 @@ class HermesSessionEvidenceImporter
     /**
      * @param  array<int,mixed>  $sessionListing  Decoded output of `hermes sessions list --json`.
      * @param  array<string,mixed>  $policy  Atlas policy projection; reads `enabled` (bool).
-     * @return array<string,mixed>  Sealed `atlas.hermes.session_evidence_import.v1` receipt.
+     * @return array<string,mixed> Sealed `atlas.hermes.session_evidence_import.v1` receipt.
      */
     public function import(array $sessionListing, array $policy): array
     {

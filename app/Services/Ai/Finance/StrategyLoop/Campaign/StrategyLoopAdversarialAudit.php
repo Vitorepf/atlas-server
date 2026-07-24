@@ -21,6 +21,8 @@ use App\Services\Ai\Finance\StrategyLoop\Strategy\TrendBreakoutStrategy;
  */
 final class StrategyLoopAdversarialAudit
 {
+    use CampaignCheckHelper;
+
     /** @return array<string,mixed> */
     public function audit(): array
     {
@@ -717,7 +719,7 @@ PHP);
     }
 
     /**
-     * @param list<float> $prices
+     * @param  list<float>  $prices
      * @return list<Bar>
      */
     private function barsFromPrices(array $prices): array
@@ -758,12 +760,4 @@ PHP);
     }
 
     /** @param array<string,mixed> $extra */
-    private function check(string $name, bool $passed, string $detail, array $extra = []): array
-    {
-        return [
-            'name' => $name,
-            'passed' => $passed,
-            'detail' => $detail,
-        ] + $extra;
-    }
 }

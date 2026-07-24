@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Finance\StrategyLoop\Campaign;
 
+use App\Services\Ai\Finance\StrategyLoop\FundingTape;
+use App\Services\Ai\Finance\StrategyLoop\Strategy\RegimeAdaptiveStrategy;
+
 /**
  * Governs which information a strategy campaign may use.
  *
@@ -235,7 +238,7 @@ final class StrategyFeatureSetProfile
      */
     private function fundingSourceHashes(): array
     {
-        $tape = \App\Services\Ai\Finance\StrategyLoop\FundingTape::default();
+        $tape = FundingTape::default();
         $out = [];
         foreach (['BTCUSDT', 'ETHUSDT', 'SOLUSDT'] as $symbol) {
             $out[$symbol] = $tape->sha256($symbol);
@@ -246,7 +249,7 @@ final class StrategyFeatureSetProfile
 
     private function regimeFeatureCodeHash(): string
     {
-        $path = (new \ReflectionClass(\App\Services\Ai\Finance\StrategyLoop\Strategy\RegimeAdaptiveStrategy::class))->getFileName();
+        $path = (new \ReflectionClass(RegimeAdaptiveStrategy::class))->getFileName();
         $hash = is_string($path) && is_file($path) ? hash_file('sha256', $path) : false;
 
         return $hash !== false ? $hash : 'feature_code_file_missing';

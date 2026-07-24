@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Hermes\Acp;
 
 use App\Services\Ai\Hermes\HermesAdapterReceipt;
+use App\Services\Ai\Hermes\HermesHookSink;
 use App\Services\Ai\Hermes\Mesh\SharedHermesCheckpointPolicySeam;
 use App\Services\Ai\Hermes\Support\HermesStringListNormalizer;
 use App\Support\AtlasSecurity;
@@ -207,7 +208,7 @@ class HermesAcpPermissionGate
     /**
      * Extract every filesystem target the requested tool call would touch so the
      * scope check can prove it is inside `allowed_paths`. Mirrors the canonical
-     * {@see \App\Services\Ai\Hermes\HermesHookSink} path harvesting and adds the
+     * {@see HermesHookSink} path harvesting and adds the
      * ACP `toolCall.locations[].path` array.
      *
      * @param  array<string,mixed>  $toolCall
@@ -368,7 +369,7 @@ class HermesAcpPermissionGate
      * Canonical containment check: prefer {@see AtlasSecurity::pathIsInside} and
      * fall back to a deterministic separator-aware string prefix so the gate
      * stays pure/testable without touching the filesystem. Mirrors
-     * {@see \App\Services\Ai\Hermes\HermesHookSink}.
+     * {@see HermesHookSink}.
      */
     private function pathIsInside(string $path, string $root): bool
     {

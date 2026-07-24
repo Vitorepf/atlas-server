@@ -440,5 +440,4 @@ class HermesCapabilityInvocationBuilder
             ->values()
             ->all();
     }
-
 }

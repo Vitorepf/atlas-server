@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Hermes\Acp;
 
 use App\Services\Ai\Hermes\HermesAdapterReceipt;
+use App\Services\Ai\Hermes\HermesResultPacketFactory;
 
 /**
  * Maps a completed ACP (Agent Client Protocol) run into a sealed
@@ -84,7 +85,7 @@ final class HermesAcpResultMapper
      * value types, or pathological nesting. The shared trait's `hashValue()`
      * uses `JSON_THROW_ON_ERROR`, which would make `map()` throw on such input
      * and violate the never-throw contract. This mirrors the hardening already
-     * present in {@see \App\Services\Ai\Hermes\HermesResultPacketFactory}: try
+     * present in {@see HermesResultPacketFactory}: try
      * the canonical (contract-locked) JSON encoding first, and on any encoding
      * failure fall back to a deterministic `serialize()`-based digest so a
      * sealed packet is always produced. The fallback is namespaced so it can

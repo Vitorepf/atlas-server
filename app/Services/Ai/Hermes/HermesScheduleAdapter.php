@@ -13,6 +13,7 @@ use Throwable;
 class HermesScheduleAdapter
 {
     use HermesAdapterReceipt;
+    use HermesWorkspaceHelper;
 
     public function __construct(
         private readonly ScheduleParser $parser,
@@ -246,21 +247,6 @@ class HermesScheduleAdapter
         $trigger = $this->string($candidate['trigger'] ?? null, 40) ?: 'manual';
 
         return in_array($trigger, ['cron', 'webhook', 'manual'], true) ? $trigger : 'manual';
-    }
-
-    private function workspace(AiJob $job): ?string
-    {
-        $workspace = data_get($job->payload, 'workspace')
-            ?: data_get($job->payload, 'tool_permissions.workspace')
-            ?: data_get($job->metadata, 'workspace');
-
-        if (! is_string($workspace) || trim($workspace) === '') {
-            return null;
-        }
-
-        $workspace = trim($workspace);
-
-        return realpath($workspace) ?: $workspace;
     }
 
     private function string(mixed $value, int $limit): ?string

@@ -152,7 +152,6 @@ class HermesMeshReconciler
     }
 
     /**
-     * @param  bool  $reconciliationAllowedNow
      * @param  array<int,array<string,mixed>>  $children
      */
     private function aggregateStatus(bool $reconciliationAllowedNow, array $children, int $completed, int $failed): string

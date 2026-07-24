@@ -4,13 +4,14 @@ namespace App\Services\Ai\Hermes\Mesh;
 
 use App\Models\AiJob;
 use App\Services\Ai\AiProviderResult;
+use App\Services\Ai\HermesCliProvider;
 
 /**
  * Executes an AtlasDecide-routed mesh job (kind='mesh') as a governed Hermes
  * executive-mesh fan-out, returning an {@see AiProviderResult} the worker writes
  * to the trace exactly like a single-provider result.
  *
- * Mirrors the {@see \App\Services\Ai\HermesCliProvider} ACP pattern: this is a
+ * Mirrors the {@see HermesCliProvider} ACP pattern: this is a
  * TRY — it returns null whenever the job is not a mesh route, the operator has
  * not opted into auto-routing, there is no decomposition, or the mesh fan-out
  * dispatched nothing — so the worker transparently falls back to the normal

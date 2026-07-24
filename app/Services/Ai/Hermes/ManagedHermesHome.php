@@ -27,7 +27,7 @@ class ManagedHermesHome
 {
     public function __construct(
         private readonly Filesystem $files,
-        private readonly HermesLearningHomeLinker $learning = new HermesLearningHomeLinker(new Filesystem()),
+        private readonly HermesLearningHomeLinker $learning = new HermesLearningHomeLinker(new Filesystem),
     ) {}
 
     /**
@@ -47,7 +47,7 @@ class ManagedHermesHome
      * `memory` key in $configBody wins over the inherited operator memory config.
      *
      * @param  array<string,mixed>  $configBody  e.g. ['mcp_servers'=>[...]] or a profile config
-     * @return string  the managed HERMES_HOME directory
+     * @return string the managed HERMES_HOME directory
      */
     public function write(string $kind, string $slugSeed, array $configBody): string
     {
@@ -77,7 +77,7 @@ class ManagedHermesHome
      * than materialize a second HERMES_HOME for the same run.
      *
      * @param  array<string,mixed>  $patch
-     * @return string  the managed HERMES_HOME directory
+     * @return string the managed HERMES_HOME directory
      */
     public function merge(string $kind, string $slugSeed, array $patch): string
     {

@@ -14,6 +14,8 @@ use App\Console\Commands\AtlasFinanceStrategySearchCommand;
  */
 final class StrategyLoopPlanCompletionAudit
 {
+    use CampaignCheckHelper;
+
     /** @return array<string,mixed> */
     public function audit(bool $dryRun = false, ?string $campaignId = null, bool $includeRuntime = false): array
     {
@@ -205,8 +207,8 @@ final class StrategyLoopPlanCompletionAudit
     }
 
     /**
-     * @param array<string,mixed> $campaign
-     * @param array<string,mixed> $adversarial
+     * @param  array<string,mixed>  $campaign
+     * @param  array<string,mixed>  $adversarial
      */
     private function holdoutGovernanceReady(array $campaign, array $adversarial): bool
     {
@@ -219,8 +221,8 @@ final class StrategyLoopPlanCompletionAudit
     }
 
     /**
-     * @param array<string,mixed> $campaign
-     * @param array<string,mixed> $adversarial
+     * @param  array<string,mixed>  $campaign
+     * @param  array<string,mixed>  $adversarial
      */
     private function quarantineReady(array $campaign, array $adversarial): bool
     {
@@ -346,8 +348,8 @@ final class StrategyLoopPlanCompletionAudit
     }
 
     /**
-     * @param array<string,mixed> $operational
-     * @param array<string,mixed> $adversarial
+     * @param  array<string,mixed>  $operational
+     * @param  array<string,mixed>  $adversarial
      */
     private function focusedContinuationReady(array $operational, array $adversarial): bool
     {
@@ -359,8 +361,8 @@ final class StrategyLoopPlanCompletionAudit
     }
 
     /**
-     * @param array<string,mixed> $campaign
-     * @param array<string,mixed> $adversarial
+     * @param  array<string,mixed>  $campaign
+     * @param  array<string,mixed>  $adversarial
      */
     private function secondEngineReady(array $campaign, array $adversarial): bool
     {
@@ -373,8 +375,8 @@ final class StrategyLoopPlanCompletionAudit
     }
 
     /**
-     * @param array<string,mixed> $registry
-     * @param array<string,mixed> $operational
+     * @param  array<string,mixed>  $registry
+     * @param  array<string,mixed>  $operational
      */
     private function knowledgeProductReady(bool $dryRun, array $registry, array $operational): bool
     {
@@ -405,9 +407,9 @@ final class StrategyLoopPlanCompletionAudit
     }
 
     /**
-     * @param array<string,mixed> $operational
-     * @param array<string,mixed> $adversarial
-     * @param array<string,mixed> $scientific
+     * @param  array<string,mixed>  $operational
+     * @param  array<string,mixed>  $adversarial
+     * @param  array<string,mixed>  $scientific
      */
     private function proposeOnlyReady(array $operational, array $adversarial, array $scientific): bool
     {
@@ -452,12 +454,4 @@ final class StrategyLoopPlanCompletionAudit
     }
 
     /** @param array<string,mixed> $extra */
-    private function check(string $name, bool $passed, string $detail, array $extra = []): array
-    {
-        return [
-            'name' => $name,
-            'passed' => $passed,
-            'detail' => $detail,
-        ] + $extra;
-    }
 }
