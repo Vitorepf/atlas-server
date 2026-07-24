@@ -1,3 +1,5 @@
+> ⛔ **SUPERSEDED** by `2026-07-23-aaeos-elite-deepening-MASTER-FINAL.md` — the merged synthesis (this constitution + the Codex v15 completeness), Grok-audited and honesty-corrected. This C6 competitor is kept only as history of the 6-cycle self-adversarial track; do not implement from it. Read FINAL.
+
 # AAEOS — Mother Block of Agentic Software Engineering (Claude independent MASTER)
 
 > Author track: Claude (Opus). Independent competitor to the Codex `…-MASTER.md`. The operator compares and picks/fuses.
