@@ -60,6 +60,13 @@ return new class extends Migration
             return false;
         }
 
+        if ($driver === 'pgsql') {
+            return (bool) $connection->selectOne(
+                'select exists (select 1 from pg_catalog.pg_class c where c.relname = ?) as present',
+                [$indexName],
+            )->present;
+        }
+
         $database = $connection->getDatabaseName();
         $count = (int) $connection->table('information_schema.statistics')
             ->where('table_schema', $database)
