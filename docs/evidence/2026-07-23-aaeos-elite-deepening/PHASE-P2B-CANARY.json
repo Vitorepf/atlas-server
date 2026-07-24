@@ -1,0 +1,106 @@
+{
+  "schema": "atlas.aaeos.mt.phase_receipt.v1",
+  "phase": "P2b-CANARY",
+  "status": "GREEN",
+  "edition": "vFINAL-COOKBOOK",
+  "branch": "main",
+  "base_commit": "cd230c04908bf804b77e2eb9e93d0e39111b692b",
+  "implementation_commit": "af17b9e7e72b1253feb91954d4eee6ca52b13371",
+  "dirty_before": [],
+  "staged_before": [],
+  "allowed_paths": [
+    "app/Services/Ai/Kernel/Decision/DecisionReceiptRuntimeGuard.php",
+    "app/Services/Ai/Kernel/Decision/DecisionReceiptIssuer.php",
+    "app/Services/Ai/AtlasDecideService.php",
+    "app/Services/Ai/AiWorker.php",
+    "config/atlas.php",
+    "tests/Unit/Ai/Kernel/DecisionReceiptRuntimeGuardTest.php",
+    "tests/Unit/Ai/Kernel/DecisionReceiptIssuerTest.php"
+  ],
+  "touched_paths": [
+    "app/Services/Ai/Kernel/Decision/DecisionReceiptRuntimeGuard.php",
+    "app/Services/Ai/Kernel/Decision/DecisionReceiptIssuer.php",
+    "app/Services/Ai/AtlasDecideService.php",
+    "app/Services/Ai/AiWorker.php",
+    "config/atlas.php",
+    "tests/Unit/Ai/Kernel/DecisionReceiptRuntimeGuardTest.php",
+    "tests/Unit/Ai/Kernel/DecisionReceiptIssuerTest.php"
+  ],
+  "deleted_paths": [],
+  "foreign_wip_left_untouched": [
+    "foreign_wip"
+  ],
+  "baseline_failures": [],
+  "new_failures": [],
+  "tests": [
+    {
+      "path": "P2b-CANARY matrix",
+      "command": "/opt/homebrew/bin/php artisan test tests/Unit/Ai/Kernel/DecisionReceiptRuntimeGuardTest.php tests/Unit/Ai/Kernel/DecisionReceiptIssuerTest.php tests/Feature/Ai/Aaeos/AaeosDecisionReceiptSchemaRolloutTest.php --no-coverage",
+      "red_exit": null,
+      "green_exit": 0,
+      "red_failure_reason": "GREEN canary matrix",
+      "output_fingerprint_or_ref": "controller-verification/P2b-CANARY:30-passed-94-assertions"
+    }
+  ],
+  "artifact_hashes_or_refs": [
+    "config:atlas.ai.decision_receipt_v3_canary_percent",
+    "error:decision_receipt_v3_invalid_non_array",
+    "canary_companion_v3_no_v2_rewrite"
+  ],
+  "exit_checklist": {
+    "non_array_receipt_v3_fails_closed": true,
+    "canary_selector_explicit": true,
+    "default_canary_percent_zero": true,
+    "new_issuance_companion_only": true,
+    "historical_v2_not_rewritten": true,
+    "v3_only_still_non_authoritative": true,
+    "provider_was_called_classifies_v3_blocks": true,
+    "no_new_organ": true,
+    "phase_green": true,
+    "path_core_exit_checklist_all_true": true
+  },
+  "residuals_closed": [
+    "receipt_v3 non-array fail-closed",
+    "explicit canary percent writer for new issuances",
+    "v2 bytes immutable under canary companion"
+  ],
+  "residuals_still_open": [
+    "P2b-CUTOVER mutative authority not started",
+    "R-P2A1-PG-LIVE deeper multi-process proof may still be pursued by Codex residual work",
+    "R104-TRANSPORT"
+  ],
+  "forbidden_touched": [],
+  "failure_reason_code": null,
+  "failure_reason": null,
+  "review_basis": {
+    "schema": "atlas.aaeos.mt.review_basis.v1",
+    "phase_payload_excludes": [
+      "review_basis",
+      "review_attestation_refs",
+      "next_phase_authorized",
+      "next_phase_authorization_basis"
+    ],
+    "phase_payload_sha256": "e95692fd184f6a149439a18f4bd99c7028eda3552023a67e4223713addfcf2cd",
+    "ledger_content_sha256": "183b85a38d5e0a23f735e50b2d2a73f6f63b80876b3239d21aef8c099443bdaf",
+    "scoreboard_content_sha256": "0584452e718df35af8a1218a765992ba0bae5f61834a40ec752285e585d6b86b",
+    "sha256": "a1d8bb82f60003cade2400c41acbe61dabe81fd1462164d4d68ddfe3a13ffd67"
+  },
+  "review_attestation_refs": [],
+  "next_phase_authorized": {
+    "phase": "P2b-CUTOVER",
+    "precommit_predicates_satisfied": true,
+    "evidence_commit_required": true,
+    "effective_only_when_read_from_committed_evidence_tree": true
+  },
+  "next_phase_authorization_basis": {
+    "serial_predecessor_green": true,
+    "exit_checklist_all_true": true,
+    "tests_green": true,
+    "spec_review_approved": true,
+    "quality_review_approved": true,
+    "review_attestation_refs_valid": false,
+    "evidence_commit_required": true,
+    "committed_evidence_tree_required": true
+  },
+  "notes": "P2b-CANARY GREEN. Codex adversarial requirements honored. Next EXECUTE P2b-CUTOVER. EnvelopeStringHelper paths in prior EXPAND remain historical note, not reopened."
+}
