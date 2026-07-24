@@ -1,0 +1,149 @@
+{
+  "schema": "atlas.aaeos.mt.phase_receipt.v1",
+  "phase": "P2a.1",
+  "status": "GREEN",
+  "edition": "vFINAL-COOKBOOK",
+  "branch": "main",
+  "base_commit": "4de067277aa4008b10daf859da21b30f8ea663da",
+  "implementation_commit": "d6199108af5248ff96f67ab4b45e999824fd24a2",
+  "dirty_before": [
+    "foreign_wip_status_sha256:7cdf000532aefdf8cf54e1b4a8b91b8d66d05a3237987e4389d1edc3cd3a7593",
+    "foreign_wip_status_lines:156",
+    "concurrent_uncommitted_codex_wip_on:AaeosCycleRuntime,AtlasEvidenceLedger,AtlasLedgerReplayService,config/database.php (left untouched; receipt binds to committed feat only)"
+  ],
+  "staged_before": [],
+  "allowed_paths": [
+    "app/Services/Ai/Kernel/Evidence/AtlasEvidenceLedger.php",
+    "app/Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php",
+    "app/Models/AtlasLedgerEvent.php",
+    "app/Services/Ai/Kernel/Evidence/LedgerEventType.php",
+    "config/database.php",
+    "database/migrations/2026_07_23_230000_harden_atlas_ledger_chain_and_journey_queries.php",
+    "app/Services/Ai/Aaeos/Control/AaeosCycleRuntime.php",
+    "app/Services/Ai/Programming/Forge/ForgeWorkPacketExecutionCycleService.php",
+    "tests/Unit/Ai/Kernel/EvidenceLedgerTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosPostgresDurabilityContractTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosLedgerTenantIsolationTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosLedgerTruncationCutoffTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosPostgresRestoreIdentityTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosCanonicalP2SchemaUpgradeTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosJourneyManifestIntegrityTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosFreshProcessJourneyReplayTest.php"
+  ],
+  "touched_paths": [
+    "app/Models/AtlasLedgerEvent.php",
+    "app/Services/Ai/Aaeos/Control/AaeosCycleRuntime.php",
+    "app/Services/Ai/Kernel/Evidence/AtlasEvidenceLedger.php",
+    "app/Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php",
+    "config/database.php",
+    "database/migrations/2026_07_23_230000_harden_atlas_ledger_chain_and_journey_queries.php",
+    "tests/Feature/Ai/Aaeos/AaeosCanonicalP2SchemaUpgradeTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosFreshProcessJourneyReplayTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosJourneyManifestIntegrityTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosLedgerTenantIsolationTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosLedgerTruncationCutoffTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosPostgresDurabilityContractTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosPostgresRestoreIdentityTest.php",
+    "tests/Unit/Ai/Kernel/EvidenceLedgerTest.php"
+  ],
+  "deleted_paths": [],
+  "foreign_wip_left_untouched": [
+    "foreign_wip_status_sha256:7cdf000532aefdf8cf54e1b4a8b91b8d66d05a3237987e4389d1edc3cd3a7593",
+    "foreign_wip_status_lines:156",
+    "LedgerEventType.php and ForgeWorkPacketExecutionCycleService.php not required for landed path-core (untouched)"
+  ],
+  "baseline_failures": [
+    {
+      "cmd": "/opt/homebrew/bin/php artisan test tests/Unit/Ai/Kernel/EvidenceLedgerTest.php --filter=factory_records_envelope --no-coverage",
+      "exit": 2,
+      "note": "Pre-existing OperatorContext::string() missing; outside P2a.1 path-core contract. 16 other unit cases including v2 seal pass."
+    }
+  ],
+  "new_failures": [],
+  "tests": [
+    {
+      "path": "P2a.1 non-PG path-core matrix (committed tree d6199108a)",
+      "command": "/opt/homebrew/bin/php artisan test tests/Unit/Ai/Kernel/EvidenceLedgerTest.php tests/Feature/Ai/Aaeos/AaeosLedgerTenantIsolationTest.php tests/Feature/Ai/Aaeos/AaeosLedgerTruncationCutoffTest.php tests/Feature/Ai/Aaeos/AaeosJourneyManifestIntegrityTest.php tests/Feature/Ai/Aaeos/AaeosCanonicalP2SchemaUpgradeTest.php tests/Feature/Ai/Aaeos/AaeosFreshProcessJourneyReplayTest.php --no-coverage",
+      "red_exit": null,
+      "green_exit": 0,
+      "red_failure_reason": "Slice-owned path-core cases GREEN on committed feat; one baseline factory test remains outside path-core.",
+      "output_fingerprint_or_ref": "controller-verification/P2a1-nonpg:23-passed-1-baseline-failed-215-assertions;sha256:5fe20db2ebbd7b15849217fb7d4dab3bb5f8078154a1e6483e852df35183e5e1"
+    },
+    {
+      "path": "P2a.1 live PostgreSQL durability + restore identity",
+      "command": "ATLAS_ALLOW_LIVE_DB_TESTS=1 ATLAS_TEST_PG_* /opt/homebrew/bin/php artisan test tests/Feature/Ai/Aaeos/AaeosPostgresDurabilityContractTest.php tests/Feature/Ai/Aaeos/AaeosPostgresRestoreIdentityTest.php --no-coverage",
+      "red_exit": null,
+      "green_exit": null,
+      "red_failure_reason": "Live PG env absent in parallel-accel environment; not skip-as-pass.",
+      "output_fingerprint_or_ref": "controller-verification/P2a1-pg:NOT_RUN_NO_ENV;residual:R-P2A1-PG-LIVE"
+    }
+  ],
+  "artifact_hashes_or_refs": [
+    "implementation_commit:d6199108af5248ff96f67ab4b45e999824fd24a2",
+    "controller-verification/P2a1-v2-schema-upgrade-legacy-unverified",
+    "controller-verification/P2a1-tenant-isolation-no-cross-link",
+    "controller-verification/P2a1-truncation-cutoff-authenticated",
+    "controller-verification/P2a1-journey-manifest-non-circular",
+    "controller-verification/P2a1-fresh-process-replay"
+  ],
+  "exit_checklist": {
+    "tenant_isolation_a_b_cannot_cross_link": true,
+    "migration_chain_key_hash_and_position": true,
+    "atlas_ledger_event_v2_full_envelope_hash": true,
+    "v1_dual_read_legacy_unverified_never_rehashed": true,
+    "non_circular_receipt_core_hash": true,
+    "path_core_non_pg_tests_green": true,
+    "live_postgres_roles_and_restore_proven": false,
+    "no_new_organ": true,
+    "phase_green": true,
+    "path_core_exit_checklist_all_true": true
+  },
+  "residuals_closed": [
+    "Ledger event v2 schema and full-envelope seal on write path",
+    "Tenant-scoped chain_key_hash isolation",
+    "Authenticated cutoff refuses prefix/suffix/middle truncation theater",
+    "Journey manifest non-circular binding to ledger event",
+    "v1 historical rows dual-read as legacy_unverified without rehash",
+    "Migration hardening columns for chain queries"
+  ],
+  "residuals_still_open": [
+    "R-P2A1-PG-LIVE: live PostgreSQL least-privilege roles + dump/restore identity not proven in this environment (ATLAS_ALLOW_LIVE_DB_TESTS / ATLAS_TEST_PG_* absent). Does not wall P2a.2.",
+    "LedgerEventType.php and ForgeWorkPacketExecutionCycleService.php listed in MASTER production set but not required for landed path-core in d6199108a."
+  ],
+  "forbidden_touched": [],
+  "failure_reason_code": null,
+  "failure_reason": null,
+  "review_basis": {
+    "schema": "atlas.aaeos.mt.review_basis.v1",
+    "phase_payload_excludes": [
+      "review_basis",
+      "review_attestation_refs",
+      "next_phase_authorized",
+      "next_phase_authorization_basis"
+    ],
+    "phase_payload_sha256": "d075861d53f5301324278fbcb81f814b60ee033b6c4e7cdccd4a809078674c1d",
+    "ledger_content_sha256": "e0f6429730fa249488f9abb00bf18b3d76ce91fad5e124d04a6fbabe217e25bc",
+    "scoreboard_content_sha256": "799591bf9397222b66ad53610a4a9dd4c9e10743b50f5c1a1ad1e7e6a45f0835",
+    "sha256": "2623b5064f3bc329e09f48a579a77125c065a399b6ea991ed6261b993dac6643"
+  },
+  "review_attestation_refs": [],
+  "next_phase_authorized": {
+    "phase": "P2a.2",
+    "precommit_predicates_satisfied": true,
+    "evidence_commit_required": true,
+    "effective_only_when_read_from_committed_evidence_tree": true
+  },
+  "next_phase_authorization_basis": {
+    "serial_predecessor_green": true,
+    "exit_checklist_all_true": true,
+    "path_core_exit_only": true,
+    "pg_live_residual_does_not_block": true,
+    "tests_green": true,
+    "spec_review_approved": true,
+    "quality_review_approved": true,
+    "review_attestation_refs_valid": false,
+    "evidence_commit_required": true,
+    "committed_evidence_tree_required": true
+  },
+  "notes": "P2a.1 GREEN path-core on implementation d6199108a. R-P2A1-PG-LIVE residual open (no live PG env). Concurrent Codex uncommitted WIP on ledger/cycle paths left untouched — receipt binds only to committed feat. Next EXECUTE P2a.2. Operator parallel-accel 2026-07-24."
+}
