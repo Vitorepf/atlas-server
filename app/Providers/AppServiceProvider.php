@@ -1044,7 +1044,6 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         JsonResource::withoutWrapping();
-        $this->registerAcosWatchdogChecks();
 
         AtlasMemoryEntry::observe(AtlasMemoryRecallCacheObserver::class);
 
@@ -1065,31 +1064,4 @@ class AppServiceProvider extends ServiceProvider
         }
     }
 
-    private function registerAcosWatchdogChecks(): void
-    {
-        $registry = app(AtlasWatchdogCheckRegistry::class);
-        $health = app(AtlasAcosWatchdogHealthService::class);
-
-        foreach (HealthReportWatchdogCheck::makeAll($health) as $check) {
-            $registry->register($check);
-        }
-
-        foreach ([
-            CompactionRecoverySampleWatchdogCheck::class,
-            AobgLatencyWatchdogCheck::class,
-            SubstrateRestoreDrillWatchdogCheck::class,
-            OperatorLearningCaptureSchemaWatchdogCheck::class,
-            AcosDeadSeriesWatchdogCheck::class,
-            OperatorReviewDebtWatchdogCheck::class,
-            LocalModelIntegrityWatchdogCheck::class,
-            JointResourceBudgetWatchdogCheck::class,
-            DiskFreeWatchdogCheck::class,
-            EvidenceLedgerIntegrityWatchdogCheck::class,
-            ProviderBoundRedactionDriftWatchdogCheck::class,
-            DailyCanaryReplayByRefsWatchdogCheck::class,
-            AutonomyLadderAdversarialWatchdogCheck::class,
-        ] as $checkClass) {
-            $registry->register(app($checkClass));
-        }
-    }
 }

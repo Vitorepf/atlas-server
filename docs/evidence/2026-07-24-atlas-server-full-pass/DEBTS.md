@@ -59,6 +59,7 @@
 - [x] ProviderCatalog adopt in AtlasDecideService invocation list
 - [ ] ProviderCatalog adopt in Manager/Forge residual
 - [x] AppServiceProvider: legacy AcosMax/Cognitive aliases → AtlasLegacyNamespaceAliasServiceProvider
+- [x] AppServiceProvider ACOS watchdog → AtlasAcosWatchdogServiceProvider
 - [ ] AppServiceProvider further domain peels (Organism/Vox/Swarm/…)
 - [x] routes/api.php: atlas-code group → routes/api/atlas-code.php
 - [x] routes splits: atlas-code, atlas-cartography, stewardship, operator-intelligence
