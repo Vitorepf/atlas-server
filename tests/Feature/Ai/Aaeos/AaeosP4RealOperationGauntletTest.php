@@ -292,6 +292,40 @@ final class AaeosP4RealOperationGauntletTest extends TestCase
         $this->assertTrue($terminal['completed']);
     }
 
+    public function test_forge_provider_invocation_executed_derives_spawn_and_authority(): void
+    {
+        $stdout = json_encode([
+            'schema_version' => 'atlas.forge.provider_invocation.v1',
+            'status' => 'executed',
+            'provider' => 'hermes_cli',
+            'provider_called' => true,
+            'external_provider_call' => true,
+            'exit_code' => 0,
+            'stdout_hash' => str_repeat('ab', 32),
+            'decision_receipt_id' => 'decision-forge-live-1',
+            'decision_receipt_hash' => str_repeat('cd', 32),
+            'blockers' => [],
+        ], JSON_THROW_ON_ERROR);
+
+        $receipt = AaeosP4RealOperationGauntlet::journeyReceipt('forge', [
+            'exit_code' => 0,
+            'stdout' => $stdout,
+            'command' => 'php artisan atlas:forge:provider-invoke --mode=execute --json',
+        ], [
+            'plan_only' => false,
+            'env' => [
+                'ATLAS_P4_PG_PRODUCER_URL' => 'pgsql://atlas_p4_producer@localhost/atlas_p4',
+                'ATLAS_P4_PG_VERIFIER_URL' => 'pgsql://atlas_p4_verifier@localhost/atlas_p4',
+            ],
+        ]);
+
+        $this->assertTrue($receipt['real_operation_qualified'], 'blockers='.implode(',', $receipt['blockers']));
+        $this->assertNotNull($receipt['provider_spawn_proof']);
+        $this->assertSame('hermes_cli', $receipt['provider_spawn_proof']['provider']);
+        $this->assertNotNull($receipt['authority_lineage_proof']);
+        $this->assertSame('decision-forge-live-1', $receipt['authority_lineage_proof']['authority_ref']);
+    }
+
     public function test_senior_loop_payload_authority_lineage_is_derived_not_invented(): void
     {
         $stdout = json_encode([

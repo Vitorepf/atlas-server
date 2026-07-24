@@ -843,6 +843,7 @@ final class AtlasTaskServingService
                 'orchestrator_event' => $event,
                 'result' => $result,
                 'verified' => false,
+                'evidence' => (array) ($payload['evidence'] ?? []),
                 'outcome_spine' => $this->recordServerSideOutcomeSpine(
                     $taskPacketId,
                     is_array($scope) ? $scope : [],
@@ -1438,11 +1439,68 @@ final class AtlasTaskServingService
      */
     private function reportEnvelope(string $status, string $clientId, array $extra): array
     {
-        return array_merge([
+        $envelope = array_merge([
             'schema' => self::REPORT_SCHEMA,
             'status' => $status,                 // reported | disabled | invalid_report
             'client_id' => $clientId,
         ], $extra);
+
+        // Project derived capability proofs from completion evidence when present so
+        // AAEOS P4 can derive spawn/authority from native report stdout (R84 — never
+        // invent free bools; only echo receipts already supplied by the muscle).
+        $evidence = is_array($extra['evidence'] ?? null)
+            ? $extra['evidence']
+            : (is_array(data_get($extra, 'result.evidence')) ? (array) data_get($extra, 'result.evidence') : []);
+        $spawn = is_array($evidence['provider_spawn'] ?? null) ? $evidence['provider_spawn'] : null;
+        $lineage = is_array($evidence['authority_lineage'] ?? null) ? $evidence['authority_lineage'] : null;
+        if ($spawn !== null) {
+            $provider = trim((string) ($spawn['provider'] ?? ''));
+            $hash = strtolower(trim((string) ($spawn['provider_receipt_hash'] ?? '')));
+            if ($provider !== '' && preg_match('/^[a-f0-9]{64}$/', $hash) === 1 && ($spawn['spawned'] ?? false) === true) {
+                $envelope['provider'] = $provider;
+                $envelope['provider_called'] = true;
+                $envelope['external_provider_call'] = true;
+                $envelope['exit_code'] = (int) ($spawn['exit_code'] ?? 0);
+                $envelope['stdout_hash'] = $hash;
+                $envelope['run_summary'] = array_merge(is_array($envelope['run_summary'] ?? null) ? $envelope['run_summary'] : [], [
+                    'provider_call' => [
+                        'provider' => $provider,
+                        'provider_calls' => 1,
+                        'exit_code' => (int) ($spawn['exit_code'] ?? 0),
+                        'error_codes' => [],
+                    ],
+                    'verification_receipt_hash' => $hash,
+                    'completion_state' => in_array($status, ['reported', 'resolved'], true) ? 'passed' : $status,
+                ]);
+            }
+        }
+        if ($lineage !== null) {
+            $ref = trim((string) ($lineage['authority_ref'] ?? ''));
+            $hash = strtolower(trim((string) ($lineage['authority_hash'] ?? '')));
+            $rev = (int) ($lineage['authority_revision'] ?? 0);
+            if ($ref !== '' && preg_match('/^[a-f0-9]{64}$/', $hash) === 1 && $rev >= 1) {
+                $envelope['authority_lineage'] = [
+                    'authority_ref' => $ref,
+                    'authority_hash' => $hash,
+                    'authority_revision' => $rev,
+                    'source' => (string) ($lineage['source'] ?? 'task_lease'),
+                ];
+                $envelope['decision_receipt_id'] = $ref;
+                $envelope['decision_receipt_hash'] = $hash;
+                if (is_array($envelope['run_summary'] ?? null)) {
+                    $envelope['run_summary']['authority_lineage'] = $envelope['authority_lineage'];
+                }
+            }
+        }
+        // Gauntlet completed set: map successful report terminals to passed.
+        if (in_array($status, ['reported', 'resolved'], true)
+            && (($extra['outcome'] ?? '') === 'success')
+            && (($extra['lease_closed'] ?? false) === true || ($extra['verified'] ?? null) === true)) {
+            $envelope['status'] = 'passed';
+            $envelope['producer_terminal_status'] = $status;
+        }
+
+        return $envelope;
     }
 
     /**

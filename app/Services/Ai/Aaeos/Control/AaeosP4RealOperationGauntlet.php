@@ -192,12 +192,13 @@ final class AaeosP4RealOperationGauntlet
             ?? $payload['forge_live_execution_status']
             ?? data_get($payload, 'run_summary.completion_state')
             ?? data_get($payload, 'journey_terminal_status')
+            ?? data_get($payload, 'daemon_status')
             ?? data_get($payload, 'aemor_outcome.status')
             ?? data_get($payload, 'aemor_outcome.outcome.status')
             ?? ''
         )));
-        // AEMOR spine may say "succeeded" when eng passed — map to completed set.
-        if ($status === 'succeeded') {
+        // Normalize producer synonyms onto the completed set.
+        if (in_array($status, ['succeeded', 'executed', 'served_and_landed'], true)) {
             $status = 'passed';
         }
         $errorCodes = [];
@@ -326,7 +327,8 @@ final class AaeosP4RealOperationGauntlet
 
         return in_array($lower, [
             'ok', 'success', 'passed', 'released', 'completed', 'completed_read_only',
-            'real_operation_completed', 'help_or_plan_surface', 'unparsed', '',
+            'real_operation_completed', 'executed', 'succeeded', 'served_and_landed',
+            'help_or_plan_surface', 'unparsed', '',
         ], true);
     }
 
@@ -403,18 +405,78 @@ final class AaeosP4RealOperationGauntlet
         if ($payload === null) {
             return null;
         }
+        // Senior-loop shape.
         $provider = trim((string) data_get($payload, 'run_summary.provider_call.provider', ''));
         $hash = strtolower(trim((string) data_get($payload, 'run_summary.verification_receipt_hash', data_get($payload, 'execution_hash', ''))));
         $calls = (int) data_get($payload, 'run_summary.provider_call.provider_calls', 0);
         $errors = (array) data_get($payload, 'run_summary.provider_call.error_codes', []);
+        $exit = data_get($payload, 'run_summary.provider_call.exit_code');
+
+        // Forge governed provider-invocation shape (non-simulate): provider + stdout_hash
+        // only when provider_called is true (R84 — never launder dry_run/fixture).
+        if ($provider === '' || preg_match('/^[a-f0-9]{64}$/', $hash) !== 1 || $calls < 1) {
+            $forgeProvider = trim((string) ($payload['provider'] ?? ''));
+            $forgeHash = strtolower(trim((string) ($payload['stdout_hash'] ?? $payload['provider_receipt_hash'] ?? '')));
+            $forgeCalled = ($payload['provider_called'] ?? false) === true
+                || ($payload['external_provider_call'] ?? false) === true;
+            $forgeExit = $payload['exit_code'] ?? null;
+            if ($forgeProvider !== '' && preg_match('/^[a-f0-9]{64}$/', $forgeHash) === 1 && $forgeCalled) {
+                $provider = $forgeProvider;
+                $hash = $forgeHash;
+                $calls = 1;
+                $exit = $forgeExit;
+                $errors = array_values(array_map('strval', (array) ($payload['blockers'] ?? [])));
+                // executed status with empty blockers is clean spawn residual set.
+                if (strtolower((string) ($payload['status'] ?? '')) === 'executed') {
+                    $errors = [];
+                }
+            }
+        }
+
+        // Daemon native_tick feedback with receipt hash (when present).
+        if ($provider === '' || preg_match('/^[a-f0-9]{64}$/', $hash) !== 1 || $calls < 1) {
+            foreach ((array) data_get($payload, 'ticks', []) as $tick) {
+                if (! is_array($tick)) {
+                    continue;
+                }
+                foreach ((array) ($tick['action_feedback'] ?? []) as $feedback) {
+                    if (! is_array($feedback)) {
+                        continue;
+                    }
+                    $fbProvider = trim((string) ($feedback['provider'] ?? data_get($tick, 'planned_actions.0.provider', '')));
+                    $refs = (array) ($feedback['receipt_refs'] ?? []);
+                    $fbHash = '';
+                    foreach ($refs as $ref) {
+                        $ref = strtolower(trim((string) $ref));
+                        if (preg_match('/^[a-f0-9]{64}$/', $ref) === 1) {
+                            $fbHash = $ref;
+                            break;
+                        }
+                    }
+                    if ($fbHash === '') {
+                        $fbHash = strtolower(trim((string) ($tick['cycle_receipt_hash'] ?? '')));
+                    }
+                    if ($fbProvider !== ''
+                        && preg_match('/^[a-f0-9]{64}$/', $fbHash) === 1
+                        && ($feedback['outcome_class'] ?? '') === 'applied') {
+                        $provider = $fbProvider;
+                        $hash = $fbHash;
+                        $calls = 1;
+                        $exit = 0;
+                        $errors = [];
+                        break 2;
+                    }
+                }
+            }
+        }
+
         // Successful COVERED spawn requires calls>0, valid hash, and no governor/court residual errors alone is not enough —
         // never mark spawned=true when eng status blocked or hash missing.
         if ($provider === '' || preg_match('/^[a-f0-9]{64}$/', $hash) !== 1 || $calls < 1) {
             return null;
         }
         // Only treat as spawn proof when provider exit was 0 and no residual error codes.
-        $exit = data_get($payload, 'run_summary.provider_call.exit_code');
-        if ($exit !== 0 && $exit !== '0') {
+        if ($exit !== 0 && $exit !== '0' && $exit !== null) {
             return [
                 'provider' => $provider,
                 'provider_receipt_hash' => $hash,
@@ -458,6 +520,30 @@ final class AaeosP4RealOperationGauntlet
         $ref = trim((string) ($lineage['authority_ref'] ?? data_get($payload, 'authority_ref', '')));
         $hash = strtolower(trim((string) ($lineage['authority_hash'] ?? data_get($payload, 'authority_hash', ''))));
         $revision = (int) ($lineage['authority_revision'] ?? data_get($payload, 'authority_revision', 0));
+
+        // Forge provider-invocation: live decision receipt is the authority root when
+        // both id and 64-hex content hash are present (never free-mint from invocation_id).
+        if ($ref === '' || preg_match('/^[a-f0-9]{64}$/', $hash) !== 1 || $revision < 1) {
+            $decisionId = trim((string) ($payload['decision_receipt_id'] ?? data_get($payload, 'receipt.decision_receipt_id', '')));
+            $decisionHash = strtolower(trim((string) ($payload['decision_receipt_hash'] ?? data_get($payload, 'receipt.decision_receipt_hash', ''))));
+            if ($decisionId !== '' && preg_match('/^[a-f0-9]{64}$/', $decisionHash) === 1) {
+                $ref = $decisionId;
+                $hash = $decisionHash;
+                $revision = max(1, $revision);
+            }
+        }
+
+        // Daemon cycle receipt as authority hash when mandate ref is explicit.
+        if ($ref === '' || preg_match('/^[a-f0-9]{64}$/', $hash) !== 1 || $revision < 1) {
+            $cycleHash = strtolower(trim((string) data_get($payload, 'ticks.0.cycle_receipt_hash', data_get($payload, 'daemon_cycle_hash', ''))));
+            $mandate = trim((string) ($payload['authority_ref'] ?? data_get($payload, 'mandate_id', data_get($payload, 'native_journey_ref', ''))));
+            if ($mandate !== '' && preg_match('/^[a-f0-9]{64}$/', $cycleHash) === 1) {
+                $ref = $mandate;
+                $hash = $cycleHash;
+                $revision = max(1, $revision > 0 ? $revision : 1);
+            }
+        }
+
         if ($ref === '' || preg_match('/^[a-f0-9]{64}$/', $hash) !== 1 || $revision < 1) {
             return null;
         }

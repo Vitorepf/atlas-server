@@ -172,8 +172,24 @@ final class AgentControlPlaneTaskQueueOrchestrator
     {
         $candidateId = (string) ($packet['task_packet_id'] ?? '');
         $registry = $this->queue->registry(['status' => 'claimable'], true);
-        $claimableCount = (int) ($registry['entry_count'] ?? 0);
-        $claimableIds = array_column((array) ($registry['entries'] ?? []), 'task_packet_id');
+        // Certification probes are not real farm mass — exclude them from the
+        // anti-farm claimable budget so real enqueue/claim is not starved.
+        $realEntries = [];
+        foreach ((array) ($registry['entries'] ?? []) as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+            $probeCandidate = [
+                'task_packet_id' => (string) ($entry['task_packet_id'] ?? ''),
+                'tags' => (array) ($entry['tags'] ?? []),
+            ];
+            if ($this->isCertificationProbe($probeCandidate)) {
+                continue;
+            }
+            $realEntries[] = $entry;
+        }
+        $claimableCount = count($realEntries);
+        $claimableIds = array_column($realEntries, 'task_packet_id');
         if ($claimableCount > self::MAX_ANTI_FARM_CANDIDATES && ! in_array($candidateId, $claimableIds, true)) {
             return [
                 'reason' => 'anti_farm_queue_scan_limit_exceeded',
@@ -187,7 +203,7 @@ final class AgentControlPlaneTaskQueueOrchestrator
 
         // Preserve idempotent re-enqueue of the same packet id.
         $existingEntries = array_values(array_filter(
-            $this->queue->list(['status' => 'claimable', 'limit' => self::MAX_ANTI_FARM_CANDIDATES]),
+            $this->listClaimableNonProbeCandidates([], self::MAX_ANTI_FARM_CANDIDATES),
             static fn (array $entry): bool => $candidateId === '' || (string) ($entry['task_packet_id'] ?? '') !== $candidateId,
         ));
         if ($existingEntries === []) {
@@ -272,10 +288,15 @@ final class AgentControlPlaneTaskQueueOrchestrator
             return $this->envelope('claim_blocked', $recoveryFailure);
         }
 
-        $candidates = $this->queue->list(array_merge(['status' => 'claimable'], $filters, [
-            'limit' => self::MAX_ANTI_FARM_CANDIDATES + 1,
-        ]));
-        $scanLimitExceeded = count($candidates) > self::MAX_ANTI_FARM_CANDIDATES;
+        // Certification probes (probe_*) are never worker-claimable. If they sit at the
+        // front of the registry they exhaust the anti-farm scan budget and starve real
+        // work (observed: 9k+ probes ahead of ~1.8k real claimables). Prefetch from the
+        // registry index skipping probe ids, then hydrate only the real shortlist.
+        // Real-work scan budget is larger than the anti-farm mint budget: dependency-gated
+        // packets at the front of the real queue must not mask later claimable work.
+        $realScanBudget = max(self::MAX_ANTI_FARM_CANDIDATES * 8, 512);
+        $candidates = $this->listClaimableNonProbeCandidates($filters, $realScanBudget + 1);
+        $scanLimitExceeded = count($candidates) > $realScanBudget;
         if ($scanLimitExceeded) {
             array_pop($candidates);
         }
@@ -334,8 +355,8 @@ final class AgentControlPlaneTaskQueueOrchestrator
                 'reason' => 'queue_scan_limit_exceeded',
                 'agent_id' => $agentId,
                 'candidate_count' => count($candidates),
-                'minimum_claimable_count' => self::MAX_ANTI_FARM_CANDIDATES + 1,
-                'scan_limit' => self::MAX_ANTI_FARM_CANDIDATES,
+                'minimum_claimable_count' => $realScanBudget + 1,
+                'scan_limit' => $realScanBudget,
             ]);
         }
 
@@ -506,6 +527,71 @@ final class AgentControlPlaneTaskQueueOrchestrator
      * `tests` / `guardrail` / `runtime_gap` / `chain_integrity` etc., none of which match — so no false-positive.
      */
     private const PROBE_TAG_PREFIXES = ['terminal_fleet', 'terminal_worker', 'terminal_bootstrap', 'multi_agent_loop'];
+
+    /**
+     * Build a shortlist of claimable, non-probe queue records for claimNext.
+     * Walks the registry index (cheap) and hydrates only non-probe ids so
+     * certification probes cannot exhaust the anti-farm scan budget.
+     *
+     * @param  array<string, mixed>  $filters
+     * @return list<array<string, mixed>>
+     */
+    private function listClaimableNonProbeCandidates(array $filters, int $limit): array
+    {
+        $limit = max(1, $limit);
+        $registry = $this->queue->registry(['status' => 'claimable'], true);
+        $entries = (array) ($registry['entries'] ?? []);
+        $tag = isset($filters['tag']) ? (string) $filters['tag'] : '';
+        $tags = array_values(array_filter(array_map('strval', (array) ($filters['tags'] ?? []))));
+        if ($tag !== '') {
+            $tags = array_values(array_unique(array_merge([$tag], $tags)));
+        }
+
+        $ids = [];
+        foreach ($entries as $entry) {
+            if (! is_array($entry)) {
+                continue;
+            }
+            $id = (string) ($entry['task_packet_id'] ?? '');
+            if ($id === '') {
+                continue;
+            }
+            $probeCandidate = [
+                'task_packet_id' => $id,
+                'tags' => (array) ($entry['tags'] ?? []),
+            ];
+            if ($this->isCertificationProbe($probeCandidate)) {
+                continue;
+            }
+            if ($tags !== []) {
+                $entryTags = array_values(array_map('strval', (array) ($entry['tags'] ?? [])));
+                if (array_diff($tags, $entryTags) !== []) {
+                    continue;
+                }
+            }
+            $ids[] = $id;
+            if (count($ids) >= $limit) {
+                break;
+            }
+        }
+
+        $results = [];
+        foreach ($ids as $id) {
+            $record = $this->queue->get($id);
+            if (! is_array($record)) {
+                continue;
+            }
+            if ((string) ($record['status'] ?? '') !== 'claimable') {
+                continue;
+            }
+            if ($this->isCertificationProbe($record)) {
+                continue;
+            }
+            $results[] = $record;
+        }
+
+        return $results;
+    }
 
     /**
      * A certification/probe packet must NEVER be served to a real worker. The authoritative marker is the queue
