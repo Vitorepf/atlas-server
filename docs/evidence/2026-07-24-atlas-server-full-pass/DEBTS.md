@@ -140,6 +140,8 @@
 - [x] AiPromptAttachmentSupport
 - [x] ProductModeCockpitProjectionSupport
 - [x] ProductModeOperationalInboxProjectionSupport (inbox 1088→309; 16 unit + 12 path green)
+- [x] ProductModeOperationalControlsProjectionSupport (controls 508→46; pure project + sections)
+- [x] ProductModeOperationalControlReceiptSupport (receipt 475→191; pure payload/summary/AP-790 obs)
 - [x] ProgrammingConsoleEnvelopeSupport
 - [x] ProgrammingConsoleEnvelopeSupport (status/blocker/action/evidence/intent pure; console 1442→1195)
 

@@ -85,7 +85,8 @@
 | stringOption variants + LoadsNamedJson | 3+2 unit green |
 | Combined package | see goal-wave-combined-proof.log |
 | ProductModeOperationalInboxProjectionSupport | 16 unit / 163 asserts + 12 inbox path / 80 asserts; service 1088→309 |
+| ProductMode controls+receipt pure Supports | 33 unit / 291 asserts; controls 508→46; receipt 475→191; DateTimeZone import fix on StewardshipEvolutionClock |
 
 ## Residual
 
-PRE leave Http (R103 staged) · floors RSI/TaskQueue · CompletionAudit cert FS residual · HubDelegators true map+__call · ProductMode controls/receipt pure residual · suite filter pre-existing EliteExecutor mock (unrelated when filter broad)
+PRE leave Http (R103 staged) · floors RSI/TaskQueue · CompletionAudit cert FS residual · HubDelegators true map+__call · suite filter pre-existing EliteExecutor mock (unrelated when filter broad)
