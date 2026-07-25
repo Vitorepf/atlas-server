@@ -8,6 +8,7 @@ use App\Models\AiProviderHealthSnapshot;
 use App\Models\AiWorkerEvent;
 use App\Models\AtlasProject;
 use App\Services\Ai\Policy\AtlasAiRuntimeSettings;
+use App\Services\Ai\Programming\Support\ForgeProviderCapacityClassifier;
 use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
@@ -41,12 +42,17 @@ use Throwable;
 class AtlasForgeProviderCapacityService
 {
     public const SCHEMA_VERSION = 'atlas.forge.provider_capacity.v1';
+
     public const ENTRY_SCHEMA_VERSION = 'atlas.forge.provider_capacity_entry.v1';
 
     public const PROVIDER_CLAUDE_CLI = 'claude_cli';
+
     public const PROVIDER_CODEX_CLI = 'codex_cli';
+
     public const PROVIDER_GEMINI_CLI = 'gemini_cli';
+
     public const PROVIDER_CLAUDE_CODEX = 'claude_codex';
+
     public const PROVIDER_ATLAS_LOCAL = 'atlas-local';
 
     /** @var list<string> */
@@ -59,12 +65,17 @@ class AtlasForgeProviderCapacityService
     ];
 
     public const STATUS_AVAILABLE = 'available';
+
     public const STATUS_DEGRADED = 'degraded';
+
     public const STATUS_UNAVAILABLE = 'unavailable';
+
     public const STATUS_UNKNOWN = 'unknown';
 
     public const TOP_STATUS_AVAILABLE = 'available';
+
     public const TOP_STATUS_DEGRADED = 'degraded';
+
     public const TOP_STATUS_BLOCKED = 'blocked';
 
     private const FAILURE_MEMORY_KEY = 'atlas_forge_provider_failure_memory';
@@ -128,8 +139,8 @@ class AtlasForgeProviderCapacityService
             };
         }
 
-        $bestAvailable = $this->pickBestAvailable($providers);
-        $topStatus = $this->resolveTopStatus($availableCount, $degradedCount, $unavailableCount, count($providers));
+        $bestAvailable = ForgeProviderCapacityClassifier::pickBestAvailable($providers);
+        $topStatus = ForgeProviderCapacityClassifier::resolveTopStatus($availableCount, $degradedCount, $unavailableCount, count($providers));
 
         $blockers = [];
         if ($availableCount === 0 && $degradedCount === 0) {
@@ -158,7 +169,7 @@ class AtlasForgeProviderCapacityService
             'blockers' => AiStringListNormalizer::uniqueStrings($blockers),
             'runtime_dispatch_allowed' => $availableCount > 0
                 && ! in_array('provider_capacity_exhausted', $blockers, true),
-            'next_action' => $this->resolveNextAction(
+            'next_action' => ForgeProviderCapacityClassifier::resolveNextAction(
                 $topStatus,
                 $availableCount,
                 $degradedCount,
@@ -177,7 +188,7 @@ class AtlasForgeProviderCapacityService
      * Get only the provider entry list (without top-level metadata). Used by
      * topology integration to merge capacity into role assignments.
      *
-     * @param array<string,mixed> $options
+     * @param  array<string,mixed>  $options
      * @return list<array<string,mixed>>
      */
     public function providers(array $options = []): array
@@ -289,8 +300,8 @@ class AtlasForgeProviderCapacityService
     }
 
     /**
-     * @param array<string,mixed>|null $healthSnapshot
-     * @param list<array<string,mixed>> $failureMemory
+     * @param  array<string,mixed>|null  $healthSnapshot
+     * @param  list<array<string,mixed>>  $failureMemory
      * @return array<string,mixed>
      */
     private function buildEntry(
@@ -310,12 +321,19 @@ class AtlasForgeProviderCapacityService
         $latestFailure = $failureMemory[0] ?? null;
         $cooldownUntil = $this->extractCooldownUntil($failureMemory, $now);
 
-        $rateLimitState = $this->deriveRateLimitState($providerKey, $latestFailure, $cooldownUntil, $now);
-        $quotaState = $this->deriveQuotaState($providerKey, $latestFailure);
-        $capacityState = $this->deriveCapacityState($providerKey, $configPresent, $runtimePresent, $authState, $latestFailure, $rateLimitState, $quotaState);
-        $status = $this->deriveStatus($providerKey, $configPresent, $runtimePresent, $authState, $capacityState, $rateLimitState, $quotaState, $healthSnapshot);
+        $rateLimitState = ForgeProviderCapacityClassifier::deriveRateLimitState($providerKey, $latestFailure, $cooldownUntil, $now);
+        $quotaState = ForgeProviderCapacityClassifier::deriveQuotaState($providerKey, $latestFailure);
+        $capacityState = ForgeProviderCapacityClassifier::deriveCapacityState($providerKey, $configPresent, $runtimePresent, $authState, $latestFailure, $rateLimitState, $quotaState);
+        $status = ForgeProviderCapacityClassifier::deriveStatus($providerKey, $configPresent, $runtimePresent, $authState, $capacityState, $rateLimitState, $quotaState, $healthSnapshot);
 
-        $confidence = $this->resolveConfidence($providerKey, $configPresent, $runtimePresent, $healthSnapshot, $workerEvent, $failureMemory);
+        $confidence = ForgeProviderCapacityClassifier::resolveConfidence(
+            $providerKey,
+            $configPresent,
+            $runtimePresent,
+            $healthSnapshot,
+            $workerEvent !== null,
+            $failureMemory,
+        );
 
         $blockers = [];
         if ($capacityState === 'exhausted') {
@@ -333,7 +351,7 @@ class AtlasForgeProviderCapacityService
         return [
             'schema_version' => self::ENTRY_SCHEMA_VERSION,
             'provider' => $providerKey,
-            'label' => $this->labelFor($providerKey),
+            'label' => ForgeProviderCapacityClassifier::labelFor($providerKey),
             'status' => $status,
             'capacity_state' => $capacityState,
             'quota_state' => $quotaState,
@@ -348,13 +366,13 @@ class AtlasForgeProviderCapacityService
             'confidence' => $confidence,
             'evidence_refs' => $evidenceRefs,
             'blockers' => $blockers,
-            'next_action' => $this->resolveProviderNextAction($status, $capacityState, $rateLimitState, $quotaState, $authState, $blockers),
+            'next_action' => ForgeProviderCapacityClassifier::resolveProviderNextAction($status, $capacityState, $rateLimitState, $quotaState, $authState, $blockers),
             'external_provider_call' => false,
         ];
     }
 
     /**
-     * @param array<string,mixed> $config
+     * @param  array<string,mixed>  $config
      */
     private function runtimePresent(string $providerKey, array $config, string $workspace): bool
     {
@@ -405,7 +423,7 @@ class AtlasForgeProviderCapacityService
     }
 
     /**
-     * @param list<array<string,mixed>> $failureMemory
+     * @param  list<array<string,mixed>>  $failureMemory
      */
     private function extractCooldownUntil(array $failureMemory, Carbon $now): ?Carbon
     {
@@ -427,177 +445,8 @@ class AtlasForgeProviderCapacityService
     }
 
     /**
-     * @param array<string,mixed>|null $latestFailure
-     */
-    private function deriveRateLimitState(string $providerKey, ?array $latestFailure, ?Carbon $cooldownUntil, Carbon $now): string
-    {
-        if ($providerKey === self::PROVIDER_ATLAS_LOCAL) {
-            return 'not_applicable';
-        }
-
-        if ($cooldownUntil !== null && $cooldownUntil->greaterThan($now)) {
-            return 'cooldown';
-        }
-
-        $type = is_array($latestFailure) ? ($latestFailure['failure_type'] ?? null) : null;
-        if ($type === 'rate_limit') {
-            return 'limited';
-        }
-
-        return 'unknown';
-    }
-
-    /**
-     * @param array<string,mixed>|null $latestFailure
-     */
-    private function deriveQuotaState(string $providerKey, ?array $latestFailure): string
-    {
-        if ($providerKey === self::PROVIDER_ATLAS_LOCAL) {
-            return 'not_applicable';
-        }
-
-        $type = is_array($latestFailure) ? ($latestFailure['failure_type'] ?? null) : null;
-
-        return match ($type) {
-            'quota_exhausted' => 'exhausted',
-            'rate_limit' => 'limited',
-            default => 'unknown',
-        };
-    }
-
-    /**
-     * @param array<string,mixed>|null $latestFailure
-     */
-    private function deriveCapacityState(
-        string $providerKey,
-        bool $configPresent,
-        bool $runtimePresent,
-        string $authState,
-        ?array $latestFailure,
-        string $rateLimitState,
-        string $quotaState,
-    ): string {
-        if (! $runtimePresent || ! $configPresent) {
-            return 'unknown';
-        }
-
-        if ($authState === 'invalid' || $authState === 'missing') {
-            return 'unknown';
-        }
-
-        $type = is_array($latestFailure) ? ($latestFailure['failure_type'] ?? null) : null;
-        if ($type === 'provider_capacity_exhausted') {
-            return 'exhausted';
-        }
-
-        if ($quotaState === 'exhausted') {
-            return 'exhausted';
-        }
-
-        if ($rateLimitState === 'cooldown' || $rateLimitState === 'limited' || $quotaState === 'limited') {
-            return 'limited';
-        }
-
-        if ($providerKey === self::PROVIDER_ATLAS_LOCAL) {
-            return 'available';
-        }
-
-        return 'available';
-    }
-
-    /**
-     * @param array<string,mixed>|null $healthSnapshot
-     */
-    private function deriveStatus(
-        string $providerKey,
-        bool $configPresent,
-        bool $runtimePresent,
-        string $authState,
-        string $capacityState,
-        string $rateLimitState,
-        string $quotaState,
-        ?array $healthSnapshot,
-    ): string {
-        if ($providerKey === self::PROVIDER_ATLAS_LOCAL) {
-            return self::STATUS_AVAILABLE;
-        }
-
-        if (! $configPresent || ! $runtimePresent) {
-            return self::STATUS_UNAVAILABLE;
-        }
-
-        if ($authState === 'invalid' || $authState === 'missing') {
-            return self::STATUS_UNAVAILABLE;
-        }
-
-        if ($capacityState === 'exhausted' || $quotaState === 'exhausted') {
-            return self::STATUS_UNAVAILABLE;
-        }
-
-        if ($capacityState === 'limited' || $rateLimitState === 'cooldown' || $rateLimitState === 'limited') {
-            return self::STATUS_DEGRADED;
-        }
-
-        if (is_array($healthSnapshot)) {
-            $hsStatus = (string) ($healthSnapshot['status'] ?? '');
-            if (in_array($hsStatus, ['failed', 'down', 'offline'], true)) {
-                return self::STATUS_UNAVAILABLE;
-            }
-            if (in_array($hsStatus, ['degraded', 'stale'], true)) {
-                return self::STATUS_DEGRADED;
-            }
-            if (in_array($hsStatus, ['online', 'healthy', 'available'], true)) {
-                return self::STATUS_AVAILABLE;
-            }
-        }
-
-        // No definitive signal beyond config/runtime presence. Honest unknown.
-        return self::STATUS_UNKNOWN;
-    }
-
-    /**
-     * @param array<string,mixed>|null $healthSnapshot
-     * @param list<array<string,mixed>> $failureMemory
-     */
-    private function resolveConfidence(
-        string $providerKey,
-        bool $configPresent,
-        bool $runtimePresent,
-        ?array $healthSnapshot,
-        ?AiWorkerEvent $workerEvent,
-        array $failureMemory,
-    ): string {
-        if ($providerKey === self::PROVIDER_ATLAS_LOCAL) {
-            return 'high';
-        }
-
-        $signals = 0;
-        if ($configPresent) {
-            $signals++;
-        }
-        if ($runtimePresent) {
-            $signals++;
-        }
-        if (is_array($healthSnapshot) && ($healthSnapshot['checked_at'] ?? null) !== null) {
-            $signals++;
-        }
-        if ($workerEvent !== null) {
-            $signals++;
-        }
-        if (! empty($failureMemory)) {
-            $signals++;
-        }
-
-        return match (true) {
-            $signals >= 3 => 'high',
-            $signals >= 2 => 'medium',
-            default => 'low',
-        };
-    }
-
-    /**
-     * @param array<string,mixed>|null $healthSnapshot
-     * @param list<array<string,mixed>> $failureMemory
+     * @param  array<string,mixed>|null  $healthSnapshot
+     * @param  list<array<string,mixed>>  $failureMemory
      * @return list<string>
      */
     private function resolveEvidenceRefs(
@@ -629,7 +478,7 @@ class AtlasForgeProviderCapacityService
     }
 
     /**
-     * @param array<string,mixed>|null $healthSnapshot
+     * @param  array<string,mixed>|null  $healthSnapshot
      */
     private function resolveLastSuccessAt(?array $healthSnapshot, ?AiWorkerEvent $workerEvent): ?string
     {
@@ -650,8 +499,8 @@ class AtlasForgeProviderCapacityService
     }
 
     /**
-     * @param array<string,mixed>|null $healthSnapshot
-     * @param array<string,mixed>|null $latestFailure
+     * @param  array<string,mixed>|null  $healthSnapshot
+     * @param  array<string,mixed>|null  $latestFailure
      */
     private function resolveLastFailureAt(?array $healthSnapshot, ?array $latestFailure): ?string
     {
@@ -666,128 +515,6 @@ class AtlasForgeProviderCapacityService
         sort($candidates);
 
         return empty($candidates) ? null : end($candidates);
-    }
-
-    /**
-     * @param list<string> $blockers
-     */
-    private function resolveProviderNextAction(
-        string $status,
-        string $capacityState,
-        string $rateLimitState,
-        string $quotaState,
-        string $authState,
-        array $blockers,
-    ): string {
-        if (in_array('provider_capacity_exhausted', $blockers, true)) {
-            return 'block';
-        }
-        if (in_array('auth_invalid', $blockers, true) || in_array('auth_missing', $blockers, true)) {
-            return 'reauth';
-        }
-        if ($rateLimitState === 'cooldown') {
-            return 'retry_later';
-        }
-        if ($capacityState === 'limited' || $quotaState === 'limited') {
-            return 'observe';
-        }
-        if ($status === self::STATUS_AVAILABLE) {
-            return 'use';
-        }
-
-        return 'observe';
-    }
-
-    /**
-     * @param list<array<string,mixed>> $providers
-     */
-    private function pickBestAvailable(array $providers): ?string
-    {
-        $priority = [
-            self::PROVIDER_CLAUDE_CLI,
-            self::PROVIDER_CLAUDE_CODEX,
-            self::PROVIDER_CODEX_CLI,
-            self::PROVIDER_GEMINI_CLI,
-            self::PROVIDER_ATLAS_LOCAL,
-        ];
-
-        $byProvider = [];
-        foreach ($providers as $entry) {
-            $byProvider[(string) $entry['provider']] = $entry;
-        }
-
-        foreach ($priority as $providerKey) {
-            $entry = $byProvider[$providerKey] ?? null;
-            if ($entry === null) {
-                continue;
-            }
-            if ((string) $entry['status'] === self::STATUS_AVAILABLE) {
-                return $providerKey;
-            }
-        }
-
-        // Degraded fallback ordering.
-        foreach ($priority as $providerKey) {
-            $entry = $byProvider[$providerKey] ?? null;
-            if ($entry === null) {
-                continue;
-            }
-            if ((string) $entry['status'] === self::STATUS_DEGRADED) {
-                return $providerKey;
-            }
-        }
-
-        return null;
-    }
-
-    private function resolveTopStatus(int $available, int $degraded, int $unavailable, int $total): string
-    {
-        if ($available === 0 && $degraded === 0) {
-            return self::TOP_STATUS_BLOCKED;
-        }
-        if ($unavailable > 0 || $degraded > 0) {
-            return self::TOP_STATUS_DEGRADED;
-        }
-
-        return self::TOP_STATUS_AVAILABLE;
-    }
-
-    /**
-     * @param list<string> $blockers
-     */
-    private function resolveNextAction(
-        string $topStatus,
-        int $availableCount,
-        int $degradedCount,
-        ?string $bestAvailable,
-        array $blockers,
-    ): string {
-        if (in_array('provider_capacity_exhausted', $blockers, true)) {
-            return 'block_runtime_dispatch_until_provider_capacity_recovers';
-        }
-        if (in_array('obra_not_found', $blockers, true)) {
-            return 'provide_existing_obra_id';
-        }
-        if ($availableCount === 0 && $degradedCount > 0) {
-            return 'use_degraded_provider_with_governed_caution';
-        }
-        if ($bestAvailable !== null) {
-            return 'dispatch_to:'.$bestAvailable;
-        }
-
-        return 'observe_capacity_signals';
-    }
-
-    private function labelFor(string $providerKey): string
-    {
-        return match ($providerKey) {
-            self::PROVIDER_CLAUDE_CLI => 'Claude CLI',
-            self::PROVIDER_CODEX_CLI => 'Codex CLI',
-            self::PROVIDER_GEMINI_CLI => 'Gemini CLI',
-            self::PROVIDER_CLAUDE_CODEX => 'Claude orchestrating Codex',
-            self::PROVIDER_ATLAS_LOCAL => 'Atlas local runtime',
-            default => $providerKey,
-        };
     }
 
     private function resolveObra(string $obraId): ?AtlasProject
