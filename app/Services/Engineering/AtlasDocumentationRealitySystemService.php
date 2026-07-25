@@ -11,6 +11,7 @@ use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use App\Services\Engineering\DocumentationReality\DocumentationRealityClassifySupport;
 use App\Services\Engineering\DocumentationReality\DocumentationRealityEvaluationsSection;
+use App\Services\Engineering\DocumentationReality\DocumentationRealityProjectionSupport;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\File;
@@ -38,18 +39,6 @@ class AtlasDocumentationRealitySystemService
     private array $reportMemo = [];
 
     /**
-     * An ADRS block is "integrated runtime" when its backing evaluation actually RAN and
-     * produced a verdict — not only the green 'ready'/'review'. The Drift & Duplication
-     * Guard (block #11) is now a real doc-vs-code detector that can honestly emit
-     * 'drift_detected' (real divergence found) or 'degraded' (index unavailable, verdict
-     * withheld). Both mean the guard is materialized and working, so they keep the block
-     * integrated; the drift itself surfaces as a top-level blocker, not as a missing block.
-     *
-     * @var array<int,string>
-     */
-    private const INTEGRATED_EVALUATION_STATUSES = ['ready', 'review', 'drift_detected', 'degraded'];
-
-    /**
      * Honest execution tiers. The previous report hardcoded a literal ready status in ~32 of the
      * 52 evaluation nodes and rolled that up into a "52/52 integrated / excellent_integrated_runtime"
      * claim. That was an over-claim: most of those nodes return a constant array describing what the
@@ -61,6 +50,9 @@ class AtlasDocumentationRealitySystemService
      * EXECUTES — the evaluator computes its declared verb from REAL input (real code index /
      * real source registry / real AAEOS ledger) and DERIVES its status from that result. These 11
      * keys are the only ones eligible for L4_integrated.
+     *
+     * Integrated evaluation statuses (ready/review/drift_detected/degraded) live on
+     * {@see DocumentationRealityProjectionSupport::INTEGRATED_EVALUATION_STATUSES}.
      *
      * @var array<int,string>
      */
@@ -304,10 +296,15 @@ class AtlasDocumentationRealitySystemService
         $upgradeMap = $this->upgradeMap($root);
         $evaluations = $this->evaluations($sourceRegistry, $blockCatalog, $upgradeMap, $root);
         $blocks = $this->blocks($blockCatalog, $upgradeMap, $evaluations);
-        $blockAcceptanceMatrix = $this->blockAcceptanceMatrix($blocks, $evaluations);
-        $blockers = $this->blockers($sourceRegistry, $blocks, $blockAcceptanceMatrix, $evaluations);
-        $summary = $this->summary($sourceRegistry, $blocks, $blockers);
-        $planes = $this->planes($blocks);
+        $blockAcceptanceMatrix = DocumentationRealityProjectionSupport::blockAcceptanceMatrix(
+            $blocks,
+            $evaluations,
+            self::EXECUTING_EVALUATION_KEYS,
+            self::PARTIAL_EVALUATION_KEYS,
+        );
+        $blockers = DocumentationRealityProjectionSupport::blockers($sourceRegistry, $blocks, $blockAcceptanceMatrix, $evaluations);
+        $summary = DocumentationRealityProjectionSupport::summary($sourceRegistry, $blocks, $blockers, self::PLANES);
+        $planes = DocumentationRealityProjectionSupport::planes($blocks, self::PLANES);
 
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -316,9 +313,12 @@ class AtlasDocumentationRealitySystemService
             'summary' => $summary,
             'source_registry' => $sourceRegistry,
             'evaluations' => $evaluations,
-            'integration_summary' => $this->integrationSummary($blocks, $evaluations),
+            'integration_summary' => DocumentationRealityProjectionSupport::integrationSummary($blocks, $evaluations),
             'documentation_reality_score' => $this->evaluationsSection->documentationRealityScore($sourceRegistry, $blocks, $planes),
-            'readiness_matrix' => $this->readinessMatrix($blocks),
+            'readiness_matrix' => DocumentationRealityProjectionSupport::readinessMatrix(
+                $blocks,
+                $this->evaluationsSection->nextUpgradeTarget($blocks),
+            ),
             'block_acceptance_matrix' => $blockAcceptanceMatrix,
             'planes' => $planes,
             'blocks' => $blocks,
@@ -341,7 +341,7 @@ class AtlasDocumentationRealitySystemService
             'generated_at' => now()->toJSON(),
         ];
 
-        $payload['certification_hash'] = $this->hash($payload);
+        $payload['certification_hash'] = DocumentationRealityProjectionSupport::hash($payload);
 
         return $payload;
     }
@@ -363,7 +363,7 @@ class AtlasDocumentationRealitySystemService
                     'id' => $id,
                     'path' => $path,
                     'exists' => $exists,
-                    'authority_tier' => $this->authorityTier($id),
+                    'authority_tier' => DocumentationRealityProjectionSupport::authorityTier($id),
                     'owner' => (string) ($frontmatter['owner'] ?? 'unknown'),
                     'status' => (string) ($frontmatter['status'] ?? 'missing'),
                     'doc_schema' => (string) ($frontmatter['doc_schema'] ?? 'missing'),
@@ -452,14 +452,20 @@ class AtlasDocumentationRealitySystemService
         return array_map(function (array $block) use ($upgradeMap, $evaluations): array {
             $name = (string) $block['name'];
             $upgrade = $upgradeMap[$name] ?? null;
-            $evaluationRef = $this->evaluationRefForBlock($name);
-            $integrated = $this->isIntegratedRuntimeBlock($name, $evaluations);
+            $evaluationRef = DocumentationRealityProjectionSupport::evaluationRefForBlock($name);
+            $integrated = DocumentationRealityProjectionSupport::isIntegratedRuntimeBlock(
+                $name,
+                $evaluations,
+                self::EXECUTING_EVALUATION_KEYS,
+                self::PARTIAL_EVALUATION_KEYS,
+            );
             $execution = $this->executionFor($evaluationRef);
+            $readinessChecks = DocumentationRealityProjectionSupport::readinessChecks($block, $upgrade);
 
             return [
                 'number' => $block['number'],
                 'name' => $name,
-                'planes' => $this->blockPlanes((int) $block['number']),
+                'planes' => DocumentationRealityProjectionSupport::blockPlanes((int) $block['number'], self::PLANES),
                 'function' => $block['function'],
                 'output' => $block['output'],
                 'upgrade' => $upgrade['upgrade'] ?? null,
@@ -479,8 +485,8 @@ class AtlasDocumentationRealitySystemService
                         : 'specified_not_runtime_complete'),
                 'execution' => $execution,
                 'block_status' => $evaluationRef !== null ? ($evaluations[$evaluationRef]['status'] ?? 'missing') : 'missing',
-                'readiness_checks' => $this->readinessChecks($block, $upgrade),
-                'readiness_score' => $this->readinessScore($this->readinessChecks($block, $upgrade), $integrated),
+                'readiness_checks' => $readinessChecks,
+                'readiness_score' => DocumentationRealityProjectionSupport::readinessScore($readinessChecks, $integrated),
                 'evaluation_ref' => $evaluationRef,
                 'integration_evidence' => $integrated ? [
                     'service' => 'App\Services\Engineering\AtlasDocumentationRealitySystemService',
@@ -749,7 +755,7 @@ class AtlasDocumentationRealitySystemService
 
         $registeredByPath = [];
         foreach (self::CANONICAL_DOCS as $id => $path) {
-            $registeredByPath[$path] = $this->authorityTier($id);
+            $registeredByPath[$path] = DocumentationRealityProjectionSupport::authorityTier($id);
         }
 
         $candidates = array_map(function (string $path) use ($tierRank, $registeredByPath): array {
@@ -861,8 +867,8 @@ class AtlasDocumentationRealitySystemService
     private function driftDuplicationEvaluation(array $sources, string $root): array
     {
         // SECONDARY signal first (cheap, never trusts the index): the old duplicate check.
-        $duplicateIds = $this->duplicates(array_column($sources, 'id'));
-        $duplicatePaths = $this->duplicates(array_column($sources, 'path'));
+        $duplicateIds = DocumentationRealityProjectionSupport::duplicates(array_column($sources, 'id'));
+        $duplicatePaths = DocumentationRealityProjectionSupport::duplicates(array_column($sources, 'path'));
         $hasDuplicates = $duplicateIds !== [] || $duplicatePaths !== [];
 
         // DEGRADE-SAFE: the two PRIMARY signals both resolve refs against the code
@@ -1284,588 +1290,6 @@ class AtlasDocumentationRealitySystemService
         );
     }
 
-    /**
-     * @param  array<string,array<string,mixed>>  $evaluations
-     */
-    private function isIntegratedRuntimeBlock(string $name, array $evaluations): bool
-    {
-        $map = [
-            'Documentation Authority Kernel' => 'authority_kernel',
-            'Canonical Source Registry' => 'authority_kernel',
-            'Source Freshness Gate' => 'source_freshness_gate',
-            'Evidence Sufficiency Gate' => 'evidence_sufficiency_gate',
-            'Contradiction Resolver' => 'contradiction_resolver',
-            'Implementation Readiness Matrix' => 'implementation_readiness_matrix',
-            'Documentation Lifecycle State Machine' => 'documentation_lifecycle_state_machine',
-            'Documentation Reality Score' => 'implementation_readiness_matrix',
-            'Documentation Operating System' => 'documentation_operating_system',
-            'Knowledge Governance System' => 'knowledge_governance_system',
-            'Vocabulary Alignment Guard' => 'vocabulary_alignment_guard',
-            'Documentation Budget Governor' => 'documentation_budget_governor',
-            'AI Context Projection' => 'ai_context_projection',
-            'Context Minimality Ledger' => 'ai_context_projection',
-            'Retrieval Audit Trail' => 'retrieval_audit_trail',
-            'Documentation Compression Tiers' => 'documentation_compression_tiers',
-            'Provider Misread Defense' => 'provider_misread_defense',
-            'Privacy & Redaction Gate' => 'privacy_redaction_gate',
-            'Access Policy Resolver' => 'access_policy_resolver',
-            'ACRUI Operational Reality' => 'acrui_operational_reality',
-            'Drift & Duplication Guard' => 'drift_duplication_guard',
-            'Legacy & Quarantine Governance' => 'legacy_quarantine_governance',
-            'Evidence & Runtime Proof Bridge' => 'evidence_runtime_proof_bridge',
-            'Semantic Deduplication Engine' => 'semantic_deduplication_engine',
-            'Auto-Split Planner' => 'auto_split_planner',
-            'Obsolete Knowledge Simulator' => 'obsolete_knowledge_simulator',
-            'Reality Diff Engine' => 'reality_diff_engine',
-            'Orphaned Decision Finder' => 'orphaned_decision_finder',
-            'Documentation Entropy Monitor' => 'documentation_entropy_monitor',
-            'AURC Visual Reality' => 'aurc_visual_reality',
-            'Human Modal Contract' => 'human_modal_contract',
-            'Semantic Zoom Contract' => 'semantic_zoom_contract',
-            'Visual Grammar & Nomenclature' => 'visual_grammar_nomenclature',
-            'Cross-Organization Boundary' => 'cross_organization_boundary',
-            'Human Correction Loop' => 'human_correction_loop',
-            'Visual Completeness Auditor' => 'visual_completeness_auditor',
-            'Multi-Agent Handoff Projection' => 'multi_agent_handoff_projection',
-            'Reality Change Journal' => 'reality_change_journal',
-            'Human Attention Heatmap' => 'human_attention_heatmap',
-            'Cartography Task Simulator' => 'cartography_task_simulator',
-            'Documentation Working Set Cache' => 'documentation_working_set_cache',
-            'Cross-Modal Consistency Gate' => 'cross_modal_consistency_gate',
-            'Context Pack Regression Test' => 'context_pack_regression_test',
-            'Cartography Cognitive Load Meter' => 'cartography_cognitive_load_meter',
-            'Canonical Question Router' => 'canonical_question_router',
-            'Documentation Adoption Meter' => 'documentation_adoption_meter',
-            'Surface Coverage Matrix' => 'surface_coverage_matrix',
-            'Learning-to-Doc Promotion Gate' => 'learning_to_doc_promotion_gate',
-            'Documentation SLO & Alerting' => 'documentation_slo_alerting',
-            'Owner Escalation Queue' => 'owner_escalation_queue',
-            'Synthetic Reader Tests' => 'synthetic_reader_tests',
-            'Canonical Example Corpus' => 'canonical_example_corpus',
-        ];
-
-        $key = $map[$name] ?? null;
-        if ($key === null || $this->executionFor($key) !== 'executes') {
-            return false;
-        }
-
-        $evaluation = $evaluations[$key] ?? null;
-        $status = is_array($evaluation) ? ($evaluation['status'] ?? null) : null;
-
-        // 'spec' must NEVER enter the integrated set; a declared block short-circuits above, but
-        // belt-and-suspenders: even an executes key whose status was somehow forced to 'spec' is
-        // excluded here.
-        return $status !== 'spec' && in_array($status, self::INTEGRATED_EVALUATION_STATUSES, true);
-    }
-
-    private function evaluationRefForBlock(string $name): ?string
-    {
-        return match ($name) {
-            'Documentation Authority Kernel', 'Canonical Source Registry' => 'authority_kernel',
-            'Source Freshness Gate' => 'source_freshness_gate',
-            'Evidence Sufficiency Gate' => 'evidence_sufficiency_gate',
-            'Contradiction Resolver' => 'contradiction_resolver',
-            'Implementation Readiness Matrix', 'Documentation Reality Score' => 'implementation_readiness_matrix',
-            'Documentation Lifecycle State Machine' => 'documentation_lifecycle_state_machine',
-            'Documentation Operating System' => 'documentation_operating_system',
-            'Knowledge Governance System' => 'knowledge_governance_system',
-            'Vocabulary Alignment Guard' => 'vocabulary_alignment_guard',
-            'Documentation Budget Governor' => 'documentation_budget_governor',
-            'AI Context Projection', 'Context Minimality Ledger' => 'ai_context_projection',
-            'Retrieval Audit Trail' => 'retrieval_audit_trail',
-            'Documentation Compression Tiers' => 'documentation_compression_tiers',
-            'Provider Misread Defense' => 'provider_misread_defense',
-            'Privacy & Redaction Gate' => 'privacy_redaction_gate',
-            'Access Policy Resolver' => 'access_policy_resolver',
-            'ACRUI Operational Reality' => 'acrui_operational_reality',
-            'Drift & Duplication Guard' => 'drift_duplication_guard',
-            'Legacy & Quarantine Governance' => 'legacy_quarantine_governance',
-            'Evidence & Runtime Proof Bridge' => 'evidence_runtime_proof_bridge',
-            'Semantic Deduplication Engine' => 'semantic_deduplication_engine',
-            'Auto-Split Planner' => 'auto_split_planner',
-            'Obsolete Knowledge Simulator' => 'obsolete_knowledge_simulator',
-            'Reality Diff Engine' => 'reality_diff_engine',
-            'Orphaned Decision Finder' => 'orphaned_decision_finder',
-            'Documentation Entropy Monitor' => 'documentation_entropy_monitor',
-            'AURC Visual Reality' => 'aurc_visual_reality',
-            'Human Modal Contract' => 'human_modal_contract',
-            'Semantic Zoom Contract' => 'semantic_zoom_contract',
-            'Visual Grammar & Nomenclature' => 'visual_grammar_nomenclature',
-            'Cross-Organization Boundary' => 'cross_organization_boundary',
-            'Human Correction Loop' => 'human_correction_loop',
-            'Visual Completeness Auditor' => 'visual_completeness_auditor',
-            'Multi-Agent Handoff Projection' => 'multi_agent_handoff_projection',
-            'Reality Change Journal' => 'reality_change_journal',
-            'Human Attention Heatmap' => 'human_attention_heatmap',
-            'Cartography Task Simulator' => 'cartography_task_simulator',
-            'Documentation Working Set Cache' => 'documentation_working_set_cache',
-            'Cross-Modal Consistency Gate' => 'cross_modal_consistency_gate',
-            'Context Pack Regression Test' => 'context_pack_regression_test',
-            'Cartography Cognitive Load Meter' => 'cartography_cognitive_load_meter',
-            'Canonical Question Router' => 'canonical_question_router',
-            'Documentation Adoption Meter' => 'documentation_adoption_meter',
-            'Surface Coverage Matrix' => 'surface_coverage_matrix',
-            'Learning-to-Doc Promotion Gate' => 'learning_to_doc_promotion_gate',
-            'Documentation SLO & Alerting' => 'documentation_slo_alerting',
-            'Owner Escalation Queue' => 'owner_escalation_queue',
-            'Synthetic Reader Tests' => 'synthetic_reader_tests',
-            'Canonical Example Corpus' => 'canonical_example_corpus',
-            default => null,
-        };
-    }
-
-    /**
-     * @param  array<string,mixed>  $block
-     * @param  array<string,string>|null  $upgrade
-     * @return array<string,bool>
-     */
-    private function readinessChecks(array $block, ?array $upgrade): array
-    {
-        return [
-            'adrs_defined' => ($block['name'] ?? '') !== '',
-            'function_defined' => ($block['function'] ?? '') !== '',
-            'output_defined' => ($block['output'] ?? '') !== '',
-            'plane_mapped' => $this->blockPlanes((int) $block['number']) !== [],
-            'upgrade_defined' => is_array($upgrade) && trim((string) ($upgrade['upgrade'] ?? '')) !== '',
-            'proof_defined' => is_array($upgrade) && trim((string) ($upgrade['proof'] ?? '')) !== '',
-        ];
-    }
-
-    /**
-     * @param  array<string,bool>  $checks
-     */
-    private function readinessScore(array $checks, bool $integrated): int
-    {
-        $passed = count(array_filter($checks));
-        $base = (int) floor(($passed / max(count($checks), 1)) * 90);
-
-        return min(100, $base + ($integrated ? 10 : 0));
-    }
-
-    /**
-     * @param  array<int,array<string,mixed>>  $blocks
-     * @return array<string,array<string,mixed>>
-     */
-    private function planes(array $blocks): array
-    {
-        $byNumber = collect($blocks)->keyBy('number');
-
-        return collect(self::PLANES)
-            ->map(function (array $numbers, string $plane) use ($byNumber): array {
-                $planeBlocks = collect($numbers)
-                    ->map(fn (int $number): ?array => $byNumber->get($number))
-                    ->filter()
-                    ->values()
-                    ->all();
-
-                return [
-                    'id' => $plane,
-                    'block_count' => count($planeBlocks),
-                    'average_readiness_score' => $planeBlocks === []
-                        ? 0
-                        : round(array_sum(array_column($planeBlocks, 'readiness_score')) / count($planeBlocks), 2),
-                    'blocks' => array_map(static fn (array $block): string => $block['name'], $planeBlocks),
-                ];
-            })
-            ->all();
-    }
-
-    /**
-     * @param  array<int,array<string,mixed>>  $blocks
-     * @return array<string,mixed>
-     */
-    private function readinessMatrix(array $blocks): array
-    {
-        $byLevel = collect($blocks)
-            ->groupBy('readiness_level')
-            ->map(static fn ($items): int => $items->count())
-            ->all();
-
-        $insufficient = array_values(array_filter($blocks, static fn (array $block): bool => $block['evidence_sufficiency'] !== 'sufficient_for_specification'));
-
-        return [
-            'schema_version' => 'atlas.documentation_reality.readiness_matrix.v1',
-            'levels' => [
-                'L0_named' => $byLevel['L0_named'] ?? 0,
-                'L1_specified' => $byLevel['L1_specified'] ?? 0,
-                'L2_testable' => $byLevel['L2_testable'] ?? 0,
-                'L3_read_only' => $byLevel['L3_read_only'] ?? 0,
-                'L4_integrated' => $byLevel['L4_integrated'] ?? 0,
-                'L5_self_improving' => $byLevel['L5_self_improving'] ?? 0,
-            ],
-            'insufficient_blocks' => array_map(static fn (array $block): string => $block['name'], $insufficient),
-            'next_upgrade_target' => $this->evaluationsSection->nextUpgradeTarget($blocks),
-        ];
-    }
-
-    /**
-     * @param  array<int,array<string,mixed>>  $blocks
-     * @param  array<string,array<string,mixed>>  $evaluations
-     * @return array<string,mixed>
-     */
-    private function integrationSummary(array $blocks, array $evaluations): array
-    {
-        $integrated = array_values(array_filter($blocks, static fn (array $block): bool => $block['readiness_level'] === 'L4_integrated'));
-        $partial = array_values(array_filter($blocks, static fn (array $block): bool => $block['readiness_level'] === 'L3_read_only'));
-        $declaredSpec = array_values(array_filter($blocks, static fn (array $block): bool => ($block['execution'] ?? null) === 'declared'));
-        $missingEvaluationRefs = array_values(array_filter($blocks, static fn (array $block): bool => ($block['evaluation_ref'] ?? null) === null));
-        $danglingEvaluationRefs = array_values(array_filter($blocks, static function (array $block) use ($evaluations): bool {
-            $ref = $block['evaluation_ref'] ?? null;
-
-            return is_string($ref) && ! array_key_exists($ref, $evaluations);
-        }));
-
-        // A block that claims integration without actually executing is the over-claim we are killing.
-        // Honest integration_summary: nobody claims L4_integrated unless they execute, and every ref
-        // resolves. Declared specs and partials are NOT integration claims, so they do not block.
-        $integrationLiars = array_values(array_filter(
-            $blocks,
-            static fn (array $block): bool => ($block['readiness_level'] ?? null) === 'L4_integrated' && ($block['execution'] ?? null) !== 'executes',
-        ));
-
-        return [
-            'schema_version' => 'atlas.documentation_reality.integration_summary.v1',
-            'status' => count($blocks) === 52 && $missingEvaluationRefs === [] && $danglingEvaluationRefs === [] && $integrationLiars === []
-                ? 'ready'
-                : 'blocked',
-            'integrated_block_count' => count($integrated),
-            'partial_runtime_block_count' => count($partial),
-            'declared_spec_block_count' => count($declaredSpec),
-            'expected_block_count' => 52,
-            'evaluation_count' => count($evaluations),
-            'missing_evaluation_ref_count' => count($missingEvaluationRefs),
-            'dangling_evaluation_ref_count' => count($danglingEvaluationRefs),
-            'runtime_contract' => 'executing_blocks_are_materialized_by_real_signal;partial_blocks_run_a_narrow_real_check;declared_blocks_are_honest_specs_not_yet_runtime',
-            'child_system_completion_claim' => 'not_claimed',
-        ];
-    }
-
-    /**
-     * @param  array<int,array<string,mixed>>  $blocks
-     * @param  array<string,array<string,mixed>>  $evaluations
-     * @return array<string,mixed>
-     */
-    private function blockAcceptanceMatrix(array $blocks, array $evaluations): array
-    {
-        $items = array_map(function (array $block) use ($evaluations): array {
-            $evaluationRef = $block['evaluation_ref'] ?? null;
-            $evaluation = is_string($evaluationRef) ? ($evaluations[$evaluationRef] ?? null) : null;
-            $commands = $this->acceptanceCommandsForBlock((string) $block['name']);
-            $tests = $this->acceptanceTestsForBlock((string) $block['name']);
-            $execution = $this->executionFor($evaluationRef);
-            $status = is_array($evaluation) ? ($evaluation['status'] ?? null) : null;
-
-            // DERIVED 4-way acceptance, never a literal. 'accepted' is reserved for an executes block
-            // that truly integrated (real check passed) and carries command+test+evidence. A declared
-            // spec is honestly 'declared'; a partial block is honestly 'partial_runtime'; an executes
-            // block whose real check FAILED is the only genuinely 'incomplete' outcome.
-            if ($execution === 'executes'
-                && ($block['readiness_level'] ?? null) === 'L4_integrated'
-                && in_array($status, self::INTEGRATED_EVALUATION_STATUSES, true)
-                && $commands !== []
-                && $tests !== []
-                && ($block['integration_evidence'] ?? null) !== null) {
-                $acceptance = 'accepted';
-            } elseif ($execution === 'declared' && $status === 'spec') {
-                $acceptance = 'declared';
-            } elseif ($execution === 'partial') {
-                $acceptance = 'partial_runtime';
-            } else {
-                $acceptance = 'incomplete';
-            }
-
-            return [
-                'block_number' => $block['number'],
-                'block_name' => $block['name'],
-                'status' => $acceptance,
-                'execution' => $execution,
-                'readiness_level' => $block['readiness_level'],
-                'evaluation_ref' => $evaluationRef,
-                'evaluation_status' => $status ?? 'missing',
-                'owner_doc' => $this->ownerDocForBlock((string) $block['name']),
-                'required_commands' => $commands,
-                'required_tests' => $tests,
-                'quality_floor' => [
-                    'must_be_read_only' => true,
-                    'must_have_source_refs' => true,
-                    'must_have_evidence_refs' => true,
-                    'must_not_claim_child_product_complete_without_child_cert' => true,
-                    'must_fail_closed_when_evidence_missing' => true,
-                ],
-                'acceptance_policy' => 'accepted_only_when_executes_block_integrates_declared_specs_are_declared_partials_are_partial_runtime',
-            ];
-        }, $blocks);
-
-        $accepted = array_values(array_filter($items, static fn (array $item): bool => $item['status'] === 'accepted'));
-        $declared = array_values(array_filter($items, static fn (array $item): bool => $item['status'] === 'declared'));
-        $partialRuntime = array_values(array_filter($items, static fn (array $item): bool => $item['status'] === 'partial_runtime'));
-        $incomplete = array_values(array_filter($items, static fn (array $item): bool => $item['status'] === 'incomplete'));
-
-        return [
-            'schema_version' => 'atlas.documentation_reality.block_acceptance_matrix.v1',
-            // Honest gate: zero GENUINELY-incomplete (failed-executes) blocks. Declared specs and
-            // partials are honestly reported, not blockers — they do not hold the matrix back.
-            'status' => count($items) === 52 && count($incomplete) === 0 ? 'ready' : 'blocked',
-            'expected_block_count' => 52,
-            'block_count' => count($items),
-            'accepted_block_count' => count($accepted),
-            'declared_block_count' => count($declared),
-            'partial_runtime_block_count' => count($partialRuntime),
-            'incomplete_block_count' => count($incomplete),
-            'incomplete_blocks' => array_map(static fn (array $item): string => $item['block_name'], $incomplete),
-            'items' => $items,
-            'claim_policy' => [
-                'block_acceptance_is_runtime_acceptance_not_ui_product_completion' => true,
-                'child_system_completion_requires_child_certification' => true,
-                'writes' => false,
-            ],
-        ];
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function acceptanceCommandsForBlock(string $name): array
-    {
-        $commands = ['php artisan atlas:documentation-reality acceptance --strict --json'];
-
-        if (str_contains($name, 'ACRUI') || str_contains($name, 'Code') || str_contains($name, 'Duplicate') || str_contains($name, 'Legacy') || str_contains($name, 'Reachability')) {
-            $commands[] = 'php artisan atlas:code-reality reality-audit --json';
-            $commands[] = 'php artisan atlas:code-reality classify --target="<target>" --json';
-            $commands[] = 'php artisan atlas:code-reality reachability --target="<target>" --json';
-            $commands[] = 'php artisan atlas:code-reality deletion-preflight --target="<target>" --json';
-        }
-
-        if (str_contains($name, 'AURC') || str_contains($name, 'Visual') || str_contains($name, 'Cartography') || str_contains($name, 'Human') || str_contains($name, 'Zoom')) {
-            $commands[] = 'php artisan atlas:universal-reality-cartography visual-scene --mode=implementation --strict --json';
-            $commands[] = 'php artisan atlas:universal-reality-cartography navigation-slice --strict --json';
-        }
-
-        if (str_contains($name, 'Context') || str_contains($name, 'Projection') || str_contains($name, 'Provider') || str_contains($name, 'Handoff')) {
-            $commands[] = 'php artisan atlas:ai:session-bootstrap --task="<task>" --json';
-        }
-
-        return EngineeringStringListNormalizer::uniqueNonEmptyStrings($commands);
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function acceptanceTestsForBlock(string $name): array
-    {
-        $tests = ['tests/Feature/Engineering/AtlasDocumentationRealitySystemServiceTest.php'];
-
-        if (str_contains($name, 'ACRUI') || str_contains($name, 'Code') || str_contains($name, 'Duplicate') || str_contains($name, 'Legacy')) {
-            $tests[] = 'tests/Feature/Engineering/AtlasCodeRealityUsageIntelligenceServiceTest.php';
-        }
-
-        if (str_contains($name, 'AURC') || str_contains($name, 'Visual') || str_contains($name, 'Cartography') || str_contains($name, 'Human') || str_contains($name, 'Zoom')) {
-            $tests[] = 'tests/Feature/Engineering/AtlasUniversalRealityCartographyServiceTest.php';
-        }
-
-        if (str_contains($name, 'Context') || str_contains($name, 'Projection') || str_contains($name, 'Provider') || str_contains($name, 'Handoff')) {
-            $tests[] = 'tests/Feature/Ai/AtlasAiSessionBootstrapCommandTest.php';
-        }
-
-        return EngineeringStringListNormalizer::uniqueNonEmptyStrings($tests);
-    }
-
-    private function ownerDocForBlock(string $name): string
-    {
-        if (str_contains($name, 'ACRUI') || str_contains($name, 'Code') || str_contains($name, 'Duplicate') || str_contains($name, 'Legacy')) {
-            return self::CANONICAL_DOCS['acrui'];
-        }
-
-        if (str_contains($name, 'AURC') || str_contains($name, 'Visual') || str_contains($name, 'Cartography') || str_contains($name, 'Human') || str_contains($name, 'Zoom')) {
-            return self::CANONICAL_DOCS['aurc'];
-        }
-
-        if (str_contains($name, 'Operating System')) {
-            return self::CANONICAL_DOCS['documentation_os'];
-        }
-
-        if (str_contains($name, 'Governance') || str_contains($name, 'Authority')) {
-            return self::CANONICAL_DOCS['knowledge_governance'];
-        }
-
-        return self::CANONICAL_DOCS['adrs'];
-    }
-
-    /**
-     * @param  array<int,array<string,mixed>>  $sources
-     * @param  array<int,array<string,mixed>>  $blocks
-     * @param  array<string,mixed>  $blockAcceptanceMatrix
-     * @param  array<string,array<string,mixed>>  $evaluations
-     * @return array<int,array<string,mixed>>
-     */
-    private function blockers(array $sources, array $blocks, array $blockAcceptanceMatrix, array $evaluations = []): array
-    {
-        $blockers = [];
-        foreach ($sources as $source) {
-            if ($source['exists'] !== true) {
-                $blockers[] = [
-                    'reason' => 'missing_canonical_source',
-                    'severity' => 'critical',
-                    'path' => $source['path'],
-                ];
-            }
-        }
-
-        if (count($blocks) !== 52) {
-            $blockers[] = [
-                'reason' => 'adrs_block_count_not_52',
-                'severity' => 'critical',
-                'actual' => count($blocks),
-                'expected' => 52,
-            ];
-        }
-
-        foreach ($blocks as $block) {
-            if (($block['upgrade'] ?? null) === null || ($block['proof'] ?? null) === null) {
-                $blockers[] = [
-                    'reason' => 'block_missing_upgrade_or_proof',
-                    'severity' => 'high',
-                    'block' => $block['name'],
-                ];
-            }
-        }
-
-        if (($blockAcceptanceMatrix['status'] ?? null) !== 'ready') {
-            $blockers[] = [
-                'reason' => 'block_acceptance_matrix_not_ready',
-                'severity' => 'critical',
-                'incomplete_block_count' => $blockAcceptanceMatrix['incomplete_block_count'] ?? null,
-            ];
-        }
-
-        // REAL doc-vs-code drift blocks system readiness honestly. Only 'drift_detected'
-        // (a real over-claim or claimed-but-absent fact) is a blocker; 'degraded' (index
-        // unavailable, verdict withheld) is NOT — a missing index must not masquerade as
-        // confirmed drift, and the guard already reports degraded transparently.
-        $driftGuard = $evaluations['drift_duplication_guard'] ?? null;
-        if (is_array($driftGuard) && ($driftGuard['status'] ?? null) === 'drift_detected') {
-            $blockers[] = [
-                'reason' => 'documentation_reality_drift_detected',
-                'severity' => 'high',
-                'drift_count' => (int) ($driftGuard['drift_count'] ?? 0),
-                'over_claim_drift_count' => (int) ($driftGuard['over_claim_drift_count'] ?? 0),
-                'claimed_fact_drift_count' => (int) ($driftGuard['claimed_fact_drift_count'] ?? 0),
-            ];
-        }
-
-        return $blockers;
-    }
-
-    /**
-     * @param  array<int,array<string,mixed>>  $sources
-     * @param  array<int,array<string,mixed>>  $blocks
-     * @param  array<int,array<string,mixed>>  $blockers
-     * @return array<string,mixed>
-     */
-    private function summary(array $sources, array $blocks, array $blockers): array
-    {
-        // Honest three-way EXECUTION-TIER split, derived from the executes/partial/declared
-        // classification. These three tier counts partition all 52 blocks and MUST sum to the block
-        // count — anything else means a block landed in an impossible tier, which we surface loudly
-        // rather than hide. The tier is independent of pass/fail: a block is 'executes' because it
-        // computes its verb, even on a turn where its real check fails.
-        $executingCount = count(array_filter(
-            $blocks,
-            static fn (array $block): bool => ($block['execution'] ?? null) === 'executes',
-        ));
-        $partialCount = count(array_filter(
-            $blocks,
-            static fn (array $block): bool => ($block['execution'] ?? null) === 'partial',
-        ));
-        $declaredSpecCount = count(array_filter(
-            $blocks,
-            static fn (array $block): bool => ($block['execution'] ?? null) === 'declared',
-        ));
-
-        // INTEGRATION is the honest subset of executes that actually PASSED its real check (L4). When
-        // every executes block passes (the live corpus) this equals $executingCount; when an executes
-        // block's real signal fails, it drops out of integration but stays in the executes tier — the
-        // gap is a failed-executes (surfaced as 'incomplete' in the acceptance matrix), never hidden.
-        $integratedCount = count(array_filter(
-            $blocks,
-            static fn (array $block): bool => ($block['execution'] ?? null) === 'executes' && ($block['readiness_level'] ?? null) === 'L4_integrated',
-        ));
-
-        // 'Honestly reported' = every block that tells the truth about itself: an executes block that
-        // passes (so it is integrated), a partial block honestly marked partial, or a declared block
-        // honestly marked a spec. The ONLY block that is NOT honestly reported is an executes block
-        // whose real check FAILED yet which would still be expected to integrate (a failed-executes).
-        $honestlyReportedCount = count(array_filter($blocks, function (array $block): bool {
-            $execution = $block['execution'] ?? null;
-            if ($execution === 'partial' || $execution === 'declared') {
-                return true;
-            }
-
-            // executes block: honest only when it actually reached integration (its derived status passed).
-            return ($block['readiness_level'] ?? null) === 'L4_integrated';
-        }));
-
-        $blockCount = count($blocks);
-        if ($blockCount === 52 && $executingCount + $partialCount + $declaredSpecCount !== 52) {
-            throw new \LogicException(sprintf(
-                'documentation_reality summary invariant violated: executing(%d)+partial(%d)+declared_spec(%d) must equal 52, got %d.',
-                $executingCount,
-                $partialCount,
-                $declaredSpecCount,
-                $executingCount + $partialCount + $declaredSpecCount,
-            ));
-        }
-
-        return [
-            'source_count' => count($sources),
-            'source_present_count' => count(array_filter($sources, static fn (array $source): bool => $source['exists'] === true)),
-            'block_count' => $blockCount,
-            'expected_block_count' => 52,
-            'block_with_upgrade_count' => count(array_filter($blocks, static fn (array $block): bool => ($block['upgrade'] ?? null) !== null)),
-            'read_only_foundation_block_count' => $partialCount,
-            // Honest headline: only executes-and-passing blocks are integrated runtime (=11 today).
-            'integrated_runtime_block_count' => $integratedCount,
-            'executing_block_count' => $executingCount,
-            'partial_runtime_block_count' => $partialCount,
-            'declared_spec_block_count' => $declaredSpecCount,
-            // SMELL FIX: renamed from the old 'accepted_block_count' (=52), which could be misread
-            // as "52 blocks working". This is the count of blocks that tell the TRUTH about
-            // themselves (executes-and-passing OR honestly partial OR honestly declared), surfaced
-            // ALONGSIDE the three-way split so it can never hide it. It is NOT a count of working
-            // blocks — the working subset is integrated_runtime_block_count. (The real
-            // runtime-acceptance count lives at block_acceptance_matrix.accepted_block_count, which
-            // stays = the executes-and-passing subset and is deliberately NOT renamed.)
-            'honestly_classified_block_count' => $honestlyReportedCount,
-            'plane_count' => count(self::PLANES),
-            'blocker_count' => count($blockers),
-        ];
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function blockPlanes(int $blockNumber): array
-    {
-        $planes = [];
-        foreach (self::PLANES as $plane => $numbers) {
-            if (in_array($blockNumber, $numbers, true)) {
-                $planes[] = $plane;
-            }
-        }
-
-        return $planes;
-    }
-
-    private function authorityTier(string $id): string
-    {
-        return match ($id) {
-            'adrs' => 'tier_1_mother_contract',
-            'adrs_block_registry', 'adrib', 'adr_bum', 'acrui', 'aurc', 'documentation_os', 'knowledge_governance' => 'tier_1_canonical_child',
-            'system_graph', 'implemented_vs_scaffold', 'cartography_os' => 'tier_2_supporting_canonical',
-            default => 'tier_unknown',
-        };
-    }
-
     private function absolutePath(string $root, string $canonicalPath): string
     {
         $prefix = 'docs/engineering-knowledge-base/';
@@ -1874,41 +1298,5 @@ class AtlasDocumentationRealitySystemService
         }
 
         return base_path($canonicalPath);
-    }
-
-    /**
-     * @param  array<int,mixed>  $values
-     * @return array<int,string>
-     */
-    private function duplicates(array $values): array
-    {
-        $seen = [];
-        $duplicates = [];
-
-        foreach ($values as $value) {
-            if (! is_string($value) || $value === '') {
-                continue;
-            }
-
-            if (isset($seen[$value])) {
-                $duplicates[$value] = true;
-
-                continue;
-            }
-
-            $seen[$value] = true;
-        }
-
-        return array_values(array_keys($duplicates));
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function hash(array $payload): string
-    {
-        unset($payload['generated_at'], $payload['certification_hash']);
-
-        return hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
     }
 }

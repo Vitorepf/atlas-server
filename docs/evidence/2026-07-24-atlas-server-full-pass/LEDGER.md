@@ -8,6 +8,7 @@ execution: in_progress
 full_pass_commits: 197+
 rescan: FINDINGS-RESCAN-3
 recent:
+  - DocumentationRealityProjectionSupport pure residual (host 1914→1302; Support 636; 11 Support unit / 132 + 2 host path / 141; evaluationRef/isIntegrated/readinessChecks/score/planes/readinessMatrix/integrationSummary/blockAcceptanceMatrix/acceptanceCommands/Tests/ownerDoc/blockers/summary/blockPlanes/authorityTier/duplicates/hash; dual evaluation-ref maps fused to SSOT EVALUATION_REF_BY_BLOCK_NAME)
   - RealityGraphQuerySupport pure residual (host 1542→1240; Support 349; 13 Support unit / 135 + 12 host AURG path / 197 + 4 Maxd07 path / 44 = 29/376 package asserts; normalizeExpand/mergeSeeds/orderPaths/pprShadowStatus/normaliseTargetNodeIds/terms/entityRepoPaths/entityMemoryRefs/lexicalSeedQuality/lexicalSourcePriority/isGenericProviderSeedLabel/rankTextSurface/providerAdmissible/workspaceAdmissible)
   - AgenticWorkcellDesignArtifactsSupport pure residual (host 883→400; Support 526; 9 Support unit / 160 + 16 host path + sibling Support path updates / 551 package asserts; orgDesign/pressureLayerAdvisoryRoster/taskGraph/contextPacks/executionSchedule/verificationPlan/evidenceLedger/memoryPacket/counterfactualReplay/learningPolicy/controlPlaneSummary/workcellAdmission/learningCandidates/blocked/average/countsBy/numericOrNull)
   - AgenticWorkcellRoleContractSupport
@@ -59,7 +60,7 @@ recent:
   - SignalDetector DetectSupport + OI elevate wave
   - UnattendedLiveness + NamingPolicyRules
 unit_proof: HubDelegators 340/1386; AiWorker pure 6/25; FileContext 5; ClosedLoop 22; OI 51
-next: PRE staged · CompletionAudit cert FS residual · HubDelegators true map+__call · FileAttachment zipEntries residual · DesignRuntime certify FS residual (routes/api.php + rival harness needles) · DesignRuntime app()-backed nested contracts residual · OpenBrain injection residual (workspace/operatorContext/memoryQuality/recordAudit host IO cluster; thin stable* wrappers) · PriorityEngine canonicalSeedCandidates FS-bound residual · AgenticWorkcell host residual (aregDecision DI + compileOrgPattern DB + workcell lookup only) · RealityGraphQuery host residual (entityExactSeeds/semanticSeeds/lexicalSeeds/traverse/paths/rank/expandCodeSymbols IO cluster)
+next: PRE staged · CompletionAudit cert FS residual · HubDelegators true map+__call · FileAttachment zipEntries residual · DesignRuntime certify FS residual (routes/api.php + rival harness needles) · DesignRuntime app()-backed nested contracts residual · OpenBrain injection residual (workspace/operatorContext/memoryQuality/recordAudit host IO cluster; thin stable* wrappers) · PriorityEngine canonicalSeedCandidates FS-bound residual · AgenticWorkcell host residual (aregDecision DI + compileOrgPattern DB + workcell lookup only) · RealityGraphQuery host residual (entityExactSeeds/semanticSeeds/lexicalSeeds/traverse/paths/rank/expandCodeSymbols IO cluster) · DocumentationReality host residual (evaluations IO/corpus + sourceRegistry FS + absolutePath + executionFor bridge + EXECUTING/PARTIAL tables)
 ```
 
 ## Progress summary
