@@ -8,6 +8,7 @@ execution: in_progress
 full_pass_commits: 197+
 rescan: FINDINGS-RESCAN-3
 recent:
+  - FrontendDesignRuntimeContractSupport (host 1434→1108; 7 Support unit + 3 host path; pure signals/gates/scorecard/variant/live)
   - StewardshipPriorityScoringSupport (engine 1432→860; 26 unit/241; scoreItem cluster pure)
   - FileAttachmentOfficeParseSupport (host 1140→933; 7 unit/69)
   - ProductMode controls+receipt pure Supports (controls 508→46; receipt 475→191; 33 unit/291)
@@ -49,7 +50,7 @@ recent:
   - SignalDetector DetectSupport + OI elevate wave
   - UnattendedLiveness + NamingPolicyRules
 unit_proof: HubDelegators 340/1386; AiWorker pure 6/25; FileContext 5; ClosedLoop 22; OI 51
-next: PRE staged · CompletionAudit cert FS residual · HubDelegators true map+__call · PriorityEngine backlog materialization residual · Frontend design contract pure residual · FileAttachment zipEntries residual
+next: PRE staged · CompletionAudit cert FS residual · HubDelegators true map+__call · PriorityEngine backlog materialization residual · FileAttachment zipEntries residual · Frontend DesignRuntime pure static sub-contracts residual (gauntlet/blueprint/etc without app()) · DesignRuntime certify FS residual
 ```
 
 ## Progress summary

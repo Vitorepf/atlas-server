@@ -88,6 +88,7 @@
 | ProductMode controls+receipt pure Supports | 33 unit / 291 asserts; controls 508→46; receipt 475→191; DateTimeZone import fix on StewardshipEvolutionClock |
 | FileAttachmentOfficeParseSupport | 7 unit / 69 asserts; host 1140→933; MIME/OCR-merge/OOXML/XLSX pure |
 | StewardshipPriorityScoringSupport | 26 unit / 241 asserts (9 pure Support + 17 host); engine 1432→860; score/type/band/lane/factory pure |
+| FrontendDesignRuntimeContractSupport | 7 Support unit + 3 host path / 303 asserts; host 1434→1108; signals/gates/evidence/scorecard/variant/live pure |
 
 ## Residual
 
