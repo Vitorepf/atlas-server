@@ -44,6 +44,7 @@
 | OperatorLearningDetectSupport | 5 signal detector unit green |
 | OperatorComprehensionGateSupport | 16 comprehension feature tests green |
 | OperatorPatternDetectSupport | 10 pattern detector tests green |
+| OperatorLearningCandidateSupport | OperatorIntelligence unit 35 green |
 | Decide operationalDecision + executionGraph | 39 unit green |
 | LedgerReplay agent/decision/inbox/kernel/SI | 22 unit green per step |
 | stringOption variants + LoadsNamedJson | 3+2 unit green |
