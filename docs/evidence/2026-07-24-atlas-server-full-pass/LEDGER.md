@@ -9,6 +9,7 @@ full_pass_commits: 61+
 rescan: FINDINGS-RESCAN-2
 recent:
   - ai-platform + ai-runtime routes (api.php →101)
+  - YouTube isRetryable + player-response peels (ingestion →1173)
   - ASP memory/runtime/obra peels (ASP →73 shell)
   - ASP Maestro/stewardship peels
   - ASP compression/cross-domain/provider wiring peels
@@ -28,7 +29,7 @@ recent:
   - OneShotTickInvokerEnvelope + Catalog (62 invokers)
   - Wave A YesNo/UtcIso/trueFalse mass
 unit_proof: continuous peels green (ASP shell 73; Hub 6044; YouTube 39; Provider 68; Aaeos projectors 4545)
-next: continuous residual (OneShotTick factory | ProviderCatalog validation strings | PRE staged | floors)
+next: continuous residual (PRE leave-Http staged | floors RSI/TaskQueue | monstruo AiWorker/OpenBrain)
 ```
 
 ## Progress summary
