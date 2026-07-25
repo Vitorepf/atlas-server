@@ -122,6 +122,8 @@
 
 - [x] ActivationCockpitPresentationSupport
 - [x] SelfImprovementScheduleMath
+- [x] GraphPathFilterSupport
+- [x] data_getYesNo mass compile bug
 
 - [x] RivalsOneShot dimension credit Support
 - [x] ForgeProviderCapacityClassifier pure FSM
