@@ -130,6 +130,7 @@
 - [x] ForgeProviderFallbackPolicySupport
 - [x] OperatorProfilePolicyCompilerSupport
 - [x] TaskFabricGiveBackLearningSupport
+- [x] ExecutionOptimizationPolicySupport
 
 - [x] RivalsOneShot dimension credit Support
 - [x] ForgeProviderCapacityClassifier pure FSM
