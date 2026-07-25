@@ -60,4 +60,31 @@ final class SelfImprovementProjectionSupport
             'next_run_at' => $health['next_run_at'] ?? null,
         ];
     }
+
+    /**
+     * @param  array<string, array<string, mixed>>  $operationsById
+     * @param  array<string, string>  $expectedEndpoints
+     * @return array<string, array{field: string, expected: string, actual: mixed}>
+     */
+    public static function missingArchitectureOperationEndpoints(
+        array $operationsById,
+        array $expectedEndpoints,
+        string $field,
+    ): array {
+        $missing = [];
+
+        foreach ($expectedEndpoints as $operationId => $expectedEndpoint) {
+            $actualEndpoint = data_get($operationsById, $operationId.'.'.$field);
+
+            if ($actualEndpoint !== $expectedEndpoint) {
+                $missing[$operationId] = [
+                    'field' => $field,
+                    'expected' => $expectedEndpoint,
+                    'actual' => $actualEndpoint,
+                ];
+            }
+        }
+
+        return $missing;
+    }
 }

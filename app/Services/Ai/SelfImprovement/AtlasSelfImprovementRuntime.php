@@ -1309,21 +1309,11 @@ class AtlasSelfImprovementRuntime
      */
     private function missingArchitectureOperationEndpoints(array $operationsById, array $expectedEndpoints, string $field): array
     {
-        $missing = [];
-
-        foreach ($expectedEndpoints as $operationId => $expectedEndpoint) {
-            $actualEndpoint = data_get($operationsById, $operationId.'.'.$field);
-
-            if ($actualEndpoint !== $expectedEndpoint) {
-                $missing[$operationId] = [
-                    'field' => $field,
-                    'expected' => $expectedEndpoint,
-                    'actual' => $actualEndpoint,
-                ];
-            }
-        }
-
-        return $missing;
+        return SelfImprovementProjectionSupport::missingArchitectureOperationEndpoints(
+            $operationsById,
+            $expectedEndpoints,
+            $field,
+        );
     }
 
     /**
