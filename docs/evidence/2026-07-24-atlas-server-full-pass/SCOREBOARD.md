@@ -108,5 +108,6 @@ ProductMode cockpit finalize clock residual on host · CodeForgeUx queueStaleSec
 | AgenticWorkcellTopologyPolicySupport | 12 unit / 150 asserts |
 | RealityGraphQuerySupport | 13 unit / 135 asserts |
 | DocumentationRealityProjectionSupport | 11 unit / 132 asserts |
+| LocalRagBenchmarkSupport | 9 unit / 169 asserts; host 1572→819 |
 | CodeForgeUxProjectionSupport | 10 unit / 137 asserts |
 | ProductModeCockpitProjectionSupport residual sections | 17 unit / 215 asserts |
