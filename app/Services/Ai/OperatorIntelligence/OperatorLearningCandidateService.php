@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\OperatorIntelligence;
 
+use App\Services\Ai\OperatorIntelligence\Support\OperatorLearningCandidateSupport;
 use App\Models\OperatorLearningCandidate;
 use App\Models\OperatorLearningSignal;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
@@ -228,19 +229,15 @@ class OperatorLearningCandidateService
 
     private function profileKey(OperatorLearningSignal $signal): string
     {
-        return strtolower(str_replace('-', '_', $signal->taxonomy_item_id)).'.'.preg_replace('/[^a-z0-9_]+/', '_', strtolower($signal->signal_kind));
+        return OperatorLearningCandidateSupport::profileKey(
+            (string) $signal->taxonomy_item_id,
+            (string) $signal->signal_kind,
+        );
     }
 
     private function effectForTaxonomy(string $taxonomy, string $kind): string
     {
-        if ($kind === 'operator_boundary') {
-            return 'do_not_do';
-        }
-        if (str_starts_with($taxonomy, 'COL-')) {
-            return 'response_style';
-        }
-
-        return 'context_hint';
+        return OperatorLearningCandidateSupport::effectForTaxonomy($taxonomy, $kind);
     }
 
     /**
