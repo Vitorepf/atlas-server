@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming;
 
 use App\Models\AtlasProject;
+use App\Services\Ai\Programming\Support\CodeAttentionClassifier;
 use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\AtlasCode\AtlasCodeObservedSessionService;
 use App\Services\AtlasCode\AtlasCodeWorkspaceProfileService;
@@ -40,31 +41,52 @@ final class AtlasCodeAttentionControlPlaneService
 
     // Canon item kinds.
     public const KIND_INTAKE_NEEDED = 'intake_needed';
+
     public const KIND_SCOPE_DECISION = 'scope_decision';
+
     public const KIND_RISK_APPROVAL = 'risk_approval';
+
     public const KIND_PROVIDER_APPROVAL = 'provider_approval';
+
     public const KIND_RUNTIME_APPROVAL = 'runtime_approval';
+
     public const KIND_REVIEW_NEEDED = 'review_needed';
+
     public const KIND_REPAIR_DECISION = 'repair_decision';
+
     public const KIND_FINAL_ACCEPTANCE = 'final_acceptance';
+
     public const KIND_BLOCKED_ATTENTION = 'blocked_attention';
 
     // Canon actions vocabulary. Controller enforces this set.
     public const ACTION_OPEN_OBRA = 'open_obra';
+
     public const ACTION_APPROVE = 'approve';
+
     public const ACTION_REJECT = 'reject';
+
     public const ACTION_REQUEST_REPAIR = 'request_repair';
+
     public const ACTION_PAUSE = 'pause';
+
     public const ACTION_ROLLBACK = 'rollback';
+
     public const ACTION_REFINE_INTAKE = 'refine_intake';
+
     public const ACTION_APPROVE_SCOPE_CHANGE = 'approve_scope_change';
+
     public const ACTION_DENY_SCOPE_CHANGE = 'deny_scope_change';
+
     public const ACTION_APPROVE_PROVIDER = 'approve_provider';
+
     public const ACTION_APPROVE_RUNTIME = 'approve_runtime';
+
     public const ACTION_DISMISS_WITH_REASON = 'dismiss_with_reason';
 
     public const SEVERITY_HIGH = 'high';
+
     public const SEVERITY_MEDIUM = 'medium';
+
     public const SEVERITY_LOW = 'low';
 
     /** Severity order used for queue sorting. Lower index = higher priority. */
@@ -142,7 +164,7 @@ final class AtlasCodeAttentionControlPlaneService
         $kind = self::KIND_INTAKE_NEEDED;
         $severity = $target === 'forge_obra' ? self::SEVERITY_MEDIUM : self::SEVERITY_LOW;
         $title = (string) ($candidate['title'] ?? 'Candidato de Obra do Atlas Dev');
-        $itemKey = $this->itemKey('promotion:'.$candidateId, $kind, $target);
+        $itemKey = CodeAttentionClassifier::itemKey('promotion:'.$candidateId, $kind, $target);
 
         return [
             'id' => $itemKey,
@@ -245,6 +267,7 @@ final class AtlasCodeAttentionControlPlaneService
                 if (in_array($state, ['completed'], true) && ((bool) ($signals['human_approved'] ?? false))) {
                     $resolvedRecently[] = $this->resolvedSnapshot($obra, $ux);
                 }
+
                 continue;
             }
 
@@ -303,8 +326,8 @@ final class AtlasCodeAttentionControlPlaneService
             if ($pa !== $pb) {
                 return $pa <=> $pb;
             }
-            $sa = $this->severityRank($a['severity']);
-            $sb = $this->severityRank($b['severity']);
+            $sa = CodeAttentionClassifier::severityRank((string) $a['severity']);
+            $sb = CodeAttentionClassifier::severityRank((string) $b['severity']);
             if ($sa !== $sb) {
                 return $sa <=> $sb;
             }
@@ -453,20 +476,20 @@ final class AtlasCodeAttentionControlPlaneService
         $createdAt = now()->toIso8601String();
 
         [$kind, $severity, $humanQuestion, $whyNow, $recommendedAction, $allowedActions, $riskIfIgnored, $targetPanel] =
-            $this->classify($state, $signals);
+            CodeAttentionClassifier::classify($state, $signals);
 
         if ($kind === null) {
             return null;
         }
 
-        $itemKey = $this->itemKey($obraId, $kind, $state);
+        $itemKey = CodeAttentionClassifier::itemKey($obraId, $kind, $state);
 
         return [
             'id' => $itemKey,
             'item_key' => $itemKey,
             'obra_id' => $obraId,
             'obra_title' => $this->obraTitle($obra),
-            'obra_phase' => $this->phaseForState($state),
+            'obra_phase' => CodeAttentionClassifier::phaseForState($state),
             'obra_status' => $state,
             'workspace_slug' => $workspaceSlug,
             'kind' => $kind,
@@ -479,7 +502,7 @@ final class AtlasCodeAttentionControlPlaneService
             'evidence_refs' => $this->evidenceRefs($obra, $signals),
             'target_surface' => 'atlas_code',
             'target_panel' => $targetPanel,
-            'receipt_required' => $this->actionMutates($recommendedAction),
+            'receipt_required' => CodeAttentionClassifier::actionMutates($recommendedAction),
             'expires_at' => null,
             'created_at' => $createdAt,
             'next_safe_step' => (string) ($ux['next_safe_step'] ?? ''),
@@ -577,7 +600,7 @@ final class AtlasCodeAttentionControlPlaneService
             return null;
         }
 
-        $itemKey = $this->itemKey((string) $obra->getKey(), 'observed_session:'.$sessionId, $state);
+        $itemKey = CodeAttentionClassifier::itemKey((string) $obra->getKey(), 'observed_session:'.$sessionId, $state);
 
         return [
             'id' => $itemKey,
@@ -617,185 +640,6 @@ final class AtlasCodeAttentionControlPlaneService
 
     /**
      * @param  array<string,mixed>  $signals
-     * @return array{0:?string,1:string,2:string,3:string,4:string,5:list<string>,6:string,7:string}
-     */
-    private function classify(string $state, array $signals): array
-    {
-        $reviewRequired = (bool) ($signals['review_required'] ?? false);
-        $humanApproved = (bool) ($signals['human_approved'] ?? false);
-        $finalAllowed = (bool) ($signals['final_completion_allowed'] ?? false);
-        $reviewStatus = (string) ($signals['review_status'] ?? 'pending');
-
-        // Final acceptance: runtime believes it's done but human hasn't signed off.
-        if ($state === 'completed' && ! $humanApproved) {
-            return [
-                self::KIND_FINAL_ACCEPTANCE,
-                self::SEVERITY_HIGH,
-                'A Obra pode ser aceita como concluida?',
-                'Runtime sinalizou completion. Falta apenas o aceite humano final.',
-                self::ACTION_APPROVE,
-                [self::ACTION_OPEN_OBRA, self::ACTION_APPROVE, self::ACTION_REJECT, self::ACTION_ROLLBACK],
-                'Sem aceite, a Obra fica suspensa em estado pre-final.',
-                'review',
-            ];
-        }
-
-        if ($finalAllowed && $reviewStatus === 'approved' && ! $humanApproved) {
-            return [
-                self::KIND_FINAL_ACCEPTANCE,
-                self::SEVERITY_HIGH,
-                'Encerrar a Obra com aceite humano?',
-                'Revisao aprovou e completion claim esta liberada. Falta a assinatura humana.',
-                self::ACTION_APPROVE,
-                [self::ACTION_OPEN_OBRA, self::ACTION_APPROVE, self::ACTION_REJECT, self::ACTION_ROLLBACK],
-                'A Obra fica pronta-mas-nao-aceita; gates ficam abertos.',
-                'review',
-            ];
-        }
-
-        // Review pending.
-        if ($state === 'waiting_review' || ($reviewRequired && $reviewStatus !== 'approved' && $reviewStatus !== 'rejected')) {
-            return [
-                self::KIND_REVIEW_NEEDED,
-                self::SEVERITY_MEDIUM,
-                'A Obra pode ir para revisao final?',
-                'Execucao governada terminou. Revise diffs, gates e provas antes de qualquer completion.',
-                self::ACTION_APPROVE,
-                [self::ACTION_OPEN_OBRA, self::ACTION_APPROVE, self::ACTION_REQUEST_REPAIR, self::ACTION_REJECT],
-                'Sem revisao, completion fica bloqueada e novos passos podem ser construidos sobre base nao auditada.',
-                'review',
-            ];
-        }
-
-        if ($state === 'repair_required') {
-            return [
-                self::KIND_REPAIR_DECISION,
-                self::SEVERITY_HIGH,
-                'Como tratar a falha reparavel detectada?',
-                'Atlas detectou falha que pode ser corrigida com patch minimo, mas precisa de orientacao humana.',
-                self::ACTION_REQUEST_REPAIR,
-                [self::ACTION_OPEN_OBRA, self::ACTION_REQUEST_REPAIR, self::ACTION_REJECT, self::ACTION_PAUSE, self::ACTION_ROLLBACK],
-                'Sem decisao, o Forge fica parado e o ciclo de reparo nao avanca.',
-                'repair',
-            ];
-        }
-
-        if ($state === 'blocked_scope') {
-            $files = (array) ($signals['files_out_of_scope'] ?? []);
-            $detail = $files === []
-                ? 'A execucao tentou tocar arquivo fora do escopo permitido.'
-                : sprintf('A execucao tentou alterar %s, fora de "Pode mexer".', $files[0]);
-
-            return [
-                self::KIND_SCOPE_DECISION,
-                self::SEVERITY_MEDIUM,
-                'Ampliar o escopo permitido ou bloquear a mudanca?',
-                $detail,
-                self::ACTION_DENY_SCOPE_CHANGE,
-                [self::ACTION_OPEN_OBRA, self::ACTION_APPROVE_SCOPE_CHANGE, self::ACTION_DENY_SCOPE_CHANGE, self::ACTION_PAUSE],
-                'Sem decisao, o Forge fica bloqueado e nenhum patch avanca.',
-                'intake',
-            ];
-        }
-
-        if ($state === 'waiting_provider_confirmation') {
-            return [
-                self::KIND_PROVIDER_APPROVAL,
-                self::SEVERITY_HIGH,
-                'Autorizar a chamada de provider real?',
-                'Atlas Decide selecionou provider externo. Atlas nunca chama sem aprovacao explicita.',
-                self::ACTION_APPROVE_PROVIDER,
-                [self::ACTION_OPEN_OBRA, self::ACTION_APPROVE_PROVIDER, self::ACTION_REJECT, self::ACTION_PAUSE],
-                'Sem aprovacao, nenhuma chamada externa acontece; a Obra fica parada.',
-                'advanced',
-            ];
-        }
-
-        if ($state === 'waiting_budget_confirmation') {
-            return [
-                self::KIND_PROVIDER_APPROVAL,
-                self::SEVERITY_HIGH,
-                'Autorizar o custo da chamada externa?',
-                'Antes de qualquer chamada paga, custo precisa de aprovacao explicita.',
-                self::ACTION_APPROVE_PROVIDER,
-                [self::ACTION_OPEN_OBRA, self::ACTION_APPROVE_PROVIDER, self::ACTION_REJECT, self::ACTION_PAUSE],
-                'Sem aprovacao de custo, a chamada paga nao acontece e a Obra fica parada.',
-                'advanced',
-            ];
-        }
-
-        if ($state === 'waiting_runtime_dispatch_confirmation') {
-            return [
-                self::KIND_RUNTIME_APPROVAL,
-                self::SEVERITY_MEDIUM,
-                'Confirmar runtime dispatch para a invocacao?',
-                'Dispatch precisa ser explicitamente confirmado antes de qualquer invocacao do provider.',
-                self::ACTION_APPROVE_RUNTIME,
-                [self::ACTION_OPEN_OBRA, self::ACTION_APPROVE_RUNTIME, self::ACTION_REJECT, self::ACTION_PAUSE],
-                'Sem confirmacao, dispatch fica em pre-flight e a Obra nao avanca.',
-                'advanced',
-            ];
-        }
-
-        if (in_array($state, ['blocked_definition', 'intake_required', 'ready_to_define'], true)) {
-            return [
-                self::KIND_INTAKE_NEEDED,
-                self::SEVERITY_LOW,
-                'A Obra precisa de definicao mais clara?',
-                'Faltam campos da intake (objetivo, regra que nao pode quebrar, criterios de aceite ou escopo).',
-                self::ACTION_REFINE_INTAKE,
-                [self::ACTION_OPEN_OBRA, self::ACTION_REFINE_INTAKE, self::ACTION_DISMISS_WITH_REASON],
-                'Sem definicao, qualquer plano gerado depois fica fragil.',
-                'intake',
-            ];
-        }
-
-        if (in_array($state, ['blocked_provider', 'blocked_driver', 'blocked_capacity', 'blocked_governance'], true)) {
-            return [
-                self::KIND_BLOCKED_ATTENTION,
-                self::SEVERITY_HIGH,
-                'A Obra esta bloqueada governada — inspecionar bloqueio?',
-                'Forge parou honestamente: provider/driver/capacity/governanca impedem avanco.',
-                self::ACTION_OPEN_OBRA,
-                [self::ACTION_OPEN_OBRA, self::ACTION_PAUSE, self::ACTION_DISMISS_WITH_REASON],
-                'Sem inspecao, a Obra continua bloqueada e a causa real nao e tratada.',
-                'advanced',
-            ];
-        }
-
-        return [null, self::SEVERITY_LOW, '', '', self::ACTION_OPEN_OBRA, [], '', 'overview'];
-    }
-
-    private function severityRank(string $severity): int
-    {
-        return match ($severity) {
-            self::SEVERITY_HIGH => 0,
-            self::SEVERITY_MEDIUM => 1,
-            default => 2,
-        };
-    }
-
-    private function actionMutates(string $action): bool
-    {
-        return $action !== self::ACTION_OPEN_OBRA;
-    }
-
-    private function phaseForState(string $state): string
-    {
-        return match (true) {
-            in_array($state, ['blocked_definition', 'intake_required', 'ready_to_define'], true) => 'intake',
-            in_array($state, ['blocked_scope'], true) => 'build',
-            in_array($state, ['waiting_provider_confirmation', 'waiting_budget_confirmation', 'waiting_runtime_dispatch_confirmation'], true) => 'forge_prep',
-            $state === 'waiting_review' => 'review',
-            $state === 'repair_required' => 'build',
-            $state === 'completed' => 'decision',
-            str_starts_with($state, 'blocked') => 'build',
-            default => 'overview',
-        };
-    }
-
-    /**
-     * @param  array<string,mixed>  $signals
      * @return list<string>
      */
     private function evidenceRefs(AtlasProject $obra, array $signals): array
@@ -822,13 +666,6 @@ final class AtlasCodeAttentionControlPlaneService
         }
 
         return array_values(array_unique($refs));
-    }
-
-    private function itemKey(string $obraId, string $kind, string $state): string
-    {
-        $hash = substr(hash('sha256', $obraId.'|'.$kind.'|'.$state), 0, 16);
-
-        return 'attn_'.$hash;
     }
 
     /**
@@ -874,7 +711,7 @@ final class AtlasCodeAttentionControlPlaneService
      * human_decision_receipt to the Obra metadata.
      *
      * @param  array<string,mixed>  $context  reason, deferred_until, decided_by, notes
-     * @return array<string,mixed>  receipt
+     * @return array<string,mixed> receipt
      */
     public function recordDecision(
         AtlasProject $obra,
@@ -932,5 +769,4 @@ final class AtlasCodeAttentionControlPlaneService
 
         return $receipt;
     }
-
 }
