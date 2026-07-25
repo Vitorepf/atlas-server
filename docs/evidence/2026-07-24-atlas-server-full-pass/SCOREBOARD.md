@@ -95,10 +95,12 @@
 | OpenBrain ContextInjectionProjectionSupport pure peel | 10 Support unit + 60 host path / 478 asserts (70 combined); host 1171→687; Support 550; policy/surface/delivery/operator projection/summary envelopes pure |
 | StewardshipPriorityContextQualitySupport pure peel | 9 Support unit + 17 host path / 194 asserts (26 combined); engine 467→309; validate/score/findingKind/boost/identity/candidates pure |
 | AgenticWorkcellTopologyPolicySupport pure peel | 12 Support unit / 150 asserts + 16 host path / 124 asserts (28/274 combined); host 1247→1008; claim/objective/domain/flow/complexity/risk/topology/status/riskBand/score/sanitize/circuit-breaker pure |
+| RealityGraphQuerySupport pure peel | 13 Support unit / 135 + 12 host AURG path / 197 + 4 Maxd07 / 44 (29/376 package); host 1542→1240; Support 349; expand/seed-merge/path-order/PPR-status/terms/entity-tokens/lexical-quality/rank-surface/admission pure |
 
 ## Residual
 
-PRE leave Http (R103 staged) · floors RSI/TaskQueue · CompletionAudit cert FS residual · HubDelegators true map+__call · DesignRuntime certify FS residual (routes/api.php + rival harness needles pre-existing) · app()-backed DesignRuntime nested contracts residual · PriorityEngine canonicalSeedCandidates FS-bound residual · AgenticWorkcell role-contract pure residual (depthProfile/topologyAssignments/roleContextScope/output/tool/deps/artifacts) · suite filter pre-existing EliteExecutor mock (unrelated when filter broad)
+PRE leave Http (R103 staged) · floors RSI/TaskQueue · CompletionAudit cert FS residual · HubDelegators true map+__call · DesignRuntime certify FS residual (routes/api.php + rival harness needles pre-existing) · app()-backed DesignRuntime nested contracts residual · PriorityEngine canonicalSeedCandidates FS-bound residual · RealityGraphQuery host residual (entityExact/semantic/lexical seeds + traverse/paths/rank/expand IO) · FileAttachment zipEntries residual · suite filter pre-existing EliteExecutor mock (unrelated when filter broad)
 
 | AgenticWorkcellRoleContractSupport | 9 unit / 116 asserts |
 | AgenticWorkcellTopologyPolicySupport | 12 unit / 150 asserts |
+| RealityGraphQuerySupport | 13 unit / 135 asserts |

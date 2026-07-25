@@ -158,7 +158,9 @@
 - [x] AgenticWorkcellTopologyPolicySupport
 - [x] AgenticWorkcellRoleContractSupport
 - [x] AgenticWorkcellDesignArtifactsSupport (claim/objective/domain/flow/complexity/risk/topology/status/riskBand/score/sanitize/circuit-breaker pure; host 1247→1008; Support 314; 12 unit/150 + 16 host/124)
-- [ ] AgenticWorkcell role-contract pure residual (depthProfile/topologyAssignments/roleContextScope/output/tool/deps/artifacts)
+- [x] AgenticWorkcell role-contract pure residual (depthProfile/topologyAssignments/roleContextScope/output/tool/deps/artifacts)
+- [x] RealityGraphQuerySupport pure residual (normalizeExpand/mergeSeeds/orderPaths/pprShadowStatus/terms/entity tokens/lexical quality/rank surface/admission; host 1542→1240; Support 349; 13 unit/135 + 12 host/197 + 4 Maxd07/44)
+- [ ] RealityGraphQuery host residual (entityExactSeeds/semanticSeeds/lexicalSeeds/traverse/paths/rank/expandCodeSymbols IO cluster)
 - [x] FrontendDesignRuntimeContractSupport (signals/gates/evidence/scorecard/variant/live pure; host 1434→1108; 7 unit Support + 3 host path green)
 - [x] FrontendDesignRuntime pure static sub-contracts residual (gauntlet/blueprint/runbook/work-order/packet/scenarios/evidence/gate/cert/handoff/outcome; host 1108→670; Support 354→807; 9 unit + 3 host / 426; no app())
 - [x] RivalsOneShot dimension credit Support
