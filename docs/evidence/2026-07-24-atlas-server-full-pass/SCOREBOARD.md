@@ -46,6 +46,7 @@
 | OperatorPatternDetectSupport | 10 pattern detector tests green |
 | OperatorLearningCandidateSupport | OperatorIntelligence unit 35 green |
 | OperatorLearningGateSupport | 5 gate unit green; pure evaluate peel |
+| SkillScaffoldTextSupport | 4 skill scaffold unit green |
 | Decide operationalDecision + executionGraph | 39 unit green |
 | LedgerReplay agent/decision/inbox/kernel/SI | 22 unit green per step |
 | stringOption variants + LoadsNamedJson | 3+2 unit green |
