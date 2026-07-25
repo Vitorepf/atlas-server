@@ -11,6 +11,9 @@ recent:
   - ProductMode controls+receipt pure Supports (controls 508→46; receipt 475→191; 33 unit/291)
   - ProductModeOperationalInboxProjectionSupport (inbox 1088→309; 16 unit/163 + 12 path/80)
   - ProgrammingConsoleEnvelopeSupport (console 1442→1195; 10/60)
+  - OperatorTaxonomyParseSupport
+  - ProductMode controls/receipt peels
+  - ProductModeOperationalInboxProjectionSupport
   - ProductModeCockpitProjectionSupport (1585→813)
   - AiPromptAttachmentSupport (builder →649)
   - AiPromptInstructionSupport (1589→1076)
