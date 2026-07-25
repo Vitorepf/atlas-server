@@ -8,6 +8,7 @@ use App\Models\AtlasAgenticWorkcell;
 use App\Models\AtlasAgenticWorkcellEvent;
 use App\Models\AtlasAgenticWorkcellOrgPattern;
 use App\Models\AtlasAgenticWorkcellOutcome;
+use App\Services\Ai\AgenticWorkcell\Support\AgenticWorkcellTopologyPolicySupport;
 use App\Services\Ai\EngineeringKernel\PressureLayerGuards;
 use App\Services\Ai\EngineeringKernel\EngineeringRoleRoster;
 use App\Services\Ai\EngineeringKernel\ExecutionOrder;
@@ -18,7 +19,6 @@ use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
 
 final class AtlasAgenticWorkcellRuntimeService
 {
@@ -48,20 +48,6 @@ final class AtlasAgenticWorkcellRuntimeService
 
     public const LEVEL_L5 = 'AAWR-L5 Organizational Intelligence Engine';
 
-    /** @var list<string> */
-    private const TOPOLOGIES = [
-        'solo_agent',
-        'lead_workers',
-        'parallel_scouts',
-        'debate_council',
-        'tournament',
-        'red_blue_team',
-        'mapreduce_research',
-        'forge_milestone_crew',
-        'critic_chain',
-        'tool_builder_loop',
-    ];
-
     public function __construct(
         private readonly ?AtlasRuntimeEfficiencyGovernorService $areg = null,
     ) {}
@@ -72,17 +58,21 @@ final class AtlasAgenticWorkcellRuntimeService
      */
     public function design(array $input): array
     {
-        $objective = $this->objective($input);
-        $domain = $this->normalizeDomain(AiValueNormalizer::trimmedScalarStringOrNull($input['domain'] ?? null) ?? $this->classifyDomain($objective));
-        $flowId = AiValueNormalizer::trimmedScalarStringOrNull($input['flow_id'] ?? null) ?? $this->flowForDomain($domain, $input);
+        $objective = AgenticWorkcellTopologyPolicySupport::objective($input);
+        $domain = AgenticWorkcellTopologyPolicySupport::normalizeDomain(
+            AiValueNormalizer::trimmedScalarStringOrNull($input['domain'] ?? null)
+                ?? AgenticWorkcellTopologyPolicySupport::classifyDomain($objective)
+        );
+        $flowId = AiValueNormalizer::trimmedScalarStringOrNull($input['flow_id'] ?? null)
+            ?? AgenticWorkcellTopologyPolicySupport::flowForDomain($domain, $input);
         $surfaceId = AiValueNormalizer::trimmedScalarStringOrNull($input['surface_id'] ?? null) ?? 'atlas_ai';
         $evidenceRefs = AiStringListNormalizer::trimmedScalarValues($input['evidence_refs'] ?? []);
         $contextRefs = AiStringListNormalizer::trimmedScalarValues($input['context_refs'] ?? []);
         $aregDecision = $this->aregDecision($objective, $domain, $flowId, $surfaceId, $evidenceRefs, $contextRefs, $input);
-        $complexity = (int) ($aregDecision['complexity_score'] ?? $this->complexityScore($objective, $domain));
-        $risk = (int) ($aregDecision['risk_score'] ?? $this->riskScore($objective, $domain, $evidenceRefs, $input));
-        $topology = $this->chooseTopology($objective, $domain, $flowId, $complexity, $risk, $input, $aregDecision);
-        $status = $this->status($topology, $risk, $evidenceRefs, $input);
+        $complexity = (int) ($aregDecision['complexity_score'] ?? AgenticWorkcellTopologyPolicySupport::complexityScore($objective, $domain));
+        $risk = (int) ($aregDecision['risk_score'] ?? AgenticWorkcellTopologyPolicySupport::riskScore($objective, $domain, $evidenceRefs, $input));
+        $topology = AgenticWorkcellTopologyPolicySupport::chooseTopology($objective, $domain, $flowId, $complexity, $risk, $input, $aregDecision);
+        $status = AgenticWorkcellTopologyPolicySupport::status($topology, $risk, $evidenceRefs, $input);
         $orgDesign = $this->orgDesign($topology, $domain, $flowId, $complexity, $risk, $input);
         $roleRoster = $this->roleRoster($topology, $domain, $flowId, $risk, $input);
         $taskGraph = $this->taskGraph($objective, $topology, $domain, $flowId, $roleRoster, $input);
@@ -122,7 +112,7 @@ final class AtlasAgenticWorkcellRuntimeService
             'counterfactual_replay' => $counterfactualReplay,
             'learning_policy' => $learningPolicy,
             'control_plane_summary' => $controlPlaneSummary,
-            'claim_policy' => $this->claimPolicy(),
+            'claim_policy' => AgenticWorkcellTopologyPolicySupport::claimPolicy(),
         ];
         $payload['workcell_hash'] = MissionCanonicalHash::sha256($payload);
 
@@ -157,10 +147,10 @@ final class AtlasAgenticWorkcellRuntimeService
             'schema_version' => self::EVENT_SCHEMA,
             'event_type' => AiValueNormalizer::trimmedScalarStringOrNull($input['event_type'] ?? null) ?? 'workcell_observation',
             'status' => AiValueNormalizer::trimmedScalarStringOrNull($input['status'] ?? null) ?? 'observed',
-            'payload' => $this->sanitizePayload(is_array($input['payload'] ?? null) ? $input['payload'] : []),
+            'payload' => AgenticWorkcellTopologyPolicySupport::sanitizePayload(is_array($input['payload'] ?? null) ? $input['payload'] : []),
             'evidence_refs' => AiStringListNormalizer::trimmedScalarValues($input['evidence_refs'] ?? []),
         ];
-        $circuitBreaker = $this->circuitBreakerReceipt($input['circuit_breaker'] ?? null);
+        $circuitBreaker = AgenticWorkcellTopologyPolicySupport::circuitBreakerReceipt($input['circuit_breaker'] ?? null);
         if ($circuitBreaker !== []) {
             $payload['payload']['circuit_breaker'] = $circuitBreaker;
         }
@@ -190,7 +180,7 @@ final class AtlasAgenticWorkcellRuntimeService
         $qualityScore = $this->numericOrNull($input['quality_score'] ?? null);
         $roiScore = $this->numericOrNull($input['coordination_roi_score'] ?? null);
         $signals = is_array($input['signals'] ?? null) ? $input['signals'] : [];
-        $circuitBreaker = $this->circuitBreakerReceipt($input['circuit_breaker'] ?? null);
+        $circuitBreaker = AgenticWorkcellTopologyPolicySupport::circuitBreakerReceipt($input['circuit_breaker'] ?? null);
         if ($circuitBreaker !== []) {
             $signals['circuit_breaker'] = $circuitBreaker;
         }
@@ -217,7 +207,7 @@ final class AtlasAgenticWorkcellRuntimeService
             'outcome_hash' => $record->outcome_hash,
             'learning_candidates' => $payload['learning_candidates'],
             'compiled_org_pattern' => $pattern,
-            'claim_policy' => $this->claimPolicy(),
+            'claim_policy' => AgenticWorkcellTopologyPolicySupport::claimPolicy(),
         ];
     }
 
@@ -264,7 +254,7 @@ final class AtlasAgenticWorkcellRuntimeService
                 'resume_from_last_receipt_only' => true,
             ],
             'actions' => $terminal ? [] : ['resume_from_last_receipt'],
-            'claim_policy' => $this->claimPolicy(),
+            'claim_policy' => AgenticWorkcellTopologyPolicySupport::claimPolicy(),
         ];
         $payload['reconciliation_hash'] = MissionCanonicalHash::sha256($payload);
 
@@ -320,7 +310,7 @@ final class AtlasAgenticWorkcellRuntimeService
                 'topology' => (string) $pattern->topology,
                 'pattern_hash' => (string) $pattern->pattern_hash,
             ])->values()->all(),
-            'claim_policy' => $this->claimPolicy(),
+            'claim_policy' => AgenticWorkcellTopologyPolicySupport::claimPolicy(),
         ];
         $payload['control_plane_hash'] = MissionCanonicalHash::sha256($payload);
 
@@ -328,69 +318,13 @@ final class AtlasAgenticWorkcellRuntimeService
     }
 
     /**
+     * Thin host facade over pure {@see AgenticWorkcellTopologyPolicySupport::claimPolicy()}.
+     *
      * @return array<string,mixed>
      */
     public function claimPolicy(): array
     {
-        return [
-            'planning_only' => true,
-            'provider_invoked' => false,
-            'agents_spawned' => false,
-            'external_execution_performed' => false,
-            'benchmark_not_run' => true,
-            'requires_areg_budget' => true,
-            'requires_independent_verification' => true,
-            'does_not_bypass_dev_or_forge' => true,
-        ];
-    }
-
-    private function objective(array $input): string
-    {
-        return AiValueNormalizer::trimmedScalarStringOrNull($input['objective'] ?? $input['prompt'] ?? $input['input_text'] ?? null) ?? 'AAWR workcell objective';
-    }
-
-    private function normalizeDomain(string $domain): string
-    {
-        return match ($domain) {
-            'dev', 'code', 'coding', 'software' => 'programming',
-            'strategic' => 'strategy',
-            default => $domain,
-        };
-    }
-
-    private function classifyDomain(string $objective): string
-    {
-        $lower = Str::lower($objective);
-
-        return match (true) {
-            str_contains($lower, 'bug') || str_contains($lower, 'codigo') || str_contains($lower, 'código') || str_contains($lower, 'forge') || str_contains($lower, 'runtime') => 'programming',
-            str_contains($lower, 'pesquisa') || str_contains($lower, 'mercado') || str_contains($lower, 'paper') => 'research',
-            str_contains($lower, 'finance') || str_contains($lower, 'invest') || str_contains($lower, 'carteira') => 'finance',
-            str_contains($lower, 'marketing') || str_contains($lower, 'campanha') || str_contains($lower, 'copy') => 'marketing',
-            str_contains($lower, 'estrateg') || str_contains($lower, 'decis') => 'strategy',
-            default => 'conversation',
-        };
-    }
-
-    private function flowForDomain(string $domain, array $input): string
-    {
-        $task = AiValueNormalizer::trimmedScalarStringOrNull($input['task'] ?? null);
-        if ($domain === 'programming') {
-            return match ($task) {
-                'forge' => 'atlas_forge',
-                'debug' => 'atlas_debug',
-                'review' => 'atlas_review',
-                default => 'atlas_dev',
-            };
-        }
-
-        return match ($domain) {
-            'research' => 'atlas_research',
-            'finance' => 'atlas_finance',
-            'marketing' => 'atlas_marketing',
-            'strategy' => 'atlas_strategy',
-            default => 'atlas_conversation',
-        };
+        return AgenticWorkcellTopologyPolicySupport::claimPolicy();
     }
 
     /**
@@ -412,83 +346,6 @@ final class AtlasAgenticWorkcellRuntimeService
         ]);
     }
 
-    private function complexityScore(string $objective, string $domain): int
-    {
-        $score = str_word_count($objective) > 80 ? 7 : (str_word_count($objective) > 25 ? 5 : 3);
-        foreach (['enterprise', 'completo', 'robusto', 'multi', 'obra', 'meses', 'autonom', 'certificacao', 'research', 'mercado'] as $signal) {
-            if (str_contains(Str::lower($objective.' '.$domain), $signal)) {
-                $score++;
-            }
-        }
-
-        return max(1, min(10, $score));
-    }
-
-    private function riskScore(string $objective, string $domain, array $evidenceRefs, array $input): int
-    {
-        $score = match ($domain) {
-            'finance', 'cyber', 'security' => 7,
-            'programming' => 5,
-            'strategy' => 6,
-            default => 3,
-        };
-        if ($evidenceRefs === [] && in_array($domain, ['programming', 'research', 'finance', 'strategy'], true)) {
-            $score++;
-        }
-        if ((bool) data_get($input, 'external_execution_requested', false)) {
-            $score = 10;
-        }
-
-        return max(1, min(10, $score));
-    }
-
-    private function chooseTopology(string $objective, string $domain, string $flowId, int $complexity, int $risk, array $input, array $aregDecision): string
-    {
-        $forced = AiValueNormalizer::trimmedScalarStringOrNull($input['topology'] ?? null);
-        if ($forced !== null && in_array($forced, self::TOPOLOGIES, true)) {
-            return $forced;
-        }
-        $lower = Str::lower($objective.' '.$flowId.' '.$domain);
-        if (($aregDecision['path'] ?? null) === AtlasRuntimeEfficiencyGovernorService::PATH_BLOCKED || $risk >= 10) {
-            return 'critic_chain';
-        }
-        if (str_contains($lower, 'ferramenta') || str_contains($lower, 'capability') || str_contains($lower, 'tool')) {
-            return 'tool_builder_loop';
-        }
-        if ($flowId === 'atlas_forge' || str_contains($lower, 'obra') || str_contains($lower, 'meses')) {
-            return 'forge_milestone_crew';
-        }
-        if ($domain === 'research' || str_contains($lower, 'pesquisa profunda')) {
-            return 'mapreduce_research';
-        }
-        if (in_array($domain, ['strategy', 'finance'], true) || $risk >= 8) {
-            return 'red_blue_team';
-        }
-        if ($complexity >= 8) {
-            return 'lead_workers';
-        }
-        if ($complexity >= 6) {
-            return 'parallel_scouts';
-        }
-
-        return 'solo_agent';
-    }
-
-    private function status(string $topology, int $risk, array $evidenceRefs, array $input): string
-    {
-        if ((bool) data_get($input, 'external_execution_requested', false) && $risk >= 10) {
-            return self::STATUS_BLOCKED;
-        }
-        if ($risk >= 7 && $evidenceRefs === []) {
-            return self::STATUS_WATCH;
-        }
-        if ($topology === 'critic_chain' && $risk >= 10) {
-            return self::STATUS_BLOCKED;
-        }
-
-        return self::STATUS_READY;
-    }
-
     /**
      * A workcell may be designed without an order for legacy planning callers, but when an
      * ExecutionOrder is supplied it becomes the authority for hashes, risk, scope and evidence.
@@ -499,7 +356,7 @@ final class AtlasAgenticWorkcellRuntimeService
     private function workcellAdmission(array $input, string $topology, array $roles, int $risk, array $evidenceRefs): array
     {
         $requestedTopology = AiValueNormalizer::trimmedScalarStringOrNull($input['topology'] ?? null);
-        if ($requestedTopology !== null && ! in_array($requestedTopology, self::TOPOLOGIES, true)) {
+        if ($requestedTopology !== null && ! in_array($requestedTopology, AgenticWorkcellTopologyPolicySupport::TOPOLOGIES, true)) {
             return [
                 'schema_version' => 'atlas.agentic_workcell.admission.v1',
                 'status' => 'blocked',
@@ -534,7 +391,7 @@ final class AtlasAgenticWorkcellRuntimeService
         $orderRoleIds = array_keys($order->roleRoster);
         $workcellRoleIds = array_values(array_map(static fn (array $role): string => (string) $role['role_id'], $roles));
         $blockers = [];
-        $mappedTopology = $this->executionOrderTopologyMap($order->workTopology);
+        $mappedTopology = AgenticWorkcellTopologyPolicySupport::executionOrderTopologyMap($order->workTopology);
         if ($mappedTopology !== $topology) {
             $blockers[] = 'execution_order_topology_mismatch';
         }
@@ -645,18 +502,6 @@ final class AtlasAgenticWorkcellRuntimeService
         ];
     }
 
-    private function executionOrderTopologyMap(string $topology): string
-    {
-        return match ($topology) {
-            'single' => 'solo_agent',
-            'candidate_set' => 'tournament',
-            'workcell' => 'lead_workers',
-            'DAG' => 'critic_chain',
-            'portfolio' => 'parallel_scouts',
-            default => 'unsupported',
-        };
-    }
-
     /**
      * @return array<string,mixed>
      */
@@ -688,7 +533,7 @@ final class AtlasAgenticWorkcellRuntimeService
      */
     private function roleRoster(string $topology, string $domain, string $flowId, int $risk, array $input): array
     {
-        $riskBand = $this->riskBand($risk);
+        $riskBand = AgenticWorkcellTopologyPolicySupport::riskBand($risk);
         $topologyAssignments = $this->topologyAssignments($topology);
 
         return collect(EngineeringRoleRoster::OFFICIAL_ROLES)
@@ -711,14 +556,6 @@ final class AtlasAgenticWorkcellRuntimeService
             })
             ->values()
             ->all();
-    }
-
-    private function riskBand(int $risk): string
-    {
-        return match (true) {
-            $risk <= 1 => 'R0', $risk <= 3 => 'R1', $risk <= 5 => 'R2',
-            $risk <= 7 => 'R3', $risk <= 9 => 'R4', default => 'R5',
-        };
     }
 
     private function depthProfile(string $riskBand, string $role): string
@@ -936,8 +773,8 @@ final class AtlasAgenticWorkcellRuntimeService
      */
     private function counterfactualReplay(string $objective, string $domain, string $flowId, string $selectedTopology, int $complexity, int $risk): array
     {
-        $candidates = collect(self::TOPOLOGIES)
-            ->map(fn (string $topology): array => $this->scoreTopology($topology, $selectedTopology, $domain, $flowId, $complexity, $risk))
+        $candidates = collect(AgenticWorkcellTopologyPolicySupport::TOPOLOGIES)
+            ->map(fn (string $topology): array => AgenticWorkcellTopologyPolicySupport::scoreTopology($topology, $selectedTopology, $domain, $flowId, $complexity, $risk))
             ->sortByDesc('utility_score')
             ->values()
             ->all();
@@ -985,25 +822,6 @@ final class AtlasAgenticWorkcellRuntimeService
             'verification_check_count' => count((array) ($verificationPlan['checks'] ?? [])),
             'independent_verification_required' => true,
         ];
-    }
-
-    /** @return array<string,mixed> */
-    private function circuitBreakerReceipt(mixed $value): array
-    {
-        if (! is_array($value)) {
-            return [];
-        }
-
-        $receipt = [
-            'failure_fingerprint' => trim((string) ($value['failure_fingerprint'] ?? '')),
-            'evidence_delta_rounds' => max(0, (int) ($value['evidence_delta_rounds'] ?? 0)),
-            'approach_id' => trim((string) ($value['approach_id'] ?? $value['candidate_id'] ?? '')),
-            'terminal_reason' => trim((string) ($value['terminal_reason'] ?? $value['reason'] ?? '')),
-            'status' => trim((string) ($value['status'] ?? '')),
-            'decision_hash' => trim((string) ($value['decision_hash'] ?? '')),
-        ];
-
-        return array_filter($receipt, static fn (mixed $item): bool => $item !== '' && $item !== null);
     }
 
     /**
@@ -1137,53 +955,6 @@ final class AtlasAgenticWorkcellRuntimeService
     }
 
     /**
-     * @return array<string,mixed>
-     */
-    private function scoreTopology(string $topology, string $selectedTopology, string $domain, string $flowId, int $complexity, int $risk): array
-    {
-        $quality = match ($topology) {
-            'solo_agent' => 0.62,
-            'lead_workers' => 0.78,
-            'parallel_scouts' => 0.76,
-            'debate_council' => 0.80,
-            'tournament' => 0.81,
-            'red_blue_team' => 0.86,
-            'mapreduce_research' => 0.88,
-            'forge_milestone_crew' => 0.90,
-            'critic_chain' => 0.74,
-            'tool_builder_loop' => 0.84,
-            default => 0.70,
-        };
-        $cost = match ($topology) {
-            'solo_agent' => 0.06,
-            'critic_chain' => 0.12,
-            'parallel_scouts' => 0.20,
-            'lead_workers' => 0.24,
-            'debate_council', 'tournament', 'red_blue_team' => 0.30,
-            'mapreduce_research', 'tool_builder_loop' => 0.34,
-            'forge_milestone_crew' => 0.42,
-            default => 0.20,
-        };
-        $domainBonus = match (true) {
-            $domain === 'research' && $topology === 'mapreduce_research' => 0.10,
-            $flowId === 'atlas_forge' && $topology === 'forge_milestone_crew' => 0.12,
-            in_array($domain, ['finance', 'strategy'], true) && $topology === 'red_blue_team' => 0.10,
-            default => 0.0,
-        };
-        $riskPenalty = $risk >= 8 && $topology === 'solo_agent' ? 0.25 : 0.0;
-        $complexityPenalty = $complexity >= 8 && in_array($topology, ['solo_agent', 'critic_chain'], true) ? 0.18 : 0.0;
-        $utility = $quality + $domainBonus - $cost - $riskPenalty - $complexityPenalty;
-
-        return [
-            'topology' => $topology,
-            'selected' => $topology === $selectedTopology,
-            'predicted_quality' => round($quality + $domainBonus, 2),
-            'coordination_cost' => round($cost, 2),
-            'utility_score' => round(max(0, min(1, $utility)), 3),
-        ];
-    }
-
-    /**
      * @param  Collection<int,object>  $rows
      */
     private function average(Collection $rows, string $field): ?float
@@ -1217,16 +988,6 @@ final class AtlasAgenticWorkcellRuntimeService
     /**
      * @return array<string,mixed>
      */
-    private function sanitizePayload(array $payload): array
-    {
-        unset($payload['raw_prompt'], $payload['provider_raw_output'], $payload['secret'], $payload['credential']);
-
-        return $payload;
-    }
-
-    /**
-     * @return array<string,mixed>
-     */
     private function blocked(string $schema, string $reason, string $message): array
     {
         return [
@@ -1236,7 +997,7 @@ final class AtlasAgenticWorkcellRuntimeService
                 'reason' => $reason,
                 'message' => $message,
             ],
-            'claim_policy' => $this->claimPolicy(),
+            'claim_policy' => AgenticWorkcellTopologyPolicySupport::claimPolicy(),
         ];
     }
 
