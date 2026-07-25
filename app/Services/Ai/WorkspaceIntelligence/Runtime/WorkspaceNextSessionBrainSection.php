@@ -7,6 +7,7 @@ namespace App\Services\Ai\WorkspaceIntelligence\Runtime;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceListNormalizer;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceRuntimeService;
+use App\Services\Ai\WorkspaceIntelligence\Support\ExecutionOptimizationPolicySupport;
 
 /**
  * GOD-DEBULK FASE C extraction of the AWIS workspace next-session-brain engine
@@ -14,7 +15,8 @@ use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceRuntimeServi
  * optimization policy, scoped execution routes and validation-tier routing) from
  * AtlasWorkspaceIntelligenceRuntimeService.
  *
- * Method bodies are moved VERBATIM. Shared private helpers that stay on the façade
+ * Pure prefer/block/defer lanes, scoped routes and validation-tier maps live in
+ * ExecutionOptimizationPolicySupport. Shared private helpers that stay on the façade
  * (rankCommandsByOutcome, providerSafeStringList) are reached through __call, which
  * rebinds into the façade scope.
  */
@@ -641,6 +643,7 @@ final class WorkspaceNextSessionBrainSection
      */
     private function workspaceExecutionOptimizationPolicy(array $contextLoadingPlan): array
     {
+        // Input sanitization stays on section (provider-safe string list via mother).
         $avoidCommands = $this->providerSafeStringList($contextLoadingPlan['avoid_commands'] ?? []);
         $slowCommands = $this->providerSafeStringList($contextLoadingPlan['slow_commands'] ?? []);
         $flakyCommands = $this->providerSafeStringList($contextLoadingPlan['flaky_commands'] ?? []);
@@ -651,80 +654,50 @@ final class WorkspaceNextSessionBrainSection
             (array) ($contextLoadingPlan['outcome_ranked_commands'] ?? []),
             (array) ($contextLoadingPlan['command_hints'] ?? []),
         ));
-        $blocked = $this->listNormalizer->uniqueStringValues(array_merge($avoidCommands, $slowCommands));
-        $deferred = $this->listNormalizer->uniqueStringValues(array_merge(
-            $heavyCommands,
+
+        $lanes = ExecutionOptimizationPolicySupport::classifyCommandLanes(
+            $avoidCommands,
             $slowCommands,
             $flakyCommands,
-        ));
-
-        $preferred = array_values(array_filter(
-            $this->listNormalizer->uniqueStringValues(array_merge($fastCommands, $rankedCandidates)),
-            static fn (string $command): bool => ! in_array($command, $blocked, true)
-                && ($fastCommands === [] || in_array($command, $fastCommands, true)),
-        ));
-        if ($preferred === []) {
-            $preferred = array_values(array_filter(
-                $rankedCandidates,
-                static fn (string $command): bool => ! in_array($command, $blocked, true)
-                    && ! in_array($command, $deferred, true),
-            ));
-        }
-        $standard = array_values(array_filter(
+            $fastCommands,
+            $heavyCommands,
             $rankedCandidates,
-            static fn (string $command): bool => ! in_array($command, $blocked, true)
-                && ! in_array($command, $preferred, true)
-                && ! in_array($command, $deferred, true),
-        ));
-        $policyProfiles = array_values(array_filter(
-            (array) ($contextLoadingPlan['execution_policy_effectiveness_profiles'] ?? []),
-            'is_array',
-        ));
-        $effectivePolicyRefs = [];
-        $mixedPolicyRefs = [];
-        $failingPolicyRefs = [];
-        foreach ($policyProfiles as $profile) {
-            $policyRef = (string) ($profile['policy_ref'] ?? '');
-            if ($policyRef === '') {
-                continue;
-            }
+        );
+        $preferred = $lanes['preferred'];
+        $standard = $lanes['standard'];
+        $deferred = $lanes['deferred'];
+        $blocked = $lanes['blocked'];
 
-            match ((string) ($profile['effectiveness'] ?? 'unknown')) {
-                'effective' => $effectivePolicyRefs[] = $policyRef,
-                'mixed' => $mixedPolicyRefs[] = $policyRef,
-                'failing' => $failingPolicyRefs[] = $policyRef,
-                default => null,
-            };
-        }
-        $needsTighterPolicy = $failingPolicyRefs !== [] || $mixedPolicyRefs !== [];
-        $standardCommandLimit = $needsTighterPolicy ? 4 : 8;
-        $deepRequiresOperator = true;
-        $nextAdjustment = 'collect_policy_outcome_feedback';
-        if ($needsTighterPolicy) {
-            $nextAdjustment = 'tighten_default_to_preferred_fast_commands';
-        } elseif ($effectivePolicyRefs !== []) {
-            $nextAdjustment = 'reuse_effective_policy_shape';
-        }
-        $areaRoutes = $this->scopedExecutionRoutes(
+        $policyFeedback = ExecutionOptimizationPolicySupport::policyFeedbackFromProfiles(
+            (array) ($contextLoadingPlan['execution_policy_effectiveness_profiles'] ?? []),
+        );
+        $standardCommandLimit = $policyFeedback['standard_command_limit'];
+        $deepRequiresOperator = $policyFeedback['deep_requires_operator'];
+
+        $tierFeedback = ExecutionOptimizationPolicySupport::validationTierEffectivenessFeedback(
+            (array) ($contextLoadingPlan['validation_tier_effectiveness_profiles'] ?? []),
+        );
+        $routeProfiles = (array) ($contextLoadingPlan['execution_route_effectiveness_profiles'] ?? []);
+        $areaRoutes = ExecutionOptimizationPolicySupport::scopedExecutionRoutes(
             (array) ($contextLoadingPlan['area_performance_profiles'] ?? []),
             $blocked,
             $deferred,
-            $this->routeEffectivenessFeedback((array) ($contextLoadingPlan['execution_route_effectiveness_profiles'] ?? []), 'area'),
-            $this->validationTierEffectivenessFeedback((array) ($contextLoadingPlan['validation_tier_effectiveness_profiles'] ?? [])),
+            ExecutionOptimizationPolicySupport::routeEffectivenessFeedback($routeProfiles, 'area'),
+            $tierFeedback,
             'area',
         );
-        $stackRoutes = $this->scopedExecutionRoutes(
+        $stackRoutes = ExecutionOptimizationPolicySupport::scopedExecutionRoutes(
             (array) ($contextLoadingPlan['stack_performance_profiles'] ?? []),
             $blocked,
             $deferred,
-            $this->routeEffectivenessFeedback((array) ($contextLoadingPlan['execution_route_effectiveness_profiles'] ?? []), 'stack'),
-            $this->validationTierEffectivenessFeedback((array) ($contextLoadingPlan['validation_tier_effectiveness_profiles'] ?? [])),
+            ExecutionOptimizationPolicySupport::routeEffectivenessFeedback($routeProfiles, 'stack'),
+            $tierFeedback,
             'stack',
         );
-        $validationTierRouting = $this->validationTierRoutingSummary(
+        $validationTierRouting = ExecutionOptimizationPolicySupport::validationTierRoutingSummary(
             $areaRoutes,
             $stackRoutes,
-            $this->validationTierEffectivenessFeedback((array) ($contextLoadingPlan['validation_tier_effectiveness_profiles'] ?? [])),
+            $tierFeedback,
         );
 
         $payload = [
@@ -736,11 +709,11 @@ final class WorkspaceNextSessionBrainSection
             'blocked_commands' => array_slice($blocked, 0, 8),
             'policy_feedback' => [
                 'enabled' => true,
-                'observed_policy_count' => count($policyProfiles),
-                'effective_policy_refs' => array_slice($this->listNormalizer->uniqueStrings($effectivePolicyRefs), 0, 6),
-                'mixed_policy_refs' => array_slice($this->listNormalizer->uniqueStrings($mixedPolicyRefs), 0, 6),
-                'failing_policy_refs' => array_slice($this->listNormalizer->uniqueStrings($failingPolicyRefs), 0, 6),
-                'next_adjustment' => $nextAdjustment,
+                'observed_policy_count' => $policyFeedback['observed_policy_count'],
+                'effective_policy_refs' => array_slice($policyFeedback['effective_policy_refs'], 0, 6),
+                'mixed_policy_refs' => array_slice($policyFeedback['mixed_policy_refs'], 0, 6),
+                'failing_policy_refs' => array_slice($policyFeedback['failing_policy_refs'], 0, 6),
+                'next_adjustment' => $policyFeedback['next_adjustment'],
                 'standard_command_limit' => $standardCommandLimit,
                 'raw_logs_returned' => false,
             ],
@@ -752,7 +725,7 @@ final class WorkspaceNextSessionBrainSection
                 'route_policy' => 'prefer_scope_specific_commands_before_global_ranked_commands',
                 'feedback' => [
                     'enabled' => true,
-                    'observed_route_count' => count((array) ($contextLoadingPlan['execution_route_effectiveness_profiles'] ?? [])),
+                    'observed_route_count' => count($routeProfiles),
                     'effective_routes_reused' => count(array_filter(
                         array_merge($areaRoutes, $stackRoutes),
                         static fn (array $route): bool => ($route['feedback_effectiveness'] ?? null) === 'effective',
@@ -765,26 +738,7 @@ final class WorkspaceNextSessionBrainSection
                 ],
                 'raw_logs_returned' => false,
             ],
-            'validation_tiers' => [
-                'instant' => [
-                    'max_command_count' => 2,
-                    'prefer_performance_grade' => 'fast',
-                    'max_expected_duration_ms' => 60_000,
-                    'requires_effective_or_fast_route' => true,
-                ],
-                'standard' => [
-                    'max_command_count' => 4,
-                    'allow_performance_grades' => ['fast', 'normal', 'heavy'],
-                    'max_expected_duration_ms' => 300_000,
-                    'default_for_unknown_routes' => true,
-                ],
-                'deep' => [
-                    'requires_operator_or_high_risk_context' => $deepRequiresOperator,
-                    'allow_deferred_commands' => true,
-                    'max_expected_duration_ms' => 900_000,
-                    'required_for_mixed_or_failing_routes' => true,
-                ],
-            ],
+            'validation_tiers' => ExecutionOptimizationPolicySupport::validationTierDefinitions($deepRequiresOperator),
             'validation_tier_routing' => $validationTierRouting,
             'selection_policy' => [
                 'prepend_preferred_commands_to_task_packets' => true,
@@ -814,197 +768,5 @@ final class WorkspaceNextSessionBrainSection
         $payload['policy_hash'] = MissionCanonicalHash::sha256($payload);
 
         return $payload;
-    }
-
-    /**
-     * @param  array<int,mixed>  $profiles
-     * @param  array<int,string>  $blocked
-     * @param  array<int,string>  $deferred
-     * @param  array<string,string>  $routeFeedback
-     * @param  array<string,string>  $tierFeedback
-     * @return array<int,array<string,mixed>>
-     */
-    private function scopedExecutionRoutes(array $profiles, array $blocked, array $deferred, array $routeFeedback, array $tierFeedback, string $routeKind): array
-    {
-        $routes = [];
-        foreach ($profiles as $profile) {
-            if (! is_array($profile)) {
-                continue;
-            }
-            $key = trim((string) ($profile['key'] ?? ''));
-            if ($key === '') {
-                continue;
-            }
-
-            $commands = $this->providerSafeStringList($profile['commands'] ?? []);
-            $blockedCommands = array_values(array_intersect($commands, $blocked));
-            $deferredCommands = array_values(array_diff(array_intersect($commands, $deferred), $blockedCommands));
-            $preferredCommands = array_values(array_diff($commands, $blockedCommands, $deferredCommands));
-            $routeRef = $routeKind.':'.hash('sha256', $key);
-            $feedbackEffectiveness = $routeFeedback[$routeRef] ?? null;
-            if (in_array($feedbackEffectiveness, ['mixed', 'failing'], true)) {
-                $deferredCommands = $this->listNormalizer->uniqueStringValues(array_merge($deferredCommands, $preferredCommands));
-                $preferredCommands = [];
-            }
-            $routeMode = $preferredCommands !== []
-                ? 'prefer_scope_commands'
-                : ($deferredCommands !== [] || $blockedCommands !== [] ? 'deep_validation_only' : 'observe_more');
-            $validationTier = $this->validationTierForExecutionRoute(
-                $feedbackEffectiveness ?? 'unknown',
-                (string) ($profile['performance_grade'] ?? 'unknown'),
-                $routeMode,
-                $preferredCommands,
-                $deferredCommands,
-                $blockedCommands,
-                $tierFeedback,
-            );
-            $routes[] = [
-                'key' => $key,
-                'route_ref' => $routeRef,
-                'observed_count' => (int) ($profile['observed_count'] ?? 0),
-                'performance_grade' => (string) ($profile['performance_grade'] ?? 'unknown'),
-                'duration_ms_p95' => is_numeric($profile['duration_ms_p95'] ?? null) ? (int) $profile['duration_ms_p95'] : null,
-                'preferred_commands' => array_slice($preferredCommands, 0, 4),
-                'deferred_commands' => array_slice($deferredCommands, 0, 4),
-                'blocked_commands' => array_slice($blockedCommands, 0, 4),
-                'feedback_effectiveness' => $feedbackEffectiveness ?? 'unknown',
-                'route_mode' => $routeMode,
-                'recommended_validation_tier' => $validationTier['tier'],
-                'validation_reason' => $validationTier['reason'],
-            ];
-        }
-
-        return array_slice($routes, 0, 8);
-    }
-
-    /**
-     * @param  array<int,string>  $preferredCommands
-     * @param  array<int,string>  $deferredCommands
-     * @param  array<int,string>  $blockedCommands
-     * @param  array<string,string>  $tierFeedback
-     * @return array{tier:string,reason:string}
-     */
-    private function validationTierForExecutionRoute(
-        string $feedbackEffectiveness,
-        string $performanceGrade,
-        string $routeMode,
-        array $preferredCommands,
-        array $deferredCommands,
-        array $blockedCommands,
-        array $tierFeedback = [],
-    ): array {
-        if (in_array($feedbackEffectiveness, ['mixed', 'failing'], true)) {
-            return ['tier' => 'deep', 'reason' => 'route_feedback_requires_guarded_validation'];
-        }
-
-        if ($routeMode === 'deep_validation_only' || $blockedCommands !== []) {
-            return ['tier' => 'deep', 'reason' => 'scope_contains_blocked_or_slow_commands'];
-        }
-
-        if ($feedbackEffectiveness === 'effective' && $performanceGrade === 'fast' && $preferredCommands !== []) {
-            if (in_array(($tierFeedback['tier:instant'] ?? 'unknown'), ['mixed', 'failing'], true)) {
-                return ['tier' => 'standard', 'reason' => 'instant_tier_feedback_guarded'];
-            }
-
-            return ['tier' => 'instant', 'reason' => 'effective_fast_scope_route'];
-        }
-
-        if ($preferredCommands !== [] && $deferredCommands === []) {
-            return ['tier' => 'standard', 'reason' => 'scope_has_stable_preferred_commands'];
-        }
-
-        return ['tier' => 'standard', 'reason' => 'observe_route_until_feedback_is_stronger'];
-    }
-
-    /**
-     * @param  array<int,array<string,mixed>>  $areaRoutes
-     * @param  array<int,array<string,mixed>>  $stackRoutes
-     * @param  array<string,string>  $tierFeedback
-     * @return array<string,mixed>
-     */
-    private function validationTierRoutingSummary(array $areaRoutes, array $stackRoutes, array $tierFeedback = []): array
-    {
-        $routes = array_merge($areaRoutes, $stackRoutes);
-        $tierCounts = ['instant' => 0, 'standard' => 0, 'deep' => 0];
-        foreach ($routes as $route) {
-            $tier = (string) ($route['recommended_validation_tier'] ?? 'standard');
-            if (! array_key_exists($tier, $tierCounts)) {
-                $tier = 'standard';
-            }
-            $tierCounts[$tier]++;
-        }
-
-        return [
-            'schema_version' => 'atlas.awis.validation_tier_routing.v1',
-            'mode' => 'route_and_risk_aware_validation_depth',
-            'default_tier' => 'standard',
-            'instant_route_count' => $tierCounts['instant'],
-            'standard_route_count' => $tierCounts['standard'],
-            'deep_route_count' => $tierCounts['deep'],
-            'route_count' => count($routes),
-            'tier_feedback' => [
-                'enabled' => true,
-                'instant_effectiveness' => $tierFeedback['tier:instant'] ?? 'unknown',
-                'standard_effectiveness' => $tierFeedback['tier:standard'] ?? 'unknown',
-                'deep_effectiveness' => $tierFeedback['tier:deep'] ?? 'unknown',
-                'instant_guarded' => in_array(($tierFeedback['tier:instant'] ?? 'unknown'), ['mixed', 'failing'], true),
-                'raw_logs_returned' => false,
-            ],
-            'selection_policy' => [
-                'effective_fast_routes_use_instant_validation' => true,
-                'unknown_routes_use_standard_validation' => true,
-                'mixed_or_failing_routes_use_deep_validation' => true,
-                'raw_logs_returned' => false,
-            ],
-            'raw_logs_returned' => false,
-        ];
-    }
-
-    /**
-     * @param  array<int,mixed>  $profiles
-     * @return array<string,string>
-     */
-    private function routeEffectivenessFeedback(array $profiles, string $routeKind): array
-    {
-        $feedback = [];
-        foreach ($profiles as $profile) {
-            if (! is_array($profile)) {
-                continue;
-            }
-            $routeRef = (string) ($profile['route_ref'] ?? '');
-            if (! str_starts_with($routeRef, $routeKind.':')) {
-                continue;
-            }
-            $effectiveness = (string) ($profile['effectiveness'] ?? 'unknown');
-            if (in_array($effectiveness, ['effective', 'mixed', 'failing'], true)) {
-                $feedback[$routeRef] = $effectiveness;
-            }
-        }
-
-        return $feedback;
-    }
-
-    /**
-     * @param  array<int,mixed>  $profiles
-     * @return array<string,string>
-     */
-    private function validationTierEffectivenessFeedback(array $profiles): array
-    {
-        $feedback = [];
-        foreach ($profiles as $profile) {
-            if (! is_array($profile)) {
-                continue;
-            }
-            $tierRef = (string) ($profile['tier_ref'] ?? '');
-            if (preg_match('/^tier:(instant|standard|deep)$/', $tierRef) !== 1) {
-                continue;
-            }
-            $effectiveness = (string) ($profile['effectiveness'] ?? 'unknown');
-            if (in_array($effectiveness, ['effective', 'mixed', 'failing'], true)) {
-                $feedback[$tierRef] = $effectiveness;
-            }
-        }
-
-        return $feedback;
     }
 }
