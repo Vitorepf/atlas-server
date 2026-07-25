@@ -126,8 +126,9 @@
 - [ ] ForgeFastPath report sanitizer residual
 - [x] ProjectStackLearnSupport
 - [ ] WorkspaceOutcomeCommandMemory scoring Support
-- [ ] OpenBrain FileContext ceiling/path pure
+- [x] OpenBrain FileContext ceiling/path pure
 - [ ] OpenBrain ContextExpansion provider-safe render
+- [ ] FileContext AURG target assertion residual (1 test)
 - [x] ClosedLoop stage / ResultLedger grade
 - [x] SkillScaffold frontmatter/body residual
 - [ ] AiWorker predicates/time residual

@@ -8,14 +8,14 @@ execution: in_progress
 full_pass_commits: 197+
 rescan: FINDINGS-RESCAN-3
 recent:
+  - FileContextBudgetSupport (service 834→530; 5/5 targeted green)
   - ResultLedgerGradeSupport + ClosedLoopStageProjector
   - SkillScaffold frontmatter/body/safety elevate
-  - ProjectStackLearnSupport; Forge Capacity + FastPath lifecycle
-  - RivalsOneShotDimensionCreditSupport (eval 695→264)
+  - ProjectStack + Forge Capacity/FastPath + Rivals dimension credits
   - SignalDetector DetectSupport + OI elevate wave
-  - UnattendedLivenessFactsNormalizer; NamingPolicyRules
-unit_proof: ClosedLoop 22; ResultLedger grade+CL 24; OI 51; Capacity 19; Rivals 15; SkillScaffold 7
-next: AWIS scoring · OpenBrain FileContext/Expansion · FastPath sanitizer · PRE staged
+  - UnattendedLiveness + NamingPolicyRules
+unit_proof: FileContext 5; ClosedLoop 22; OI 51; Capacity 19; Rivals 15; SkillScaffold 7
+next: AWIS scoring · OpenBrain Expansion · FastPath sanitizer · PRE staged
 ```
 
 ## Progress summary

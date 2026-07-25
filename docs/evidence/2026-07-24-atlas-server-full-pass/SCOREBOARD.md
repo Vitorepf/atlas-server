@@ -58,6 +58,7 @@
 | SkillScaffold frontmatter/body/safety | 7 unit / 25 asserts |
 | ClosedLoopStageProjector | Level7 22 / 89 asserts; service 631→334 |
 | ResultLedgerGradeSupport | pure grade unit + ClosedLoop 24/98 |
+| FileContextBudgetSupport | 5/5 targeted feature green; service 834→530; 1 AURG residual |
 | Decide operationalDecision + executionGraph | 39 unit green |
 | LedgerReplay agent/decision/inbox/kernel/SI | 22 unit green per step |
 | stringOption variants + LoadsNamedJson | 3+2 unit green |
