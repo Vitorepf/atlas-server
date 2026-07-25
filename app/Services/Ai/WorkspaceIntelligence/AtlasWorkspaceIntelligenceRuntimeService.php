@@ -15,6 +15,7 @@ use App\Services\Ai\WorkspaceIntelligence\Runtime\WorkspaceDiscoverySection;
 use App\Services\Ai\WorkspaceIntelligence\Runtime\WorkspaceLearningLoopSection;
 use App\Services\Ai\WorkspaceIntelligence\Runtime\WorkspaceNextSessionBrainSection;
 use App\Services\Ai\WorkspaceIntelligence\Runtime\WorkspaceOutcomeCommandMemorySection;
+use App\Services\Ai\WorkspaceIntelligence\Support\WorkspacePathScoringSupport;
 use App\Services\AtlasCode\AtlasCodeWorkspaceProfileService;
 use App\Services\AtlasCode\GitWorkspaceInspector;
 use Illuminate\Support\Carbon;
@@ -548,21 +549,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
 
     private function areaKey(mixed $path): ?string
     {
-        if (! is_string($path)) {
-            return null;
-        }
-
-        $path = trim(str_replace('\\', '/', $path), '/');
-        if ($path === '' || str_starts_with($path, '..')) {
-            return null;
-        }
-
-        $parts = array_values(array_filter(explode('/', $path), static fn (string $part): bool => $part !== ''));
-        if ($parts === []) {
-            return null;
-        }
-
-        return implode('/', array_slice($parts, 0, min(2, count($parts))));
+        return WorkspacePathScoringSupport::areaKey($path);
     }
 
     /**
@@ -608,24 +595,7 @@ final class AtlasWorkspaceIntelligenceRuntimeService
      */
     private function commandAreaScore(array $stats, array $areaKeys): int
     {
-        if ($areaKeys === []) {
-            return 0;
-        }
-
-        $affinity = (array) ($stats['area_affinity'] ?? []);
-        $score = 0;
-        foreach ($areaKeys as $area) {
-            foreach ($affinity as $knownArea => $weight) {
-                if (! is_string($knownArea)) {
-                    continue;
-                }
-                if ($knownArea === $area || str_starts_with($knownArea, $area.'/') || str_starts_with($area, $knownArea.'/')) {
-                    $score += (int) $weight;
-                }
-            }
-        }
-
-        return $score;
+        return WorkspacePathScoringSupport::commandAreaScore($stats, $areaKeys);
     }
 
     /**
