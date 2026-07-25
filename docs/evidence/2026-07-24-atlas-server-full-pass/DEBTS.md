@@ -131,6 +131,7 @@
 - [x] OperatorProfilePolicyCompilerSupport
 - [x] TaskFabricGiveBackLearningSupport
 - [x] ExecutionOptimizationPolicySupport
+- [x] AiWorkerSupport residual pure (scout/steer/repair/mac)
 
 - [x] RivalsOneShot dimension credit Support
 - [x] ForgeProviderCapacityClassifier pure FSM
