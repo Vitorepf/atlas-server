@@ -150,6 +150,7 @@
 - [x] ProgrammingConsoleEnvelopeSupport
 - [x] ProgrammingConsoleEnvelopeSupport (status/blocker/action/evidence/intent pure; console 1442→1195)
 
+- [x] StewardshipPriorityScoringSupport (scoreItem cluster pure; engine 1432→860; 26 unit/241)
 - [x] RivalsOneShot dimension credit Support
 - [x] ForgeProviderCapacityClassifier pure FSM
 - [x] ForgeFastPath lifecycle Support

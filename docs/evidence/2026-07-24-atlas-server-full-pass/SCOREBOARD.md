@@ -87,6 +87,7 @@
 | ProductModeOperationalInboxProjectionSupport | 16 unit / 163 asserts + 12 inbox path / 80 asserts; service 1088→309 |
 | ProductMode controls+receipt pure Supports | 33 unit / 291 asserts; controls 508→46; receipt 475→191; DateTimeZone import fix on StewardshipEvolutionClock |
 | FileAttachmentOfficeParseSupport | 7 unit / 69 asserts; host 1140→933; MIME/OCR-merge/OOXML/XLSX pure |
+| StewardshipPriorityScoringSupport | 26 unit / 241 asserts (9 pure Support + 17 host); engine 1432→860; score/type/band/lane/factory pure |
 
 ## Residual
 
