@@ -6,8 +6,7 @@ namespace App\Services\Ai;
 
 use App\Services\Ai\Context\AtlasContextRankingSystemService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use App\Services\Ai\Support\AiValueNormalizer;
-use App\Support\YesNo;
+use App\Services\Ai\OpenBrain\Support\ContextExpansionRenderSupport;
 
 final class AtlasOpenBrainContextExpansionService
 {
@@ -36,10 +35,10 @@ final class AtlasOpenBrainContextExpansionService
     {
         $handle = $this->handle((string) ($input['handle'] ?? ''));
         $objective = trim((string) ($input['objective'] ?? $input['task'] ?? $input['query'] ?? ''));
-        $workspace = $this->scalarString($input['workspace'] ?? null);
-        $taskType = $this->scalarString($input['task_type'] ?? null, 'dev');
-        $domain = $this->scalarString($input['domain'] ?? null, 'atlas');
-        $risk = $this->scalarString($input['risk_level'] ?? $input['risk'] ?? null, 'low');
+        $workspace = ContextExpansionRenderSupport::scalarString($input['workspace'] ?? null);
+        $taskType = ContextExpansionRenderSupport::scalarString($input['task_type'] ?? null, 'dev');
+        $domain = ContextExpansionRenderSupport::scalarString($input['domain'] ?? null, 'atlas');
+        $risk = ContextExpansionRenderSupport::scalarString($input['risk_level'] ?? $input['risk'] ?? null, 'low');
         $maxRefs = max(1, min(20, (int) ($input['max_refs'] ?? 6)));
         $budget = max(800, min(8000, (int) ($input['budget'] ?? 3200)));
 
@@ -59,12 +58,12 @@ final class AtlasOpenBrainContextExpansionService
 
         $payload += [
             'schema_version' => self::SCHEMA_VERSION,
-            'query' => $this->querySummary($objective, $workspace, $taskType, $domain, $risk),
+            'query' => ContextExpansionRenderSupport::querySummary($objective, $workspace, $taskType, $domain, $risk),
             'handle' => $handle,
-            'policy' => $this->policy(),
+            'policy' => ContextExpansionRenderSupport::policy(),
         ];
-        $payload['expansion_hash'] = MissionCanonicalHash::sha256($this->stableForHash($payload));
-        $payload['markdown'] = $this->renderMarkdown($payload);
+        $payload['expansion_hash'] = MissionCanonicalHash::sha256(ContextExpansionRenderSupport::stableForHash($payload));
+        $payload['markdown'] = ContextExpansionRenderSupport::renderMarkdown($payload);
 
         return $payload;
     }
@@ -91,7 +90,7 @@ final class AtlasOpenBrainContextExpansionService
         return [
             'id' => $handle,
             'action' => $action,
-            'source_type' => $this->normalizeSourceType($sourceType),
+            'source_type' => ContextExpansionRenderSupport::normalizeSourceType($sourceType),
             'quality_gate_hint' => $action === 'recheck'
                 ? 'required_source_recheck_before_implementation'
                 : 'targeted_context_expansion',
@@ -132,7 +131,7 @@ final class AtlasOpenBrainContextExpansionService
                 'excluded_ref_count' => count($excluded),
                 'ranking_status' => (string) ($ranking['status'] ?? 'unknown'),
                 'rerank_result_hash' => (string) ($ranking['rerank_result_hash'] ?? ''),
-                'recommended_next_action' => $this->nextAction($handle, $selected, $covered),
+                'recommended_next_action' => ContextExpansionRenderSupport::nextAction($handle, $selected, $covered),
             ],
             'warnings' => $covered ? [] : ['requested_source_not_covered_by_current_ranking'],
         ];
@@ -161,7 +160,11 @@ final class AtlasOpenBrainContextExpansionService
                 'sources_present' => $sourcesPresent,
                 'counts' => $counts,
                 'budget' => (array) ($pack['budget'] ?? []),
-                'markdown_excerpt' => $this->providerSafeMarkdownExcerpt((string) ($pack['markdown'] ?? ''), $objective, $budget),
+                'markdown_excerpt' => ContextExpansionRenderSupport::providerSafeMarkdownExcerpt(
+                    (string) ($pack['markdown'] ?? ''),
+                    $objective,
+                    $budget,
+                ),
                 'recommended_next_action' => 'Read owner docs or request a specific file-context before implementation.',
             ],
             'warnings' => array_values(array_filter([
@@ -186,7 +189,7 @@ final class AtlasOpenBrainContextExpansionService
 
         $symbols = collect((array) ($pack['code_graph'] ?? []))
             ->filter(static fn (mixed $item): bool => is_array($item) && (string) ($item['symbol_type'] ?? '') === 'test_method')
-            ->map(fn (array $item): array => $this->providerSafeCodeSymbol($item))
+            ->map(static fn (array $item): array => ContextExpansionRenderSupport::providerSafeCodeSymbol($item))
             ->values()
             ->take($maxRefs)
             ->all();
@@ -216,55 +219,10 @@ final class AtlasOpenBrainContextExpansionService
     {
         return collect($refs)
             ->filter(static fn (mixed $ref): bool => is_array($ref) && (string) ($ref['source_type'] ?? '') === $sourceType)
-            ->map(fn (array $ref): array => $this->providerSafeRef($ref))
+            ->map(static fn (array $ref): array => ContextExpansionRenderSupport::providerSafeRef($ref))
             ->values()
             ->take($limit)
             ->all();
-    }
-
-    /**
-     * @param  array<string,mixed>  $ref
-     * @return array<string,mixed>
-     */
-    private function providerSafeRef(array $ref): array
-    {
-        return array_filter([
-            'source_type' => $this->normalizeSourceType((string) ($ref['source_type'] ?? 'unknown')),
-            'source_ref_hash' => $this->scalarString($ref['source_ref_hash'] ?? null),
-            'score_total' => ($score = AiValueNormalizer::finiteFloatOrNull($ref['score_total'] ?? null)) === null
-                ? null
-                : round($score, 4),
-            'reasons' => $this->stringList($ref['reasons'] ?? []),
-            'score_components' => is_array($ref['score_components'] ?? null)
-                ? array_intersect_key((array) $ref['score_components'], array_flip([
-                    'schema_version',
-                    'semantic',
-                    'professional_rerank',
-                    'authority',
-                    'freshness',
-                    'graph',
-                    'privacy',
-                    'feedback_hint_delta',
-                ]))
-                : null,
-            'schema_version' => $this->scalarString($ref['schema_version'] ?? null),
-            'reason' => $this->scalarString($ref['reason'] ?? null),
-        ], static fn (mixed $value): bool => $value !== null && $value !== '' && $value !== []);
-    }
-
-    /**
-     * @param  array<string,mixed>  $item
-     * @return array<string,mixed>
-     */
-    private function providerSafeCodeSymbol(array $item): array
-    {
-        return array_filter([
-            'id' => $this->scalarString($item['id'] ?? null),
-            'symbol_type' => $this->scalarString($item['symbol_type'] ?? null),
-            'file_path' => $this->scalarString($item['file_path'] ?? null),
-            'signature' => $this->scalarString($item['signature'] ?? null),
-            'tokens' => isset($item['tokens']) ? (int) $item['tokens'] : null,
-        ], static fn (mixed $value): bool => $value !== null && $value !== '' && $value !== []);
     }
 
     /**
@@ -276,7 +234,7 @@ final class AtlasOpenBrainContextExpansionService
             'schema_version' => self::SCHEMA_VERSION,
             'status' => 'unsupported',
             'mode' => 'unsupported_source_type',
-            'query' => $this->querySummary($objective, $workspace, 'dev', 'atlas', 'low'),
+            'query' => ContextExpansionRenderSupport::querySummary($objective, $workspace, 'dev', 'atlas', 'low'),
             'handle' => $handle,
             'expansion' => [
                 'source_type' => (string) ($handle['source_type'] ?? ''),
@@ -285,181 +243,11 @@ final class AtlasOpenBrainContextExpansionService
                 'recommended_next_action' => 'Request a supported source type: evidence_replay, code_intelligence, memory_signals, vector_retrieval, test_symbols or canonical_doc.',
             ],
             'warnings' => [$reason],
-            'policy' => $this->policy(),
+            'policy' => ContextExpansionRenderSupport::policy(),
         ];
-        $payload['expansion_hash'] = MissionCanonicalHash::sha256($this->stableForHash($payload));
-        $payload['markdown'] = $this->renderMarkdown($payload);
+        $payload['expansion_hash'] = MissionCanonicalHash::sha256(ContextExpansionRenderSupport::stableForHash($payload));
+        $payload['markdown'] = ContextExpansionRenderSupport::renderMarkdown($payload);
 
         return $payload;
-    }
-
-    /**
-     * @return array<string,mixed>
-     */
-    private function querySummary(string $objective, ?string $workspace, string $taskType, string $domain, string $risk): array
-    {
-        return [
-            'objective_hash' => MissionCanonicalHash::sha256($objective),
-            'objective_length' => mb_strlen($objective),
-            'workspace_hash' => $workspace !== null ? MissionCanonicalHash::sha256($workspace) : null,
-            'workspace_label' => $workspace !== null ? basename($workspace) : null,
-            'task_type' => $taskType,
-            'domain' => $domain,
-            'risk_level' => $risk,
-        ];
-    }
-
-    /**
-     * @return array<string,bool>
-     */
-    private function policy(): array
-    {
-        return [
-            'provider_safe_only' => true,
-            'raw_text_exposed' => false,
-            'raw_docs_dumped' => false,
-            'raw_tests_dumped' => false,
-            'providers_invoked' => false,
-            'writes' => false,
-            'advisory_only' => true,
-        ];
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     * @return array<string,mixed>
-     */
-    private function stableForHash(array $payload): array
-    {
-        unset($payload['expansion_hash'], $payload['markdown']);
-
-        return $payload;
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function renderMarkdown(array $payload): string
-    {
-        $lines = [
-            '# Atlas Open Brain Context Expansion',
-            '- status: '.(string) ($payload['status'] ?? 'unknown'),
-            '- mode: '.(string) ($payload['mode'] ?? 'unknown'),
-            '- handle: '.(string) data_get($payload, 'handle.id', ''),
-            '- source_type: '.(string) data_get($payload, 'handle.source_type', 'unknown'),
-            '- policy: provider_safe_only=true; raw_text_exposed=false; raw_docs_dumped=false; raw_tests_dumped=false; providers_invoked=false; writes=false',
-        ];
-
-        $warnings = (array) ($payload['warnings'] ?? []);
-        if ($warnings !== []) {
-            $lines[] = '- warnings: '.implode(', ', array_map('strval', $warnings));
-        }
-
-        $expansion = (array) ($payload['expansion'] ?? []);
-        if (is_array($expansion['counts'] ?? null)) {
-            $counts = (array) $expansion['counts'];
-            $lines[] = '- counts: code_graph='.(int) ($counts['code_graph'] ?? 0)
-                .'; reality_graph_paths='.(int) ($counts['reality_graph_paths'] ?? 0)
-                .'; memory='.(int) ($counts['memory'] ?? 0);
-        }
-        if (isset($expansion['selected_ref_count'])) {
-            $lines[] = '- selected_refs: '.(int) $expansion['selected_ref_count']
-                .'; excluded_refs='.(int) ($expansion['excluded_ref_count'] ?? 0)
-                .'; required_source_covered='.(YesNo::trueFalse($expansion['required_source_covered'] ?? false));
-        }
-        if (isset($expansion['selected_symbol_count'])) {
-            $lines[] = '- selected_symbols: '.(int) $expansion['selected_symbol_count'];
-            foreach (array_slice((array) ($expansion['selected_symbols'] ?? []), 0, 6) as $symbol) {
-                if (! is_array($symbol)) {
-                    continue;
-                }
-                $lines[] = '- '.(string) ($symbol['id'] ?? '')
-                    .' ['.(string) ($symbol['file_path'] ?? 'n/a').']'
-                    .' type='.(string) ($symbol['symbol_type'] ?? 'n/a');
-            }
-        }
-        if (is_string($expansion['recommended_next_action'] ?? null)) {
-            $lines[] = '- next: '.$expansion['recommended_next_action'];
-        }
-        if (is_string($expansion['markdown_excerpt'] ?? null) && $expansion['markdown_excerpt'] !== '') {
-            $lines[] = '';
-            $lines[] = '## Compact Pack Excerpt';
-            $lines[] = $expansion['markdown_excerpt'];
-        }
-
-        return implode("\n", $lines);
-    }
-
-    /**
-     * @param  array<string,string>  $handle
-     * @param  array<int,array<string,mixed>>  $selected
-     */
-    private function nextAction(array $handle, array $selected, bool $covered): string
-    {
-        if ((string) ($handle['action'] ?? '') === 'recheck') {
-            return $covered
-                ? 'Use these provider-safe refs as the required source recheck before implementation.'
-                : 'Escalate before implementation; the requested required source was not covered.';
-        }
-
-        return $selected !== []
-            ? 'Use these refs as targeted expansion context and request file-context only for touched files.'
-            : 'Request a broader context pack or a specific file-context because no refs matched this source.';
-    }
-
-    private function normalizeSourceType(string $value): string
-    {
-        $value = str_replace('-', '_', strtolower(trim($value)));
-
-        return match ($value) {
-            'test', 'tests', 'test_method', 'test_methods' => 'test_symbols',
-            'doc', 'docs', 'doc_heading', 'doc_headings', 'doc_symbols' => 'canonical_doc',
-            default => $value,
-        };
-    }
-
-    private function scalarString(mixed $value, string $default = ''): string
-    {
-        return is_scalar($value) && trim((string) $value) !== '' ? trim((string) $value) : $default;
-    }
-
-    /**
-     * @return array<int,string>
-     */
-    private function stringList(mixed $value): array
-    {
-        if (is_scalar($value)) {
-            $value = [$value];
-        }
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return collect($value)
-            ->filter(static fn (mixed $item): bool => is_scalar($item) && trim((string) $item) !== '')
-            ->map(static fn (mixed $item): string => trim((string) $item))
-            ->unique()
-            ->values()
-            ->take(12)
-            ->all();
-    }
-
-    private function truncate(string $value, int $budget): string
-    {
-        $limit = max(800, min($budget, 8000));
-        if (mb_strlen($value) <= $limit) {
-            return $value;
-        }
-
-        return mb_substr($value, 0, $limit).'... [truncated]';
-    }
-
-    private function providerSafeMarkdownExcerpt(string $markdown, string $objective, int $budget): string
-    {
-        $markdown = $objective !== ''
-            ? str_replace($objective, '[objective redacted]', $markdown)
-            : $markdown;
-
-        return $this->truncate($markdown, $budget);
     }
 }
