@@ -34,6 +34,7 @@
 | AiPromptTextSupport peel | Awis/area memory prompt tests 4 green; builder →1589 |
 | YouTube isRetryable peel | 14 unit green; ingestion →1173 |
 | OpenBrain StableHash/TextNormalize supports | injection 1922→1874 thin wrappers; suite has pre-existing fails on HEAD |
+| YouTube audio/process helper peels | 14 unit green; ingestion →1140 |
 | Decide operationalDecision + executionGraph | 39 unit green |
 | LedgerReplay agent/decision/inbox/kernel/SI | 22 unit green per step |
 | stringOption variants + LoadsNamedJson | 3+2 unit green |
