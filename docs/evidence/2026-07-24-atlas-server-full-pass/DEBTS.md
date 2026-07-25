@@ -138,6 +138,7 @@
 - [x] CompletionAuditPowerScorecardSupport
 - [x] AiPromptInstructionSupport
 - [x] AiPromptAttachmentSupport
+- [x] ProductModeCockpitProjectionSupport
 - [x] ProgrammingConsoleEnvelopeSupport
 - [x] ProgrammingConsoleEnvelopeSupport (status/blocker/action/evidence/intent pure; console 1442→1195)
 
