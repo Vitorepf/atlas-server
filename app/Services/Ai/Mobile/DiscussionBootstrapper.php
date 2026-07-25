@@ -12,6 +12,8 @@ use Throwable;
 
 class DiscussionBootstrapper
 {
+    use MobileArrayHelper;
+
     public function __construct(
         private readonly AiGatewayService $gateway,
         private readonly AuditLogService $audit,
@@ -378,8 +380,4 @@ class DiscussionBootstrapper
             ?? $this->string(data_get($trace->job?->payload ?? [], 'error'));
     }
 
-    private function string(mixed $value): ?string
-    {
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 }

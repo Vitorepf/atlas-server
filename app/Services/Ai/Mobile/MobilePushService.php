@@ -16,6 +16,8 @@ use Throwable;
 
 class MobilePushService
 {
+    use MobileArrayHelper;
+
     private const EXPO_ENDPOINT = 'https://exp.host/--/api/v2/push/send';
 
     public function __construct(
@@ -884,8 +886,4 @@ class MobilePushService
         return false;
     }
 
-    private function string(mixed $value): ?string
-    {
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
 }
