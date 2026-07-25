@@ -185,6 +185,7 @@
 - [ ] PRE leave-Http (R103 staged)
 - [x] Suite filter fatal: EliteExecutorKernel mock eventById/latestForCorrelation tenant signatures
 - [x] RetrievalFeedbackLoopSupport pure cluster (miss/noise/ROI/attribution/policy/ref-normalize; host 1372→313; Support 1100; 12 Support unit / 222 + 13 host feature path / 116; capture+persist+ledger+resolvePriorMisses residual)
+- [x] AtlasCodeAskPhraseSupport pure residual (phrase/parse/ago/window/shape/zone; host 1420→1108; Support 539; 11 Support unit / 163 + 40 host path / 85 = 51/248 package; answer/git/Process/violations/brain/review residual)
 
 ### Floors (do not rush)
 
