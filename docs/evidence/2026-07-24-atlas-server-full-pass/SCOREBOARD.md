@@ -90,7 +90,8 @@
 | StewardshipPriorityScoringSupport | 26 unit / 241 asserts (9 pure Support + 17 host); engine 1432→860; score/type/band/lane/factory pure |
 | FrontendDesignRuntimeContractSupport | 7 Support unit + 3 host path / 303 asserts; host 1434→1108; signals/gates/evidence/scorecard/variant/live pure |
 | StewardshipPriorityBacklogMaterializationSupport | 10 Support unit + 17 host path / 241 asserts; engine 860→467; rebalance/unlock/replenish/report pure |
+| FrontendDesignRuntime pure static sub-contracts residual | 9 Support unit + 3 host path / 426 asserts; host 1108→670; gauntlet/blueprint/runbook/work-order/scenarios/evidence/gate/handoff/outcome pure (no app()) |
 
 ## Residual
 
-PRE leave Http (R103 staged) · floors RSI/TaskQueue · CompletionAudit cert FS residual · HubDelegators true map+__call · suite filter pre-existing EliteExecutor mock (unrelated when filter broad)
+PRE leave Http (R103 staged) · floors RSI/TaskQueue · CompletionAudit cert FS residual · HubDelegators true map+__call · DesignRuntime certify FS residual (routes/api.php + rival harness needles pre-existing) · app()-backed DesignRuntime nested contracts residual · PriorityEngine context-quality boost residual · suite filter pre-existing EliteExecutor mock (unrelated when filter broad)

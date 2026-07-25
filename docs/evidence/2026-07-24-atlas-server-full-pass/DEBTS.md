@@ -153,6 +153,7 @@
 - [x] StewardshipPriorityScoringSupport (scoreItem cluster pure; engine 1432→860; 26 unit/241)
 - [x] StewardshipPriorityBacklogMaterializationSupport (terminal rebalance/unlock/replenish/report pure; engine 860→467; 10 Support unit + 17 host path; 27/241)
 - [x] FrontendDesignRuntimeContractSupport (signals/gates/evidence/scorecard/variant/live pure; host 1434→1108; 7 unit Support + 3 host path green)
+- [x] FrontendDesignRuntime pure static sub-contracts residual (gauntlet/blueprint/runbook/work-order/packet/scenarios/evidence/gate/cert/handoff/outcome; host 1108→670; Support 354→807; 9 unit + 3 host / 426; no app())
 - [x] RivalsOneShot dimension credit Support
 - [x] ForgeProviderCapacityClassifier pure FSM
 - [x] ForgeFastPath lifecycle Support

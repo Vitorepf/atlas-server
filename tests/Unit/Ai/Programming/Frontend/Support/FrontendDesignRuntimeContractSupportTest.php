@@ -5,6 +5,21 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\Programming\Frontend\Support;
 
 use App\Services\Ai\Programming\Frontend\AtlasFrontendDesignSystemInventoryService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendDeliveryHandoffService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendEnterpriseBootstrapService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendEvidenceKitService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendExecutionGateService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendExecutionRunbookService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendGauntletService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendOutcomeMemoryService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendPrivateBenchmarkProofPlanService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendProductBlueprintService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendProviderInstructionPacketService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendRepoIntakeService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendRunCertificationService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendScenarioMatrixService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendWorkOrderService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendWorldBestProofPlanService;
 use App\Services\Ai\Programming\Frontend\Support\FrontendDesignRuntimeContractSupport as Support;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -38,6 +53,21 @@ final class FrontendDesignRuntimeContractSupportTest extends TestCase
         'variantStrategy',
         'designSystemInventoryContract',
         'liveIterationContract',
+        'productBlueprintContract',
+        'enterpriseBootstrapContract',
+        'gauntletContract',
+        'workOrderContract',
+        'executionRunbookContract',
+        'providerInstructionPacketContract',
+        'scenarioMatrixContract',
+        'evidenceKitContract',
+        'privateBenchmarkProofPlanContract',
+        'worldBestProofPlanContract',
+        'repoIntakeContract',
+        'executionGateContract',
+        'runCertificationContract',
+        'deliveryHandoffContract',
+        'outcomeMemoryContract',
         'containsAny',
     ];
 
@@ -71,6 +101,21 @@ final class FrontendDesignRuntimeContractSupportTest extends TestCase
             'variantStrategy',
             'designSystemInventoryContract',
             'liveIterationContract',
+            'productBlueprintContract',
+            'enterpriseBootstrapContract',
+            'gauntletContract',
+            'workOrderContract',
+            'executionRunbookContract',
+            'providerInstructionPacketContract',
+            'scenarioMatrixContract',
+            'evidenceKitContract',
+            'privateBenchmarkProofPlanContract',
+            'worldBestProofPlanContract',
+            'repoIntakeContract',
+            'executionGateContract',
+            'runCertificationContract',
+            'deliveryHandoffContract',
+            'outcomeMemoryContract',
         ] as $method) {
             $this->assertStringContainsString(
                 'FrontendDesignRuntimeContractSupport::'.$method,
@@ -206,5 +251,124 @@ final class FrontendDesignRuntimeContractSupportTest extends TestCase
     {
         $this->assertTrue(Support::containsAny('frontend layout screen', ['ui', 'layout']));
         $this->assertFalse(Support::containsAny('backend only', ['frontend', 'ui']));
+    }
+
+    #[Test]
+    public function pure_static_sub_contracts_project_without_app_or_fs(): void
+    {
+        $blueprint = Support::productBlueprintContract();
+        $this->assertSame(AtlasFrontendProductBlueprintService::SCHEMA_VERSION, $blueprint['schema_version']);
+        $this->assertSame('required_for_premium_or_new_product_frontend', $blueprint['status']);
+        $this->assertContains('ux_success_model', $blueprint['covers']);
+        $this->assertTrue($blueprint['claim_policy']['premium_frontend_work_requires_blueprint']);
+        $this->assertFalse($blueprint['claim_policy']['world_best_claim_allowed']);
+
+        $gauntlet = Support::gauntletContract();
+        $this->assertSame(AtlasFrontendGauntletService::SCHEMA_VERSION, $gauntlet['schema_version']);
+        $this->assertSame('recommended_entrypoint_for_local_company_repos', $gauntlet['status']);
+        $this->assertContains('company_design_dossier', $gauntlet['composes']);
+        $this->assertTrue($gauntlet['claim_policy']['premium_frontend_claim_requires_ready_gauntlet']);
+
+        $workOrder = Support::workOrderContract();
+        $this->assertSame(AtlasFrontendWorkOrderService::SCHEMA_VERSION, $workOrder['schema_version']);
+        $this->assertContains('visual_quality_verification', $workOrder['packets']);
+        $this->assertTrue($workOrder['claim_policy']['provider_dispatch_requires_ready_work_order']);
+
+        $runbook = Support::executionRunbookContract();
+        $this->assertSame(AtlasFrontendExecutionRunbookService::SCHEMA_VERSION, $runbook['schema_version']);
+        $this->assertContains('customer_safe_handoff', $runbook['covers']);
+        $this->assertTrue($runbook['claim_policy']['runbook_is_not_execution_evidence']);
+
+        $packet = Support::providerInstructionPacketContract();
+        $this->assertSame(AtlasFrontendProviderInstructionPacketService::SCHEMA_VERSION, $packet['schema_version']);
+        $this->assertContains('forbidden_provider_behaviors', $packet['binds']);
+
+        $scenarios = Support::scenarioMatrixContract();
+        $this->assertSame(AtlasFrontendScenarioMatrixService::SCHEMA_VERSION, $scenarios['schema_version']);
+        $this->assertContains('states', $scenarios['covers']);
+        $this->assertTrue($scenarios['claim_policy']['visual_done_requires_scenario_matrix_evidence']);
+
+        $kit = Support::evidenceKitContract();
+        $this->assertSame(AtlasFrontendEvidenceKitService::SCHEMA_VERSION, $kit['schema_version']);
+        $this->assertContains('run_certification_command', $kit['prepares']);
+
+        $bootstrap = Support::enterpriseBootstrapContract();
+        $this->assertSame(AtlasFrontendEnterpriseBootstrapService::SCHEMA_VERSION, $bootstrap['schema_version']);
+        $this->assertContains('new_saas_or_product_creation', $bootstrap['company_modes']);
+
+        $intake = Support::repoIntakeContract();
+        $this->assertSame(AtlasFrontendRepoIntakeService::SCHEMA_VERSION, $intake['schema_version']);
+        $this->assertContains('framework_adapter', $intake['covers']);
+
+        $gate = Support::executionGateContract();
+        $this->assertSame(AtlasFrontendExecutionGateService::SCHEMA_VERSION, $gate['schema_version']);
+        $this->assertTrue($gate['claim_policy']['provider_dispatch_requires_matching_task_spec_hash']);
+        $this->assertContains('acceptance_criteria', $gate['blocks_provider_dispatch_when_missing']);
+
+        $runCert = Support::runCertificationContract();
+        $this->assertSame(AtlasFrontendRunCertificationService::SCHEMA_VERSION, $runCert['schema_version']);
+        $this->assertContains('outcome_memory_record', $runCert['required_evidence']);
+        $this->assertTrue($runCert['claim_policy']['frontend_completion_claim_requires_run_certification']);
+
+        $handoff = Support::deliveryHandoffContract();
+        $this->assertSame(AtlasFrontendDeliveryHandoffService::SCHEMA_VERSION, $handoff['schema_version']);
+        $this->assertContains('publication_attestation', $handoff['required_evidence']);
+        $this->assertTrue($handoff['claim_policy']['local_publication_report_is_not_public_distribution']);
+
+        $outcome = Support::outcomeMemoryContract();
+        $this->assertSame(AtlasFrontendOutcomeMemoryService::SCHEMA_VERSION, $outcome['schema_version']);
+        $this->assertContains('doctrine_effectiveness', $outcome['records']);
+        $this->assertTrue($outcome['claim_policy']['frontend_learning_requires_outcome_record']);
+
+        $private = Support::privateBenchmarkProofPlanContract();
+        $this->assertSame(AtlasFrontendPrivateBenchmarkProofPlanService::SCHEMA_VERSION, $private['schema_version']);
+        $this->assertTrue($private['claim_policy']['private_benchmark_for_internal_improvement_only']);
+        $this->assertFalse($private['claim_policy']['world_best_claim_allowed']);
+
+        $world = Support::worldBestProofPlanContract();
+        $this->assertSame(AtlasFrontendWorldBestProofPlanService::SCHEMA_VERSION, $world['schema_version']);
+        $this->assertSame('private_benchmark_proof_plan_contract', $world['canonical_replacement']);
+        $this->assertContains('external_rival_replay', $world['required_proof_streams']);
+    }
+
+    #[Test]
+    public function pure_support_sub_contract_source_has_no_app_or_file_io(): void
+    {
+        $root = dirname(__DIR__, 6);
+        $src = (string) file_get_contents($root.'/'.self::SUPPORT_PATH);
+
+        foreach ([
+            'productBlueprintContract',
+            'enterpriseBootstrapContract',
+            'gauntletContract',
+            'workOrderContract',
+            'executionRunbookContract',
+            'providerInstructionPacketContract',
+            'scenarioMatrixContract',
+            'evidenceKitContract',
+            'privateBenchmarkProofPlanContract',
+            'worldBestProofPlanContract',
+            'repoIntakeContract',
+            'executionGateContract',
+            'runCertificationContract',
+            'deliveryHandoffContract',
+            'outcomeMemoryContract',
+        ] as $method) {
+            $this->assertMatchesRegularExpression(
+                '/public static function '.$method.'\(/',
+                $src,
+                "Support must declare pure static {$method}",
+            );
+        }
+
+        // Runtime DI/FS only — docblocks may mention "app()" as a purity constraint.
+        $this->assertDoesNotMatchRegularExpression(
+            '/(?<![\w\'"\/])app\s*\(\s*[\\\\\'"A-Za-z_]/',
+            $src,
+            'Support must not call app() at runtime',
+        );
+        $this->assertStringNotContainsString('File::', $src, 'Support must not use File facade');
+        $this->assertStringNotContainsString('base_path(', $src, 'Support must not touch FS via base_path');
+        $this->assertStringNotContainsString('storage_path(', $src, 'Support must not touch storage_path');
     }
 }

@@ -5,6 +5,21 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\Frontend\Support;
 
 use App\Services\Ai\Programming\Frontend\AtlasFrontendDesignSystemInventoryService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendDeliveryHandoffService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendEnterpriseBootstrapService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendEvidenceKitService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendExecutionGateService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendExecutionRunbookService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendGauntletService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendOutcomeMemoryService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendPrivateBenchmarkProofPlanService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendProductBlueprintService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendProviderInstructionPacketService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendRepoIntakeService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendRunCertificationService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendScenarioMatrixService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendWorkOrderService;
+use App\Services\Ai\Programming\Frontend\AtlasFrontendWorldBestProofPlanService;
 use App\Services\Ai\Support\AiTextMatcher;
 
 /**
@@ -12,9 +27,9 @@ use App\Services\Ai\Support\AiTextMatcher;
  * {@see \App\Services\Ai\Programming\Frontend\AtlasFrontendDesignRuntimeService}.
  *
  * Signals, output types, capabilities, gates, evidence, scorecard, blockers,
- * warnings, quality rules, variant strategy, and pure static sub-contracts only.
- * No FS, no app()/DI, no provider I/O — host keeps certify() FS checks and
- * app()-backed nested contracts.
+ * warnings, quality rules, variant strategy, and pure static sub-contracts
+ * (gauntlet/blueprint/runbook/etc without app()). No FS, no app()/DI, no
+ * provider I/O — host keeps certify() FS checks and app()-backed nested contracts.
  */
 final class FrontendDesignRuntimeContractSupport
 {
@@ -341,6 +356,444 @@ final class FrontendDesignRuntimeContractSupport
             'browser_pick_event_schema' => 'atlas.frontend.browser_pick_event.v1',
             'live_preview_event_schema' => 'atlas.frontend.live_preview_event.v1',
             'evidence_required' => ['event_journal', 'selected_element_fingerprint', 'preview_variant_event', 'accepted_variant_diff', 'visual_smoke_after_accept'],
+        ];
+    }
+
+
+    /**
+     * @return array<string,mixed>
+     */
+    public static function productBlueprintContract(): array
+    {
+        return [
+            'schema_version' => AtlasFrontendProductBlueprintService::SCHEMA_VERSION,
+            'status' => 'required_for_premium_or_new_product_frontend',
+            'runtime' => 'AtlasFrontendProductBlueprintService',
+            'command' => 'php artisan atlas:frontend:blueprint generate --task="<intent>" --workspace=<local-company-repo> --json',
+            'write_command' => 'php artisan atlas:frontend:blueprint write --task="<intent>" --workspace=<local-company-repo> --json',
+            'covers' => [
+                'product_model',
+                'ux_success_model',
+                'screen_blueprint',
+                'visual_strategy',
+                'acceptance_blueprint',
+                'evidence_map',
+            ],
+            'claim_policy' => [
+                'premium_frontend_work_requires_blueprint' => true,
+                'blueprint_is_not_completion_evidence' => true,
+                'raw_customer_source_returned' => false,
+                'world_best_claim_allowed' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public static function enterpriseBootstrapContract(): array
+    {
+        return [
+            'schema_version' => AtlasFrontendEnterpriseBootstrapService::SCHEMA_VERSION,
+            'status' => 'default_entrypoint_for_company_owned_local_repos',
+            'runtime' => 'AtlasFrontendEnterpriseBootstrapService',
+            'command' => 'php artisan atlas:frontend:enterprise-bootstrap inspect --task="<intent>" --workspace=<local-company-repo> --json --strict',
+            'write_command' => 'php artisan atlas:frontend:enterprise-bootstrap write --task="<intent>" --workspace=<local-company-repo> --json',
+            'covers' => [
+                'design_dossier_template_or_readiness',
+                'product_blueprint_document',
+                'repo_intake',
+                'gauntlet',
+                'work_order',
+                'provider_dispatch_policy',
+            ],
+            'company_modes' => [
+                'existing_company_blackink_refinement',
+                'existing_company_refinar_refinement',
+                'new_saas_or_product_creation',
+                'existing_company_premium_redesign',
+                'company_frontend_product_work',
+            ],
+            'claim_policy' => [
+                'enterprise_bootstrap_is_not_completion_evidence' => true,
+                'template_docs_do_not_count_as_ready_context' => true,
+                'provider_dispatch_requires_ready_work_order' => true,
+                'raw_customer_source_returned' => false,
+                'world_best_claim_allowed' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public static function gauntletContract(): array
+    {
+        return [
+            'schema_version' => AtlasFrontendGauntletService::SCHEMA_VERSION,
+            'status' => 'recommended_entrypoint_for_local_company_repos',
+            'runtime' => 'AtlasFrontendGauntletService',
+            'command' => 'php artisan atlas:frontend:gauntlet --task="<intent>" --workspace=<local-company-repo> --json --strict',
+            'composes' => [
+                'runtime_contract',
+                'task_spec',
+                'pre_execution_gate',
+                'company_design_dossier',
+                'repo_intake',
+                'design_system_inventory',
+                'runtime_certification',
+            ],
+            'claim_policy' => [
+                'provider_dispatch_requires_gauntlet_not_blocked' => true,
+                'premium_frontend_claim_requires_ready_gauntlet' => true,
+                'world_best_claim_allowed' => false,
+                'raw_customer_source_returned' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public static function workOrderContract(): array
+    {
+        return [
+            'schema_version' => AtlasFrontendWorkOrderService::SCHEMA_VERSION,
+            'status' => 'required_before_provider_dispatch_for_company_repo_work',
+            'runtime' => 'AtlasFrontendWorkOrderService',
+            'command' => 'php artisan atlas:frontend:work-order --task="<intent>" --workspace=<local-company-repo> --acceptance --test-plan --visual-quality-plan --evidence-plan --json --strict',
+            'packets' => [
+                'repo_context_lock',
+                'implementation_patch_or_prototype',
+                'visual_quality_verification',
+                'certified_handoff',
+            ],
+            'claim_policy' => [
+                'provider_dispatch_requires_ready_work_order' => true,
+                'work_order_is_not_completion_evidence' => true,
+                'premium_claim_requires_all_packets_evidenced' => true,
+                'world_best_claim_allowed' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public static function executionRunbookContract(): array
+    {
+        return [
+            'schema_version' => AtlasFrontendExecutionRunbookService::SCHEMA_VERSION,
+            'status' => 'recommended_before_operator_or_agent_execution',
+            'runtime' => 'AtlasFrontendExecutionRunbookService',
+            'command' => 'php artisan atlas:frontend:runbook --task="<intent>" --workspace=<local-company-repo> --acceptance --test-plan --visual-quality-plan --evidence-plan --json --strict',
+            'covers' => [
+                'repo_context_preflight',
+                'repo_native_install_and_dev_server',
+                'repo_native_quality_test_build_commands',
+                'evidence_kit_collection',
+                'run_certification',
+                'customer_safe_handoff',
+                'private_benchmark_and_optional_publication_proof',
+            ],
+            'claim_policy' => [
+                'runbook_is_not_execution_evidence' => true,
+                'commands_must_be_run_in_operator_repo' => true,
+                'completion_requires_run_certification_and_handoff' => true,
+                'public_distribution_requires_publication_attestation' => true,
+                'public_distribution_claim_requires_verified_receipt' => true,
+                'public_distribution_step_is_not_required_for_customer_handoff' => true,
+                'raw_customer_source_returned' => false,
+                'world_best_claim_allowed' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public static function providerInstructionPacketContract(): array
+    {
+        return [
+            'schema_version' => AtlasFrontendProviderInstructionPacketService::SCHEMA_VERSION,
+            'status' => 'required_before_provider_dispatch_for_premium_frontend_work',
+            'runtime' => 'AtlasFrontendProviderInstructionPacketService',
+            'command' => 'php artisan atlas:frontend:provider-packet --task="<intent>" --workspace=<local-company-repo> --provider=<provider> --acceptance --test-plan --visual-quality-plan --evidence-plan --json --strict',
+            'binds' => [
+                'pre_execution_gate',
+                'work_order',
+                'execution_runbook',
+                'provider_mandates',
+                'forbidden_provider_behaviors',
+            ],
+            'claim_policy' => [
+                'provider_packet_is_not_execution_evidence' => true,
+                'provider_must_return_receipts_not_claims' => true,
+                'completion_requires_run_certification_handoff_and_outcome' => true,
+                'raw_customer_source_returned' => false,
+                'world_best_claim_allowed' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public static function scenarioMatrixContract(): array
+    {
+        return [
+            'schema_version' => AtlasFrontendScenarioMatrixService::SCHEMA_VERSION,
+            'status' => 'required_before_visual_quality_verification',
+            'runtime' => 'AtlasFrontendScenarioMatrixService',
+            'command' => 'php artisan atlas:frontend:scenarios --task="<intent>" --workspace=<local-company-repo> --acceptance --json --strict',
+            'covers' => [
+                'routes',
+                'viewports',
+                'states',
+                'required_checks_per_scenario',
+                'task_spec_hash',
+            ],
+            'claim_policy' => [
+                'visual_done_requires_scenario_matrix_evidence' => true,
+                'scenario_matrix_is_not_completion_evidence' => true,
+                'raw_customer_source_returned' => false,
+                'world_best_claim_allowed' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public static function evidenceKitContract(): array
+    {
+        return [
+            'schema_version' => AtlasFrontendEvidenceKitService::SCHEMA_VERSION,
+            'status' => 'required_before_real_visual_evidence_collection',
+            'runtime' => 'AtlasFrontendEvidenceKitService',
+            'command' => 'php artisan atlas:frontend:evidence-kit prepare --task="<intent>" --workspace=<local-company-repo> --acceptance --output=<evidence-dir> --json --strict',
+            'prepares' => [
+                'scenario_matrix',
+                'visual_quality_report',
+                'quality_budget_report',
+                'design_5d_review',
+                'evidence_pack_manifest',
+                'outcome_record_template',
+                'run_certification_command',
+            ],
+            'claim_policy' => [
+                'evidence_kit_is_not_completion_evidence' => true,
+                'templates_must_be_replaced_with_measured_artifacts' => true,
+                'completion_requires_run_certification' => true,
+                'raw_customer_source_returned' => false,
+                'world_best_claim_allowed' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public static function privateBenchmarkProofPlanContract(): array
+    {
+        return [
+            'schema_version' => AtlasFrontendPrivateBenchmarkProofPlanService::SCHEMA_VERSION,
+            'status' => 'required_for_private_competitive_improvement_loop',
+            'runtime' => 'AtlasFrontendPrivateBenchmarkProofPlanService',
+            'command' => 'php artisan atlas:frontend:private-benchmark-plan --rival-evidence=<dir> --bundle=<bundle> --publication-receipt=<receipt> --json --strict',
+            'reuses_legacy_runtime_for_projection_only' => 'AtlasFrontendWorldBestProofPlanService',
+            'required_proof_streams' => [
+                'external_rival_replay',
+                'operator_packet_verification',
+                'score_attestation',
+                'private_outcome_memory',
+            ],
+            'optional_proof_streams' => [
+                'publication_receipt_for_audit',
+            ],
+            'claim_policy' => [
+                'private_benchmark_for_internal_improvement_only' => true,
+                'public_superiority_claims_disabled' => true,
+                'world_best_claim_allowed' => false,
+                'may_claim_more_complete_than_impeccable' => false,
+                'may_claim_more_complete_than_claude_design_plugin' => false,
+                'documentation_only_claim_forbidden' => true,
+                'raw_prompt_source_customer_data_forbidden' => true,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public static function worldBestProofPlanContract(): array
+    {
+        return [
+            'schema_version' => AtlasFrontendWorldBestProofPlanService::SCHEMA_VERSION,
+            'status' => 'legacy_compatibility_only_not_operator_default',
+            'runtime' => 'AtlasFrontendWorldBestProofPlanService',
+            'command' => 'php artisan atlas:frontend:world-best-plan --rival-evidence=<dir> --bundle=<bundle> --publication-receipt=<receipt> --json --strict',
+            'canonical_replacement' => 'private_benchmark_proof_plan_contract',
+            'required_proof_streams' => [
+                'external_rival_replay',
+                'public_product_distribution',
+                'publication_attestation',
+                'claim_audit',
+            ],
+            'claim_policy' => [
+                'world_best_claim_requires_proof_plan_ready' => true,
+                'world_best_claim_requires_external_rival_replay' => true,
+                'world_best_claim_requires_public_distribution_receipt' => true,
+                'local_publication_report_is_not_public_distribution' => true,
+                'documentation_only_claim_forbidden' => true,
+                'raw_prompt_source_customer_data_forbidden' => true,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public static function repoIntakeContract(): array
+    {
+        return [
+            'schema_version' => AtlasFrontendRepoIntakeService::SCHEMA_VERSION,
+            'status' => 'required_for_local_company_repo_execution',
+            'runtime' => 'AtlasFrontendRepoIntakeService',
+            'command' => 'php artisan atlas:frontend:intake --workspace=<local-company-repo> --json --strict',
+            'covers' => [
+                'package_manager',
+                'framework_adapter',
+                'entrypoints',
+                'route_candidates',
+                'test_commands',
+                'build_commands',
+                'quality_commands',
+                'design_dossier_status',
+                'design_system_inventory_status',
+            ],
+            'claim_policy' => [
+                'provider_can_start_with_repo_map' => true,
+                'repo_intake_is_not_completion_evidence' => true,
+                'raw_customer_source_returned' => false,
+                'world_best_claim_allowed' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public static function executionGateContract(): array
+    {
+        return [
+            'schema_version' => AtlasFrontendExecutionGateService::SCHEMA_VERSION,
+            'status' => 'required',
+            'runtime' => 'AtlasFrontendExecutionGateService',
+            'command' => 'php artisan atlas:frontend:gate --task="<intent>" --task-spec-hash=<hash> --workspace=<workspace> --acceptance --test-plan --visual-quality-plan --evidence-plan --json --strict',
+            'blocks_provider_dispatch_when_missing' => [
+                'task',
+                'matching_task_spec_hash_when_declared',
+                'acceptance_criteria',
+                'test_plan',
+                'visual_quality_plan',
+                'evidence_plan',
+                'design_system_inventory_or_company_profile_for_broad_work',
+                'senior_design_review_for_broad_work',
+            ],
+            'claim_policy' => [
+                'provider_dispatch_requires_gate_not_blocked' => true,
+                'provider_dispatch_requires_matching_task_spec_hash' => true,
+                'completion_claim_still_requires_evidence_gates' => true,
+                'world_best_claim_allowed' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public static function runCertificationContract(): array
+    {
+        return [
+            'schema_version' => AtlasFrontendRunCertificationService::SCHEMA_VERSION,
+            'status' => 'required_before_completion_claim',
+            'runtime' => 'AtlasFrontendRunCertificationService',
+            'command' => 'php artisan atlas:frontend:run-certify --provider-packet=<provider-packet> --visual-report=<report> --design-review-report=<report> --quality-budget-report=<report> --evidence-manifest=<manifest> --json --strict',
+            'required_evidence' => [
+                'visual_quality_report',
+                'provider_instruction_packet',
+                'provider_execution_guardrails',
+                'design_5d_review',
+                'quality_budget_report',
+                'evidence_pack',
+                'artifact_hashes',
+                'outcome_memory_record',
+            ],
+            'claim_policy' => [
+                'frontend_completion_claim_requires_run_certification' => true,
+                'frontend_completion_claim_requires_outcome_memory' => true,
+                'frontend_completion_claim_requires_quality_budget' => true,
+                'frontend_completion_claim_requires_provider_instruction_packet' => true,
+                'frontend_completion_claim_requires_provider_execution_guardrails' => true,
+                'public_distribution_claim_requires_publication_receipt' => true,
+                'world_best_claim_allowed' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public static function deliveryHandoffContract(): array
+    {
+        return [
+            'schema_version' => AtlasFrontendDeliveryHandoffService::SCHEMA_VERSION,
+            'status' => 'required_for_customer_or_enterprise_handoff',
+            'runtime' => 'AtlasFrontendDeliveryHandoffService',
+            'command' => 'php artisan atlas:frontend:handoff compile --run-certification=<report> --evidence-manifest=<manifest> --json --strict',
+            'required_evidence' => [
+                'run_certification_hash',
+                'task_spec_hash',
+                'evidence_manifest',
+                'publication_attestation',
+                'claim_policy',
+                'known_limitations',
+            ],
+            'claim_policy' => [
+                'customer_handoff_requires_run_certification' => true,
+                'customer_handoff_requires_matching_task_spec_hash' => true,
+                'local_publication_report_is_not_public_distribution' => true,
+                'public_distribution_requires_verified_publication_report' => true,
+                'world_best_claim_allowed' => false,
+                'raw_customer_source_returned' => false,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public static function outcomeMemoryContract(): array
+    {
+        return [
+            'schema_version' => AtlasFrontendOutcomeMemoryService::SCHEMA_VERSION,
+            'status' => 'required_after_execution',
+            'runtime' => 'AtlasFrontendOutcomeMemoryService',
+            'command' => 'php artisan atlas:frontend:outcomes record --status=<passed|failed|blocked> --driver=<driver> --gate=<gate> --evidence-ref=<ref> --json',
+            'records' => [
+                'selected_drivers',
+                'gates',
+                'failed_gates',
+                'evidence_refs',
+                'doctrine_effectiveness',
+                'safe_aemor_projection',
+            ],
+            'claim_policy' => [
+                'frontend_learning_requires_outcome_record' => true,
+                'policy_change_requires_human_review' => true,
+                'raw_customer_source_returned' => false,
+            ],
         ];
     }
 
