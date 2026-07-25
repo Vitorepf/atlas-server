@@ -2,8 +2,7 @@
 
 namespace App\Services\Ai\SelfImprovement;
 
-use Carbon\CarbonImmutable;
-use App\Support\CanonicalValue;
+use App\Services\Ai\SelfImprovement\Support\SelfImprovementScheduleMath;
 
 class AtlasSelfImprovementScheduleService
 {
@@ -23,7 +22,7 @@ class AtlasSelfImprovementScheduleService
         $invalidFlows = [];
 
         foreach ($configuredFlows as $configuredFlow) {
-            $normalizedFlow = $this->normalizeFlow($configuredFlow);
+            $normalizedFlow = SelfImprovementScheduleMath::normalizeFlow($configuredFlow);
 
             if ($normalizedFlow === null) {
                 if (trim($configuredFlow) !== '') {
@@ -45,19 +44,24 @@ class AtlasSelfImprovementScheduleService
         }
 
         $commands = collect($flows)
-            ->map(fn (string $flow): array => [
-                'flow' => $flow,
-                'command' => $this->commandForFlow($flow),
-                'time' => $time,
-                'cadence' => $this->cadenceForFlow($flow),
-                'week_day' => $this->weekDayForFlow($flow),
-                'next_run_at' => $this->nextRunAtForCommand(
-                    time: $time,
-                    timezone: $timezone,
-                    cadence: $this->cadenceForFlow($flow),
-                    weekDay: $this->weekDayForFlow($flow),
-                ),
-            ])
+            ->map(function (string $flow) use ($time, $timezone): array {
+                $cadence = SelfImprovementScheduleMath::cadenceForFlow($flow);
+                $weekDay = SelfImprovementScheduleMath::weekDayForFlow($flow);
+
+                return [
+                    'flow' => $flow,
+                    'command' => $this->commandForFlow($flow),
+                    'time' => $time,
+                    'cadence' => $cadence,
+                    'week_day' => $weekDay,
+                    'next_run_at' => SelfImprovementScheduleMath::nextRunAtForCommand(
+                        time: $time,
+                        timezone: $timezone,
+                        cadence: $cadence,
+                        weekDay: $weekDay,
+                    ),
+                ];
+            })
             ->values()
             ->all();
 
@@ -67,22 +71,22 @@ class AtlasSelfImprovementScheduleService
             'enabled' => (bool) config('atlas_ai.self_improvement.enabled', false),
             'time' => $time,
             'timezone' => $timezone,
-            'next_run_at' => $this->nextRunAt($time, $timezone),
+            'next_run_at' => SelfImprovementScheduleMath::nextRunAtForCommand($time, $timezone, 'daily', null),
             'configured_flows' => $configuredFlows,
             'invalid_flows' => array_values(array_unique($invalidFlows)),
             'defaulted' => $defaulted,
             'flows' => $flows,
             'commands' => $commands,
             'count' => count($commands),
-            'cadence_counts' => $this->cadenceCounts($commands),
+            'cadence_counts' => SelfImprovementScheduleMath::cadenceCounts($commands),
             'emit' => (bool) config('atlas_ai.self_improvement.emit', false),
         ];
 
         $plan['health'] = $this->healthForPlan($plan);
-        $plan['schedulable'] = $this->isSchedulable($plan);
+        $plan['schedulable'] = SelfImprovementScheduleMath::isSchedulable($plan);
         $plan['scheduler_registration'] = $this->schedulerRegistrationForPlan($plan);
         $plan['plan_hash_algorithm'] = 'sha256';
-        $plan['plan_hash'] = $this->planHash($plan);
+        $plan['plan_hash'] = SelfImprovementScheduleMath::planHash($plan);
 
         return $plan;
     }
@@ -177,22 +181,6 @@ class AtlasSelfImprovementScheduleService
         ));
     }
 
-    private function normalizeFlow(string $flow): ?string
-    {
-        $flow = trim($flow);
-        if ($flow === '') {
-            return null;
-        }
-
-        if (str_starts_with($flow, 'self_improvement.')) {
-            $flow = substr($flow, strlen('self_improvement.'));
-        }
-
-        return in_array('self_improvement.'.$flow, AtlasSelfImprovementOrchestrator::SUPPORTED_FLOWS, true)
-            ? $flow
-            : null;
-    }
-
     private function commandForFlow(string $flow): string
     {
         $command = 'atlas:ai:self-improve'
@@ -208,27 +196,6 @@ class AtlasSelfImprovementScheduleService
         return $command;
     }
 
-    private function cadenceForFlow(string $flow): string
-    {
-        return $flow === 'weekly_architecture_audit' ? 'weekly' : 'daily';
-    }
-
-    private function weekDayForFlow(string $flow): ?int
-    {
-        return $this->cadenceForFlow($flow) === 'weekly' ? 1 : null;
-    }
-
-    /**
-     * @param  array<int,array{cadence:string}>  $commands
-     * @return array<string,int>
-     */
-    private function cadenceCounts(array $commands): array
-    {
-        return collect($commands)
-            ->countBy(fn (array $command): string => $command['cadence'])
-            ->all();
-    }
-
     private function hours(): int
     {
         return $this->input->reviewWindowHours(config('atlas_ai.self_improvement.hours', AtlasSelfImprovementRuntime::DEFAULT_REVIEW_WINDOW_HOURS));
@@ -237,17 +204,6 @@ class AtlasSelfImprovementScheduleService
     private function limit(): int
     {
         return $this->input->findingsLimit(config('atlas_ai.self_improvement.limit', AtlasSelfImprovementInput::DEFAULT_FINDINGS_LIMIT));
-    }
-
-    /**
-     * @param  array{enabled:bool,time:string,timezone:string,count:int}  $plan
-     */
-    private function isSchedulable(array $plan): bool
-    {
-        return $plan['enabled']
-            && $plan['count'] > 0
-            && $this->isValidTime($plan['time'])
-            && $this->isValidTimezone($plan['timezone']);
     }
 
     /**
@@ -273,47 +229,6 @@ class AtlasSelfImprovementScheduleService
         ];
     }
 
-    /**
-     * @param  array<string,mixed>  $plan
-     */
-    private function planHash(array $plan): string
-    {
-        return hash('sha256', json_encode(CanonicalValue::canonicalize([
-            'schema_version' => $plan['schema_version'] ?? null,
-            'enabled' => $plan['enabled'] ?? null,
-            'schedulable' => $plan['schedulable'] ?? null,
-            'scheduler_registration' => $plan['scheduler_registration'] ?? null,
-            'time' => $plan['time'] ?? null,
-            'timezone' => $plan['timezone'] ?? null,
-            'configured_flows' => $plan['configured_flows'] ?? [],
-            'invalid_flows' => $plan['invalid_flows'] ?? [],
-            'defaulted' => $plan['defaulted'] ?? false,
-            'flows' => $plan['flows'] ?? [],
-            'commands' => $this->hashableCommands((array) ($plan['commands'] ?? [])),
-            'count' => $plan['count'] ?? 0,
-            'cadence_counts' => $plan['cadence_counts'] ?? [],
-            'emit' => $plan['emit'] ?? false,
-            'health' => [
-                'status' => data_get($plan, 'health.status'),
-                'issues' => data_get($plan, 'health.issues', []),
-            ],
-        ]), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
-    }
-
-
-    /**
-     * @param  array<int,array<string,mixed>>  $commands
-     * @return array<int,array<string,mixed>>
-     */
-    private function hashableCommands(array $commands): array
-    {
-        return array_map(static function (array $command): array {
-            unset($command['next_run_at']);
-
-            return $command;
-        }, $commands);
-    }
-
     private function time(): string
     {
         return trim((string) config('atlas_ai.self_improvement.time', '02:00'));
@@ -324,50 +239,8 @@ class AtlasSelfImprovementScheduleService
         return trim((string) config('app.timezone', 'UTC'));
     }
 
-    private function isValidTime(string $time): bool
-    {
-        return preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/', $time) === 1;
-    }
-
-    private function isValidTimezone(string $timezone): bool
-    {
-        return in_array($timezone, timezone_identifiers_list(), true);
-    }
-
-    private function nextRunAt(string $time, string $timezone): ?string
-    {
-        return $this->nextRunAtForCommand($time, $timezone, 'daily', null);
-    }
-
-    private function nextRunAtForCommand(string $time, string $timezone, string $cadence, ?int $weekDay): ?string
-    {
-        if (! $this->isValidTime($time) || ! $this->isValidTimezone($timezone)) {
-            return null;
-        }
-
-        [$hour, $minute] = array_map('intval', explode(':', $time));
-        $now = CarbonImmutable::now($timezone);
-        $next = $now->setTime($hour, $minute);
-
-        if ($cadence === 'weekly') {
-            $targetWeekDay = max(0, min(6, (int) ($weekDay ?? 1)));
-
-            while ((int) $next->dayOfWeek !== $targetWeekDay || $next->lessThanOrEqualTo($now)) {
-                $next = $next->addDay();
-            }
-
-            return $next->toJSON();
-        }
-
-        if ($next->lessThanOrEqualTo($now)) {
-            $next = $next->addDay();
-        }
-
-        return $next->toJSON();
-    }
-
     /**
-     * @param  array{enabled:bool,time:string,invalid_flows:array<int,string>,defaulted:bool,count:int,emit:bool}  $plan
+     * @param  array{enabled:bool,time:string,timezone:string,invalid_flows:array<int,string>,defaulted:bool,count:int,emit:bool}  $plan
      * @return array{status:string,issues:array<int,string>,actions:array<int,string>}
      */
     private function healthForPlan(array $plan): array
@@ -385,12 +258,12 @@ class AtlasSelfImprovementScheduleService
             $actions[] = 'Remove or correct invalid flows: '.implode(', ', $plan['invalid_flows']).'.';
         }
 
-        if (! $this->isValidTime($plan['time'])) {
+        if (! SelfImprovementScheduleMath::isValidTime($plan['time'])) {
             $issues[] = 'invalid_self_improvement_schedule_time';
             $actions[] = 'Set atlas_ai.self_improvement.time to HH:MM between 00:00 and 23:59.';
         }
 
-        if (! $this->isValidTimezone($plan['timezone'])) {
+        if (! SelfImprovementScheduleMath::isValidTimezone($plan['timezone'])) {
             $issues[] = 'invalid_self_improvement_schedule_timezone';
             $actions[] = 'Set app.timezone to a valid IANA timezone such as UTC or America/Sao_Paulo.';
         }
