@@ -8,15 +8,14 @@ execution: in_progress
 full_pass_commits: 197+
 rescan: FINDINGS-RESCAN-3
 recent:
-  - ProjectStackLearnSupport pure extractors
-  - ForgeProviderCapacityClassifier + ForgeFastPathLifecycleSupport
+  - ResultLedgerGradeSupport + ClosedLoopStageProjector
+  - SkillScaffold frontmatter/body/safety elevate
+  - ProjectStackLearnSupport; Forge Capacity + FastPath lifecycle
   - RivalsOneShotDimensionCreditSupport (eval 695→264)
-  - SignalDetector heuristics → DetectSupport + Classify privacy/risk fuse
-  - OI elevate: Gate/Runtime/Context/Profile supports
+  - SignalDetector DetectSupport + OI elevate wave
   - UnattendedLivenessFactsNormalizer; NamingPolicyRules
-  - ASP shell ~73; routes api.php ~90; ProviderCatalog SSOT
-unit_proof: OI 51/692; Capacity 19; Rivals 15; FastPath lifecycle 8; ProjectStack 5; Naming 32; Liveness 32
-next: AWIS scoring · OpenBrain FileContext/Expansion · ClosedLoop grade · FastPath sanitizer · PRE staged
+unit_proof: ClosedLoop 22; ResultLedger grade+CL 24; OI 51; Capacity 19; Rivals 15; SkillScaffold 7
+next: AWIS scoring · OpenBrain FileContext/Expansion · FastPath sanitizer · PRE staged
 ```
 
 ## Progress summary

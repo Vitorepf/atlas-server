@@ -128,8 +128,8 @@
 - [ ] WorkspaceOutcomeCommandMemory scoring Support
 - [ ] OpenBrain FileContext ceiling/path pure
 - [ ] OpenBrain ContextExpansion provider-safe render
-- [ ] ClosedLoop stage / ResultLedger grade
-- [ ] SkillScaffold frontmatter/body residual
+- [x] ClosedLoop stage / ResultLedger grade
+- [x] SkillScaffold frontmatter/body residual
 - [ ] AiWorker predicates/time residual
 - [ ] HubDelegators true map+__call residual
 - [ ] PRE leave-Http (R103 staged)

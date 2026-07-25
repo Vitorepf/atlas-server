@@ -55,6 +55,9 @@
 | ForgeProviderCapacityClassifier | 19 feature / 74 asserts; service 827→544 |
 | ForgeFastPathLifecycleSupport | 8 unit lifecycle green; status 514→292 |
 | ProjectStackLearnSupport | pure unit lock + learner I/O boundary |
+| SkillScaffold frontmatter/body/safety | 7 unit / 25 asserts |
+| ClosedLoopStageProjector | Level7 22 / 89 asserts; service 631→334 |
+| ResultLedgerGradeSupport | pure grade unit + ClosedLoop 24/98 |
 | Decide operationalDecision + executionGraph | 39 unit green |
 | LedgerReplay agent/decision/inbox/kernel/SI | 22 unit green per step |
 | stringOption variants + LoadsNamedJson | 3+2 unit green |
