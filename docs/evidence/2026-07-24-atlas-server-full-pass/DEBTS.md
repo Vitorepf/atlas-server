@@ -28,6 +28,8 @@
 
 ### Density / elevate
 
+- [x] MobileArrayHelper scalar expansion + DiscussionBootstrapper/MobilePush adoption
+- [x] OpenBrain StableHashSupport + TextNormalizeSupport thin wrappers
 - [x] AiPromptTextSupport pure peel from AiPromptBuilder (AWIS/list/keywords helpers; builder 1677→1589)
 - [x] YouTubeUrlSupport pure peel (videoId/canonical/ISO duration/timestamp; ingestion 1780→1715; 29 unit green)
 - [x] YouTubeCaptionSupport + YouTubeMetadataSupport peels (ingestion 1715→1248; 39 unit/feature green)
