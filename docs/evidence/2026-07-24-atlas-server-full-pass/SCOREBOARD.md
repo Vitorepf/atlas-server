@@ -60,6 +60,7 @@
 | ResultLedgerGradeSupport | pure grade unit + ClosedLoop 24/98 |
 | FileContextBudgetSupport | 5/5 targeted feature green; service 834→530; 1 AURG residual |
 | ContextExpansionRenderSupport | 5 unit / 41 asserts; service 465→253 |
+| CommandOutcomeScoringSupport | 7 unit green; AWIS section 1373→1212 |
 | Decide operationalDecision + executionGraph | 39 unit green |
 | LedgerReplay agent/decision/inbox/kernel/SI | 22 unit green per step |
 | stringOption variants + LoadsNamedJson | 3+2 unit green |

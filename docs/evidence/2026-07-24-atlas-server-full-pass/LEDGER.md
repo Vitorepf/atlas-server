@@ -8,6 +8,7 @@ execution: in_progress
 full_pass_commits: 197+
 rescan: FINDINGS-RESCAN-3
 recent:
+  - CommandOutcomeScoringSupport (AWIS 1373→1212)
   - ContextExpansionRenderSupport (465→253)
   - FileContextBudgetSupport (service 834→530; 5/5 targeted green)
   - ResultLedgerGradeSupport + ClosedLoopStageProjector
@@ -16,7 +17,7 @@ recent:
   - SignalDetector DetectSupport + OI elevate wave
   - UnattendedLiveness + NamingPolicyRules
 unit_proof: FileContext 5; ClosedLoop 22; OI 51; Capacity 19; Rivals 15; SkillScaffold 7
-next: AWIS scoring · FastPath sanitizer · AiWorker predicates · PRE staged
+next: FastPath sanitizer · AiWorker predicates · HubDelegators map+__call · PRE staged
 ```
 
 ## Progress summary

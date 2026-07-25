@@ -125,7 +125,7 @@
 - [x] ForgeFastPath lifecycle Support
 - [ ] ForgeFastPath report sanitizer residual
 - [x] ProjectStackLearnSupport
-- [ ] WorkspaceOutcomeCommandMemory scoring Support
+- [x] WorkspaceOutcomeCommandMemory scoring Support
 - [x] OpenBrain FileContext ceiling/path pure
 - [x] OpenBrain ContextExpansion provider-safe render
 - [ ] FileContext AURG target assertion residual (1 test)
