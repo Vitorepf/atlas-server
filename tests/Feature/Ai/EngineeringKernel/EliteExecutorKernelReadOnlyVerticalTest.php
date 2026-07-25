@@ -2056,14 +2056,17 @@ final class FinalAppendFailingEvidenceLedger extends AtlasEvidenceLedger
         return $type === LedgerEventType::OperationCompleted ? null : $this->inner->record($type, $payload, $context);
     }
 
-    public function eventById(string $eventId): ?AtlasLedgerEvent
+    public function eventById(string $eventId, ?string $tenantId = null): ?AtlasLedgerEvent
     {
-        return $this->inner->eventById($eventId);
+        return $this->inner->eventById($eventId, $tenantId);
     }
 
-    public function latestForCorrelation(string $correlationId, ?string $eventName = null): ?AtlasLedgerEvent
-    {
-        return $this->inner->latestForCorrelation($correlationId, $eventName);
+    public function latestForCorrelation(
+        string $correlationId,
+        ?string $eventName = null,
+        ?string $tenantId = null,
+    ): ?AtlasLedgerEvent {
+        return $this->inner->latestForCorrelation($correlationId, $eventName, $tenantId);
     }
 
     public function eventIntegrityValid(AtlasLedgerEvent $event): bool

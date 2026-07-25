@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfImprovement;
 
 use App\Models\AtlasProject;
+use App\Services\Ai\SelfImprovement\Support\ActivationCockpitPresentationSupport;
 use Illuminate\Support\Carbon;
 use Throwable;
 
@@ -562,29 +563,7 @@ class AtlasSelfImprovementActivationCockpitService
      */
     private function approvalState(string $status, ?array $approval, ?array $rejection): string
     {
-        if ($status === AtlasSelfImprovementForgeActivationService::STATUS_OBRA_CREATED) {
-            return 'accepted_obra_created';
-        }
-        if ($status === AtlasSelfImprovementForgeActivationService::STATUS_ACCEPTED) {
-            return 'accepted_pending_materialise';
-        }
-        if ($status === AtlasSelfImprovementForgeActivationService::STATUS_REJECTED) {
-            return $rejection !== null ? 'rejected_by_human' : 'rejected_by_gate';
-        }
-        if ($status === AtlasSelfImprovementForgeActivationService::STATUS_PENDING_HUMAN_REVIEW) {
-            return 'awaiting_human_review';
-        }
-        if ($status === AtlasSelfImprovementForgeActivationService::STATUS_NEEDS_REVISION) {
-            return 'needs_revision';
-        }
-        if ($status === AtlasSelfImprovementForgeActivationService::STATUS_DRY_RUN) {
-            return 'dry_run_planned';
-        }
-        if ($approval !== null) {
-            return 'accepted_obra_created';
-        }
-
-        return 'blocked';
+        return ActivationCockpitPresentationSupport::approvalState($status, $approval, $rejection);
     }
 
     /**
@@ -592,63 +571,17 @@ class AtlasSelfImprovementActivationCockpitService
      */
     private function nextSafeAction(string $status, ?array $activation): string
     {
-        $blockers = is_array($activation['blockers'] ?? null) ? $activation['blockers'] : [];
-        $missingDocs = is_array($activation['missing_required_docs'] ?? null) ? $activation['missing_required_docs'] : [];
-
-        if ($missingDocs !== []) {
-            return 'Adicionar docs canônicas obrigatórias antes de aprovar.';
-        }
-        if ($status === AtlasSelfImprovementForgeActivationService::STATUS_OBRA_CREATED) {
-            return 'Abrir Obra no Forge — Fast Path NÃO executa sozinho.';
-        }
-        if ($status === AtlasSelfImprovementForgeActivationService::STATUS_PENDING_HUMAN_REVIEW) {
-            return 'Revisor humano deve aprovar com reviewer + reason.';
-        }
-        if ($status === AtlasSelfImprovementForgeActivationService::STATUS_NEEDS_REVISION) {
-            return 'Reescrever proposta para corrigir hard fails do power gate.';
-        }
-        if ($status === AtlasSelfImprovementForgeActivationService::STATUS_REJECTED) {
-            return 'Reescrever proposta ou encerrar — nada virou Obra.';
-        }
-        if ($status === AtlasSelfImprovementForgeActivationService::STATUS_BLOCKED) {
-            return 'Resolver blockers ('.implode(', ', $blockers).') antes de replanejar.';
-        }
-        if ($status === AtlasSelfImprovementForgeActivationService::STATUS_DRY_RUN) {
-            return 'Replanejar sem dry-run para registrar a activation.';
-        }
-        if ($status === AtlasSelfImprovementForgeActivationService::STATUS_ACCEPTED) {
-            return 'Confirmar criação da Obra — Forge não executa automaticamente.';
-        }
-
-        return 'Inspecionar status no detalhe.';
+        return ActivationCockpitPresentationSupport::nextSafeAction($status, $activation);
     }
 
     private function statusLabel(string $status): string
     {
-        return match ($status) {
-            AtlasSelfImprovementForgeActivationService::STATUS_BLOCKED => 'Bloqueada',
-            AtlasSelfImprovementForgeActivationService::STATUS_NEEDS_REVISION => 'Precisa revisão',
-            AtlasSelfImprovementForgeActivationService::STATUS_PENDING_HUMAN_REVIEW => 'Aguardando humano',
-            AtlasSelfImprovementForgeActivationService::STATUS_REJECTED => 'Rejeitada',
-            AtlasSelfImprovementForgeActivationService::STATUS_ACCEPTED => 'Aceita',
-            AtlasSelfImprovementForgeActivationService::STATUS_OBRA_CREATED => 'Obra criada',
-            AtlasSelfImprovementForgeActivationService::STATUS_DRY_RUN => 'Dry-run',
-            default => 'Desconhecido',
-        };
+        return ActivationCockpitPresentationSupport::statusLabel($status);
     }
 
     private function statusTone(string $status): string
     {
-        return match ($status) {
-            AtlasSelfImprovementForgeActivationService::STATUS_OBRA_CREATED,
-            AtlasSelfImprovementForgeActivationService::STATUS_ACCEPTED => self::TONE_MOSS,
-            AtlasSelfImprovementForgeActivationService::STATUS_PENDING_HUMAN_REVIEW,
-            AtlasSelfImprovementForgeActivationService::STATUS_NEEDS_REVISION,
-            AtlasSelfImprovementForgeActivationService::STATUS_DRY_RUN => self::TONE_BRONZE,
-            AtlasSelfImprovementForgeActivationService::STATUS_REJECTED,
-            AtlasSelfImprovementForgeActivationService::STATUS_BLOCKED => self::TONE_REC_RED,
-            default => self::TONE_INK,
-        };
+        return ActivationCockpitPresentationSupport::statusTone($status);
     }
 
     /**
@@ -656,18 +589,7 @@ class AtlasSelfImprovementActivationCockpitService
      */
     private function emptyCounters(): array
     {
-        return [
-            'total' => 0,
-            'blocked' => 0,
-            'needs_revision' => 0,
-            'pending_human_review' => 0,
-            'rejected' => 0,
-            'accepted' => 0,
-            'obra_created' => 0,
-            'dry_run_planned' => 0,
-            'with_obra' => 0,
-            'with_blockers' => 0,
-        ];
+        return ActivationCockpitPresentationSupport::emptyCounters();
     }
 
     /**
@@ -676,17 +598,7 @@ class AtlasSelfImprovementActivationCockpitService
      */
     private function incrementCounters(array &$counters, array $row): void
     {
-        $counters['total']++;
-        $status = (string) ($row['status'] ?? 'blocked');
-        if (isset($counters[$status])) {
-            $counters[$status]++;
-        }
-        if (($row['created_obra_id'] ?? null) !== null) {
-            $counters['with_obra']++;
-        }
-        if (($row['has_blockers'] ?? false) === true) {
-            $counters['with_blockers']++;
-        }
+        ActivationCockpitPresentationSupport::incrementCounters($counters, $row);
     }
 
     /**
@@ -695,25 +607,7 @@ class AtlasSelfImprovementActivationCockpitService
      */
     private function cockpitHumanSummary(array $counters, ?array $selected): string
     {
-        if ($selected !== null) {
-            $label = (string) ($selected['status_label'] ?? 'Activation');
-            $title = (string) (data_get($selected, 'proposal_summary.title') ?? 'sem título');
-
-            return sprintf('%s — %s. %s', $label, $title, (string) ($selected['next_safe_action'] ?? ''));
-        }
-        if ($counters['total'] === 0) {
-            return 'Nenhuma activation registrada. Crie uma proposta para começar.';
-        }
-        $pending = $counters['pending_human_review'] + $counters['needs_revision'];
-        if ($pending > 0) {
-            return sprintf('%d activations pedindo revisão humana, %d viraram Obra.', $pending, $counters['obra_created']);
-        }
-
-        return sprintf('%d activations no total · %d criaram Obra · %d rejeitadas.',
-            $counters['total'],
-            $counters['obra_created'],
-            $counters['rejected'],
-        );
+        return ActivationCockpitPresentationSupport::cockpitHumanSummary($counters, $selected);
     }
 
     /**
@@ -722,17 +616,7 @@ class AtlasSelfImprovementActivationCockpitService
      */
     private function cockpitNextSafeAction(array $counters, ?array $selected): string
     {
-        if ($selected !== null) {
-            return (string) ($selected['next_safe_action'] ?? 'Inspecionar activation.');
-        }
-        if (($counters['pending_human_review'] ?? 0) > 0) {
-            return 'Revisar activations aguardando humano antes de criar novas propostas.';
-        }
-        if ($counters['total'] === 0) {
-            return 'Planejar primeira proposta via CLI ou POST /atlas-code/self-improvement/forge-activations.';
-        }
-
-        return 'Manter ciclo: planejar → revisar → aceitar/rejeitar → abrir Obra no Forge.';
+        return ActivationCockpitPresentationSupport::cockpitNextSafeAction($counters, $selected);
     }
 
     /**
@@ -743,18 +627,7 @@ class AtlasSelfImprovementActivationCockpitService
      */
     private function detailHumanSummary(string $status, array $packet, array $gate, ?array $createdObra, ?array $rejection): string
     {
-        $title = $this->stringOrNull($packet['title'] ?? null) ?? 'Proposta';
-
-        return match ($status) {
-            AtlasSelfImprovementForgeActivationService::STATUS_OBRA_CREATED => sprintf('Obra criada a partir de "%s" — abrir no Forge para continuar.', $title),
-            AtlasSelfImprovementForgeActivationService::STATUS_ACCEPTED => sprintf('Aceita "%s", aguardando materialização da Obra.', $title),
-            AtlasSelfImprovementForgeActivationService::STATUS_PENDING_HUMAN_REVIEW => sprintf('"%s" passou no power gate mas exige aprovação humana explícita.', $title),
-            AtlasSelfImprovementForgeActivationService::STATUS_NEEDS_REVISION => sprintf('"%s" tem hard fails que precisam ser corrigidos antes de virar Obra.', $title),
-            AtlasSelfImprovementForgeActivationService::STATUS_REJECTED => sprintf('"%s" foi rejeitada%s.', $title, $rejection !== null ? ' por um humano' : ' pelo power gate'),
-            AtlasSelfImprovementForgeActivationService::STATUS_BLOCKED => sprintf('"%s" está bloqueada por blockers de governança.', $title),
-            AtlasSelfImprovementForgeActivationService::STATUS_DRY_RUN => sprintf('"%s" é um dry-run; nada foi persistido.', $title),
-            default => sprintf('"%s" em estado %s.', $title, $status),
-        };
+        return ActivationCockpitPresentationSupport::detailHumanSummary($status, $packet, $gate, $createdObra, $rejection);
     }
 
     /**
