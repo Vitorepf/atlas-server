@@ -162,6 +162,7 @@
 - [x] RealityGraphQuerySupport pure residual (normalizeExpand/mergeSeeds/orderPaths/pprShadowStatus/terms/entity tokens/lexical quality/rank surface/admission; host 1542→1240; Support 349; 13 unit/135 + 12 host/197 + 4 Maxd07/44)
 - [x] DocumentationRealityProjectionSupport pure residual (evaluationRef/isIntegrated/readiness/planes/matrices/acceptance/owner/blockers/summary/authorityTier/duplicates/hash; host 1914→1302; Support 636; 11 unit/132 + 2 host path/141)
 - [x] CodeForgeUxProjectionSupport pure residual (resolveState/classify/labels/actions/blockers/translation/definition/filesOutOfScope/finalize/progress; host 1086→354; Support 748; 10 Support unit / 137 + 5 host unit / 14 feature path / 51; 29/188 package; queueStaleSeconds clock residual on host)
+- [x] ProductModeCockpitProjectionSupport residual pure sections (areaId/portfolioId/withoutGeneratedAt/17 section projectors + 3 default placeholders; host 813→280; Support 799→1332; 17 Support unit / 215 + 6 host unit / 256 + 4 feature path / 53; finalize clock residual on host)
 - [ ] RealityGraphQuery host residual (entityExactSeeds/semanticSeeds/lexicalSeeds/traverse/paths/rank/expandCodeSymbols IO cluster)
 - [ ] DocumentationReality host residual (evaluations IO/corpus, sourceRegistry FS, absolutePath, executionFor bridge + EXECUTING/PARTIAL key tables)
 - [x] FrontendDesignRuntimeContractSupport (signals/gates/evidence/scorecard/variant/live pure; host 1434→1108; 7 unit Support + 3 host path green)

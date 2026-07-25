@@ -98,13 +98,15 @@
 | RealityGraphQuerySupport pure peel | 13 Support unit / 135 + 12 host AURG path / 197 + 4 Maxd07 / 44 (29/376 package); host 1542→1240; Support 349; expand/seed-merge/path-order/PPR-status/terms/entity-tokens/lexical-quality/rank-surface/admission pure |
 | DocumentationRealityProjectionSupport pure peel | 11 Support unit / 132 + 2 host path / 141 (package 13 unit+classify / 137 + host 2/141); host 1914→1302; Support 636; evaluationRef/isIntegrated/readiness/planes/matrices/acceptance/owner/blockers/summary/authorityTier/duplicates/hash pure |
 | CodeForgeUxProjectionSupport pure peel | 10 Support unit / 137 asserts + 5 host unit + 14 feature path / 51 asserts (29/188 package); host 1086→354; Support 748; state/labels/actions/blockers/finalize/progress pure; queueStaleSeconds clock residual |
+| ProductModeCockpitProjectionSupport residual pure sections | 17 Support unit / 215 + 6 host unit / 256 + 4 feature / 53 (27/524 package); host 813→280; Support 799→1332; section projectors/defaults/ids/withoutGeneratedAt pure; finalize clock residual |
 
 ## Residual
 
-CodeForgeUx queueStaleSeconds clock residual on host · PRE leave Http (R103 staged) · floors RSI/TaskQueue · CompletionAudit cert FS residual · HubDelegators true map+__call · DesignRuntime certify FS residual (routes/api.php + rival harness needles pre-existing) · app()-backed DesignRuntime nested contracts residual · PriorityEngine canonicalSeedCandidates FS-bound residual · RealityGraphQuery host residual (entityExact/semantic/lexical seeds + traverse/paths/rank/expand IO) · DocumentationReality host residual (evaluations IO/corpus + sourceRegistry FS + absolutePath + executionFor bridge) · FileAttachment zipEntries residual · suite filter pre-existing EliteExecutor mock (unrelated when filter broad)
+ProductMode cockpit finalize clock residual on host · CodeForgeUx queueStaleSeconds clock residual on host · PRE leave Http (R103 staged) · floors RSI/TaskQueue · CompletionAudit cert FS residual · HubDelegators true map+__call · DesignRuntime certify FS residual (routes/api.php + rival harness needles pre-existing) · app()-backed DesignRuntime nested contracts residual · PriorityEngine canonicalSeedCandidates FS-bound residual · RealityGraphQuery host residual (entityExact/semantic/lexical seeds + traverse/paths/rank/expand IO) · DocumentationReality host residual (evaluations IO/corpus + sourceRegistry FS + absolutePath + executionFor bridge) · FileAttachment zipEntries residual · suite filter pre-existing EliteExecutor mock (unrelated when filter broad)
 
 | AgenticWorkcellRoleContractSupport | 9 unit / 116 asserts |
 | AgenticWorkcellTopologyPolicySupport | 12 unit / 150 asserts |
 | RealityGraphQuerySupport | 13 unit / 135 asserts |
 | DocumentationRealityProjectionSupport | 11 unit / 132 asserts |
 | CodeForgeUxProjectionSupport | 10 unit / 137 asserts |
+| ProductModeCockpitProjectionSupport residual sections | 17 unit / 215 asserts |

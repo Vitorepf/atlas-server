@@ -17,10 +17,46 @@ use ReflectionClass;
 
 /**
  * Pure Support peel for Product Mode cockpit projection — no I/O, no service, no DB.
+ *
+ * Residual pure sections/defaults/id resolvers/withoutGeneratedAt live on Support;
+ * host keeps project() orchestration + finalize() clock only.
  */
 final class ProductModeCockpitProjectionSupportTest extends TestCase
 {
     private const SUPPORT_PATH = 'app/Services/Ai/SoftwareCompanyStewardship/ProductMode/Support/ProductModeCockpitProjectionSupport.php';
+
+    private const HOST_PATH = 'app/Services/Ai/SoftwareCompanyStewardship/ProductMode/ProductModeCockpitSurfaceService.php';
+
+    /** @var list<string> */
+    private const PEELED = [
+        'reviewQueue',
+        'counters',
+        'overallHealth',
+        'nextActions',
+        'claimPolicy',
+        'withoutGeneratedAt',
+        'areaId',
+        'portfolioId',
+        'areaFocusSection',
+        'executiveSection',
+        'newAreaSection',
+        'selfExpandingSection',
+        'outcomeHistorySection',
+        'domainRuntimeCreationHandoffSection',
+        'areaStewardshipActiveHandoffSection',
+        'areaStewardshipActiveOperationSection',
+        'continuousStewardshipLoopSection',
+        'continuousStewardshipSchedulerSection',
+        'defaultDevForgeRelease',
+        'devForgeReleaseSection',
+        'defaultOwnerSandboxRuntimeRunner',
+        'ownerSandboxRuntimeRunnerSection',
+        'defaultOwnerRuntimeResultBridge',
+        'ownerRuntimeResultBridgeSection',
+        'executiveAllocationHandoffSection',
+        'productModeOperationalControlsSection',
+        'loop24hObservabilitySection',
+    ];
 
     public function test_support_peel_path_and_static_surface(): void
     {
@@ -29,12 +65,154 @@ final class ProductModeCockpitProjectionSupportTest extends TestCase
         $this->assertFileExists($abs, 'Support peel must live at '.self::SUPPORT_PATH);
 
         $ref = new ReflectionClass(Support::class);
-        foreach (['reviewQueue', 'counters', 'overallHealth', 'nextActions', 'claimPolicy'] as $method) {
+        foreach (self::PEELED as $method) {
             $this->assertTrue($ref->hasMethod($method), $method);
             $m = $ref->getMethod($method);
-            $this->assertTrue($m->isPublic());
-            $this->assertTrue($m->isStatic());
+            $this->assertTrue($m->isPublic(), $method.' public');
+            $this->assertTrue($m->isStatic(), $method.' static');
         }
+    }
+
+    public function test_explicit_path_proof_host_imports_support_and_no_longer_declares_peeled_helpers(): void
+    {
+        $root = dirname(__DIR__, 6);
+        $supportAbs = $root.'/'.self::SUPPORT_PATH;
+        $hostAbs = $root.'/'.self::HOST_PATH;
+
+        $this->assertFileExists($supportAbs);
+        $this->assertFileExists($hostAbs);
+
+        $hostSrc = (string) file_get_contents($hostAbs);
+        $this->assertStringContainsString(
+            'use App\Services\Ai\SoftwareCompanyStewardship\ProductMode\Support\ProductModeCockpitProjectionSupport;',
+            $hostSrc,
+        );
+
+        foreach ([
+            'ProductModeCockpitProjectionSupport::areaId',
+            'ProductModeCockpitProjectionSupport::portfolioId',
+            'ProductModeCockpitProjectionSupport::areaFocusSection',
+            'ProductModeCockpitProjectionSupport::executiveSection',
+            'ProductModeCockpitProjectionSupport::loop24hObservabilitySection',
+            'ProductModeCockpitProjectionSupport::defaultDevForgeRelease',
+            'ProductModeCockpitProjectionSupport::defaultOwnerSandboxRuntimeRunner',
+            'ProductModeCockpitProjectionSupport::defaultOwnerRuntimeResultBridge',
+            'ProductModeCockpitProjectionSupport::withoutGeneratedAt',
+            'ProductModeCockpitProjectionSupport::reviewQueue',
+            'ProductModeCockpitProjectionSupport::counters',
+            'ProductModeCockpitProjectionSupport::overallHealth',
+            'ProductModeCockpitProjectionSupport::nextActions',
+            'ProductModeCockpitProjectionSupport::claimPolicy',
+        ] as $needle) {
+            $this->assertStringContainsString($needle, $hostSrc, "Host must call {$needle}");
+        }
+
+        // Clock residual stays on host finalize only.
+        $this->assertStringContainsString('function finalize', $hostSrc);
+        $this->assertStringContainsString('DateTimeImmutable', $hostSrc);
+
+        foreach (self::PEELED as $method) {
+            $this->assertDoesNotMatchRegularExpression(
+                '/\bfunction\s+'.$method.'\s*\(/',
+                $hostSrc,
+                "Host must not declare peeled pure helper {$method}",
+            );
+        }
+    }
+
+    public function test_area_and_portfolio_id_defaults_and_trim(): void
+    {
+        $this->assertSame('agentic_engineering_os', Support::areaId([]));
+        $this->assertSame('custom_area', Support::areaId(['area_id' => '  custom_area  ']));
+        $this->assertSame('from_area_alias', Support::areaId(['area' => 'from_area_alias']));
+
+        $this->assertSame(
+            'atlas_software_company',
+            Support::portfolioId('', []),
+        );
+        $this->assertSame(
+            'pf_from_input',
+            Support::portfolioId('ignored', ['portfolio_id' => ' pf_from_input ']),
+        );
+        $this->assertSame(
+            'pf_arg',
+            Support::portfolioId('pf_arg', []),
+        );
+    }
+
+    public function test_without_generated_at_strips_nested_generated_at(): void
+    {
+        $clean = Support::withoutGeneratedAt([
+            'generated_at' => '2026-01-01T00:00:00+00:00',
+            'status' => 'ready',
+            'nested' => [
+                'generated_at' => 'x',
+                'ok' => true,
+            ],
+        ]);
+
+        $this->assertSame([
+            'status' => 'ready',
+            'nested' => ['ok' => true],
+        ], $clean);
+    }
+
+    public function test_section_projectors_preserve_provider_safe_shape(): void
+    {
+        $areaFocus = Support::areaFocusSection([
+            'schema_version' => 'af.v1',
+            'status' => 'ready',
+            'area_summary' => ['name' => 'core'],
+            'health' => ['overall' => 'healthy'],
+            'findings' => [['id' => 1]],
+            'inbox_items' => [['id' => 'i1'], 'skip'],
+            'work_orders' => [['id' => 'w1']],
+            'budgets' => ['cap' => 1],
+            'kill_switch_state' => ['armed' => false],
+            'next_actions' => ['act', 12],
+            'surface_hash' => 'h1',
+            'secret_raw' => 'must_not_leak',
+        ]);
+
+        $this->assertSame('af.v1', $areaFocus['schema_version']);
+        $this->assertSame('ready', $areaFocus['status']);
+        $this->assertSame([['id' => 'i1']], $areaFocus['inbox_items']);
+        $this->assertSame(['act'], $areaFocus['next_actions']);
+        $this->assertArrayNotHasKey('secret_raw', $areaFocus);
+
+        $loop24 = Support::loop24hObservabilitySection([
+            'schema_version' => 'obs.v1',
+            'ap_contract' => 'AP-790',
+            'area_id' => 'a1',
+            'metrics' => ['blocked_by_reason' => ['x' => 1]],
+            'active_worktrees' => [['path' => 'wt'], 'nope'],
+            'quarantined_count' => 2,
+            'observability_hash' => 'oh',
+        ]);
+        $this->assertTrue($loop24['read_only']);
+        $this->assertSame('AP-790', $loop24['ap_contract']);
+        $this->assertSame([['path' => 'wt']], $loop24['active_worktrees']);
+        $this->assertSame(2, $loop24['quarantined_count']);
+        $this->assertSame(['x' => 1], $loop24['blocked_by_reason']);
+    }
+
+    public function test_default_placeholders_are_not_requested_and_claim_safe(): void
+    {
+        $release = Support::defaultDevForgeRelease('area_x');
+        $this->assertSame('not_requested', $release['status']);
+        $this->assertSame('AP-747', $release['ap_contract']);
+        $this->assertSame('area_x', $release['area_id']);
+        $this->assertFalse($release['claim_policy']['provider_invoked']);
+
+        $sandbox = Support::defaultOwnerSandboxRuntimeRunner('area_y');
+        $this->assertSame('not_requested', $sandbox['status']);
+        $this->assertSame('AP-759', $sandbox['ap_contract']);
+        $this->assertFalse($sandbox['claim_policy']['owner_runtime_command_executed']);
+
+        $bridge = Support::defaultOwnerRuntimeResultBridge('area_z');
+        $this->assertSame('not_reported', $bridge['status']);
+        $this->assertSame('AP-750', $bridge['ap_contract']);
+        $this->assertFalse($bridge['claim_policy']['owner_runtime_invoked_by_bridge']);
     }
 
     public function test_claim_policy_is_read_only_surface_only(): void
