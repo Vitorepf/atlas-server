@@ -201,4 +201,47 @@ final class YouTubeMetadataSupport
             || str_contains($text, 'timeout');
     }
 
+
+    public static function audioFallbackEnabled(): bool
+    {
+        if ((bool) config('atlas.youtube.audio_fallback_enabled', false)) {
+            return true;
+        }
+
+        return (bool) config('atlas.transcription.enabled', false);
+    }
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     */
+    public static function whisperLanguageForVideo(array $metadata): ?string
+    {
+        $language = (string) ($metadata['language'] ?? config('atlas.transcription.language', 'pt'));
+        $language = trim(\Illuminate\Support\Str::of($language)->lower()->replace('_', '-')->value());
+        if ($language === '' || $language === 'und') {
+            return null;
+        }
+
+        return match (true) {
+            str_starts_with($language, 'pt') => 'pt',
+            str_starts_with($language, 'en') => 'en',
+            str_starts_with($language, 'ja') => 'ja',
+            str_starts_with($language, 'zh') => 'zh',
+            str_starts_with($language, 'es') => 'es',
+            str_starts_with($language, 'fr') => 'fr',
+            str_starts_with($language, 'de') => 'de',
+            str_starts_with($language, 'it') => 'it',
+            str_starts_with($language, 'ko') => 'ko',
+            default => substr($language, 0, 2),
+        };
+    }
+
+    public static function processError(\Symfony\Component\Process\Process $process, string $fallback): string
+    {
+        $error = trim($process->getErrorOutput());
+        $output = trim($process->getOutput());
+
+        return \Illuminate\Support\Str::limit($error !== '' ? $error : ($output !== '' ? $output : $fallback), 220, '');
+    }
+
 }
