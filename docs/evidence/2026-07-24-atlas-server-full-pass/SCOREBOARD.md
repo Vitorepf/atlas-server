@@ -69,6 +69,7 @@
 | SelfImprovementScheduleMath | 17 unit / 148 asserts; service 430→303 |
 | GraphPathFilterSupport | 13 unit / 39 asserts |
 | data_getYesNo mass fix | 129 sites / 36 files |
+| CodeAttentionClassifier | 15 unit / 81 asserts; service 957→772 |
 | Decide operationalDecision + executionGraph | 39 unit green |
 | LedgerReplay agent/decision/inbox/kernel/SI | 22 unit green per step |
 | stringOption variants + LoadsNamedJson | 3+2 unit green |
