@@ -13,6 +13,7 @@ use App\Services\Ai\SelfConstruction\MergeGovernor\AtlasMergeGovernorAdmissionPo
 use App\Services\Ai\SelfConstruction\MergeGovernor\AtlasMergeGovernorReleaseDecisionLedger;
 use App\Services\Ai\SelfConstruction\MergeGovernor\AtlasMergeGovernorRiskClassifier;
 use App\Services\Ai\SelfConstruction\MergeGovernor\AtlasMergeGovernorRollbackPlanGate;
+use App\Services\Ai\SelfConstruction\Support\CommitGovernancePureMappers;
 use App\Services\Ai\SelfConstruction\VerificationCourt\AtlasVerificationCourtFalseGreenDetector;
 use App\Services\Ai\SelfConstruction\VerificationCourt\AtlasVerificationCourtGateReplayPlan;
 use App\Services\Ai\SelfConstruction\VerificationCourt\AtlasVerificationCourtVerdictLedger;
@@ -112,28 +113,29 @@ final class AtlasTaskCommitGovernanceChain
         try {
             $taskId = (string) ($context['task_packet_id'] ?? '');
             $projectId = (string) ($context['project_id'] ?? 'atlas-self-construction');
-            $changed = $this->normalizeFiles((array) ($context['changed_files'] ?? []));
+            $changed = CommitGovernancePureMappers::normalizeFiles((array) ($context['changed_files'] ?? []));
             $verification = is_array($context['verification'] ?? null) ? $context['verification'] : [];
             $budgetPosture = trim((string) ($context['budget_posture'] ?? ''));
             $serverGreen = (bool) ($verification['passed'] ?? false);
             $checks = is_array($verification['checks'] ?? null) ? $verification['checks'] : [];
 
-            $organs = $this->touchedOrgans($changed);
+            $organs = CommitGovernancePureMappers::touchedOrgans($changed);
             // Admission evidence must be explicit. The ledger still gets a stable
             // "unknown evidence" hash so blocked/repair decisions are auditable,
             // but that synthetic hash is never passed to AdmissionPolicy as proof.
             $admissionEvidenceHash = trim((string) ($verification['evidence_hash'] ?? ''));
             $ledgerEvidenceHash = $admissionEvidenceHash !== ''
                 ? $admissionEvidenceHash
-                : $this->deterministicHash(['unknown_evidence' => true, 'task_packet_id' => $taskId, 'changed' => $changed, 'checks' => $checks, 'green' => $serverGreen]);
+                : CommitGovernancePureMappers::deterministicHash(['unknown_evidence' => true, 'task_packet_id' => $taskId, 'changed' => $changed, 'checks' => $checks, 'green' => $serverGreen]);
             $evidenceRefs = $this->evidenceRefs($verification, $taskId, $ledgerEvidenceHash, $admissionEvidenceHash !== '');
 
+            $scopeRoots = CommitGovernancePureMappers::scopeRoots($changed);
             $risk = ($this->riskClassifier ?? new AtlasMergeGovernorRiskClassifier)->classify([
                 'changed_files' => $changed,
                 'touched_organs' => $organs,
                 'verification_result' => ['passed' => $serverGreen],
                 'rollback_plan' => ['mode' => 'git_revert_scoped_commit'],
-                'project_lane' => ['project_id' => $projectId, 'allowed_scope_roots' => $this->scopeRoots($changed)],
+                'project_lane' => ['project_id' => $projectId, 'allowed_scope_roots' => $scopeRoots],
                 'scope_deviations' => [],
                 'task_evidence_ref' => $admissionEvidenceHash !== '' ? $admissionEvidenceHash : 'unknown_evidence',
             ]);
@@ -146,13 +148,17 @@ final class AtlasTaskCommitGovernanceChain
                 'verification_command' => 'php artisan atlas:task test-suite',
                 'verification_after_rollback' => ['php -l', 'artisan about', 'task tests'],
                 'owner_scope' => $projectId,
-                'project_lane' => ['project_id' => $projectId, 'allowed_scope_roots' => $this->scopeRoots($changed)],
+                'project_lane' => ['project_id' => $projectId, 'allowed_scope_roots' => $scopeRoots],
             ]);
 
             // Required-rerun binding: resolved AFTER the risk classifier runs, since the required check
             // set is per-risk-level policy data. A required check that never ran, was skipped, or failed
             // lands in missing_rerun so the admission policy is no longer blind to a skipped re-run.
-            $missingRerun = $this->missingRerun((string) $risk['risk_level'], $checks);
+            // Policy plane I/O stays on the chain; pure comparison is CommitGovernancePureMappers.
+            $missingRerun = CommitGovernancePureMappers::missingRerun(
+                $this->missingRerunPolicyDeclaredGates((string) $risk['risk_level']),
+                $checks,
+            );
             $planHash = null;
 
             // High/critical replay-plan composition: the Verification Court's gate replay plan demands a
@@ -166,31 +172,23 @@ final class AtlasTaskCommitGovernanceChain
                     'evidence_contract_result' => ['accepted' => $serverGreen],
                     'changed_files' => $changed,
                     'risk_level' => (string) $risk['risk_level'],
-                    'project_lane' => ['project_id' => $projectId, 'allowed_scope_roots' => $this->scopeRoots($changed)],
+                    'project_lane' => ['project_id' => $projectId, 'allowed_scope_roots' => $scopeRoots],
                 ]);
-                $planHash = $this->deterministicHash($plan);
+                $planHash = CommitGovernancePureMappers::deterministicHash($plan);
 
-                // Same leave-alone invariant as missingRerun(): a demanded gate that never appears in
-                // $checks at all was never observed to fail — flagging it would retroactively tighten
-                // every caller that predates a full checks map. Only a gate that DID run and reported
-                // anything other than 'pass' is a proven unmet obligation.
-                $unmetObligations = [];
+                // Same leave-alone invariant as CommitGovernancePureMappers::missingRerun(): a demanded
+                // gate that never appears in $checks at all was never observed to fail — flagging it would
+                // retroactively tighten every caller that predates a full checks map. Only a gate that DID
+                // run and reported anything other than 'pass' is a proven unmet obligation. Reuse the pure
+                // comparator over the plan's command names that actually appear in $checks.
+                $planRequired = [];
                 foreach ((array) $plan['commands'] as $command) {
                     $name = (string) ($command['name'] ?? '');
-                    if ($name === '' || ! array_key_exists($name, $checks)) {
-                        continue;
-                    }
-                    $status = strtolower(trim((string) $checks[$name]));
-                    // Same attribution exemption as missingRerun(): a status the
-                    // verification gate did NOT attribute to this task never
-                    // becomes this worker's unmet obligation.
-                    if (in_array($status, ['fail_unattributed_open', 'skip_infra', 'fail_open_runner_error'], true)) {
-                        continue;
-                    }
-                    if ($status !== 'pass') {
-                        $unmetObligations[] = $name;
+                    if ($name !== '' && array_key_exists($name, $checks)) {
+                        $planRequired[] = $name;
                     }
                 }
+                $unmetObligations = CommitGovernancePureMappers::missingRerun($planRequired, $checks);
                 $missingRerun = array_values(array_unique([...$missingRerun, ...$unmetObligations]));
             }
 
@@ -235,7 +233,7 @@ final class AtlasTaskCommitGovernanceChain
             }
 
             $recorded = $this->record($taskId, $projectId, $decision, $blockers, $ledgerEvidenceHash, $risk, $rollback, $changed, $checks, $planHash, $evidenceRefs, $context);
-            $ledgerBlockers = $this->ledgerErrorBlockers($recorded);
+            $ledgerBlockers = CommitGovernancePureMappers::ledgerErrorBlockers($recorded);
             if ($ledgerBlockers !== []) {
                 return $this->envelope(
                     $mode,
@@ -274,7 +272,7 @@ final class AtlasTaskCommitGovernanceChain
                             (string) ($context['project_id'] ?? 'atlas-self-construction'),
                             'governance_error_fail_closed',
                             [$exceptionClass],
-                            $this->deterministicHash(['unknown_evidence' => true, 'task_packet_id' => $taskId, 'error' => $exceptionClass]),
+                            CommitGovernancePureMappers::deterministicHash(['unknown_evidence' => true, 'task_packet_id' => $taskId, 'error' => $exceptionClass]),
                             ['reasons' => []],
                             [],
                             (array) ($context['changed_files'] ?? []),
@@ -320,12 +318,12 @@ final class AtlasTaskCommitGovernanceChain
         // replay-plan composition existed; high/critical folds the gate replay plan's hash in too,
         // so the recorded receipt proves WHICH replay obligations were demanded for this decision.
         $planHash = $gateReplayPlanHash !== null
-            ? $this->deterministicHash(['risk' => $risk, 'rollback' => $rollback, 'gate_replay_plan_hash' => $gateReplayPlanHash])
-            : $this->deterministicHash(['risk' => $risk, 'rollback' => $rollback]);
-        $outcomeHash = $this->deterministicHash(['decision' => $decision, 'blockers' => $blockers, 'checks' => $checks]);
-        $candidateHash = $this->deterministicHash(['changed' => $changed, 'evidence' => $evidenceHash]);
+            ? CommitGovernancePureMappers::deterministicHash(['risk' => $risk, 'rollback' => $rollback, 'gate_replay_plan_hash' => $gateReplayPlanHash])
+            : CommitGovernancePureMappers::deterministicHash(['risk' => $risk, 'rollback' => $rollback]);
+        $outcomeHash = CommitGovernancePureMappers::deterministicHash(['decision' => $decision, 'blockers' => $blockers, 'checks' => $checks]);
+        $candidateHash = CommitGovernancePureMappers::deterministicHash(['changed' => $changed, 'evidence' => $evidenceHash]);
         $verificationHash = $evidenceHash !== '' ? $evidenceHash : $candidateHash;
-        $rollbackHash = $this->deterministicHash($rollback);
+        $rollbackHash = CommitGovernancePureMappers::deterministicHash($rollback);
         $prepareBinding = [
             'task_packet_id' => $taskId,
             'action' => 'commit',
@@ -333,7 +331,7 @@ final class AtlasTaskCommitGovernanceChain
             'verification_hash' => $verificationHash,
             'rollback_hash' => $rollbackHash,
             'changed_files' => $changed,
-            'scope_hash' => $this->deterministicHash($changed),
+            'scope_hash' => CommitGovernancePureMappers::deterministicHash($changed),
             'base_commit' => trim((string) ($prepareContext['base_commit'] ?? '')),
             'tree_hash' => trim((string) ($prepareContext['tree_hash'] ?? '')),
             'lease_id' => trim((string) ($prepareContext['lease_id'] ?? '')),
@@ -354,7 +352,7 @@ final class AtlasTaskCommitGovernanceChain
                 'task_packet_id' => $taskId,
                 'evidence_hash' => $evidenceHash !== '' ? $evidenceHash : $candidateHash,
                 'replay_plan_hash' => $planHash,
-                'verdict' => $this->decisionToVerdict($decision),
+                'verdict' => CommitGovernancePureMappers::decisionToVerdict($decision),
                 'reasons' => $reasons,
                 'replay_outcome_hash' => $outcomeHash,
                 'decided_at' => $decidedAt,
@@ -375,11 +373,11 @@ final class AtlasTaskCommitGovernanceChain
                 'risk_level' => (string) ($risk['risk_level'] ?? ''),
                 'verification_hash' => $verificationHash,
                 'rollback_hash' => $rollbackHash,
-                'changed_files_hash' => $this->deterministicHash($changed),
+                'changed_files_hash' => CommitGovernancePureMappers::deterministicHash($changed),
                 'project_lane' => ['project_id' => $projectId],
                 'decided_at' => $decidedAt,
                 'evidence_refs' => $evidenceRefs !== [] ? $evidenceRefs : ['unknown:evidence_refs_missing'],
-                'rollback_posture' => $this->rollbackPosture($rollback),
+                'rollback_posture' => CommitGovernancePureMappers::rollbackPosture($rollback),
                 'rejected_alternatives' => $decision === AtlasMergeGovernorAdmissionPolicy::DECISION_ADMITTED ? [] : ['release_without_governance_clearance'],
                 'post_release_learning_hooks' => $decision === AtlasMergeGovernorAdmissionPolicy::DECISION_ADMITTED ? ['task_outcome_learning_candidate'] : [],
                 'prepare_binding' => $prepareBinding,
@@ -421,7 +419,7 @@ final class AtlasTaskCommitGovernanceChain
             return null;
         }
 
-        $scopeHash = $this->deterministicHash($changed);
+        $scopeHash = CommitGovernancePureMappers::deterministicHash($changed);
         $nonce = (string) Str::uuid();
         $issuedAt = trim((string) ($row['decided_at'] ?? ($this->clock)()));
         $expiresAt = date(DATE_ATOM, strtotime($issuedAt) + 300);
@@ -512,47 +510,6 @@ final class AtlasTaskCommitGovernanceChain
         return array_keys($refs);
     }
 
-    /** @param array<string,mixed> $rollback */
-    private function rollbackPosture(array $rollback): string
-    {
-        if (($rollback['conformant'] ?? false) === true) {
-            $strategy = (string) ($rollback['facts']['restore_strategy'] ?? 'git_revert_scoped_commit');
-
-            return 'revertible:'.$strategy;
-        }
-
-        $blockers = array_values(array_map('strval', (array) ($rollback['blockers'] ?? [])));
-
-        return 'blocked:'.($blockers !== [] ? implode(',', $blockers) : 'rollback_not_conformant');
-    }
-
-    /**
-     * @param  array<string,mixed>  $recorded
-     * @return list<string>
-     */
-    private function ledgerErrorBlockers(array $recorded): array
-    {
-        $blockers = [];
-        foreach (['verdict_ledger', 'release_ledger'] as $key) {
-            $status = (string) ($recorded[$key] ?? 'error');
-            if ($status === 'error' || str_starts_with($status, 'error:')) {
-                $blockers[] = $key.'_error';
-            }
-        }
-
-        return $blockers;
-    }
-
-    /** The AdmissionPolicy decision space ⇒ the VerdictLedger's {passed,failed,blocked} enum. */
-    private function decisionToVerdict(string $decision): string
-    {
-        return match ($decision) {
-            AtlasMergeGovernorAdmissionPolicy::DECISION_ADMITTED => AtlasVerificationCourtFalseGreenDetector::VERDICT_PASSED,
-            AtlasMergeGovernorAdmissionPolicy::DECISION_BLOCKED => AtlasVerificationCourtFalseGreenDetector::VERDICT_BLOCKED,
-            default => AtlasVerificationCourtFalseGreenDetector::VERDICT_FAILED,
-        };
-    }
-
     /** @return list<string> allowed risk levels for the release window (policy-plane driven, env-tunable). */
     private function releaseWindow(): array
     {
@@ -560,132 +517,16 @@ final class AtlasTaskCommitGovernanceChain
     }
 
     /**
-     * Compares the policy-declared required-check set for this risk level against the checks that
-     * ACTUALLY ran. A required check that ran and was explicitly recorded as anything other than
-     * 'pass' (skipped, failed, or any other status) is a missing rerun — the admission policy is no
-     * longer blind to a SKIPPED required re-run. A required check that never appears in $checks at
-     * all is left alone (not flagged): many existing callers never populated a full checks map
-     * before this binding existed, and this stays a strictly additive safety net over a real,
-     * observed skip/fail rather than a retroactive tightening of every caller that predates it.
-     * An empty policy-declared set (no config, or nothing required for this risk level) reproduces
-     * today's behavior exactly: empty.
-     *
-     * @param  array<string,string>  $checks
-     * @return list<string>
-     */
-    private function missingRerun(string $riskLevel, array $checks): array
-    {
-        $required = ($this->policyPlane ?? new AtlasTaskGovernancePolicyPlane)->requiredChecksFor($riskLevel);
-        if ($required === []) {
-            return [];
-        }
-
-        $missing = [];
-        foreach ($required as $check) {
-            if (! array_key_exists($check, $checks)) {
-                continue;
-            }
-            $status = strtolower(trim((string) $checks[$check]));
-            // Honour the verification gate's OWN attribution semantics: a check the
-            // gate explicitly did not attribute to this task (tree already broken by
-            // someone else, or the runner infra could not run) must not become this
-            // worker's unmet obligation — the court was recording verdict=failed for
-            // exactly the workers the gate had just absolved (79 real verdicts on
-            // 02/07, all during the DB-wiper windows), poisoning the evidence base
-            // that justifies observe→enforce. A plain skip/fail stays unmet.
-            if (in_array($status, ['fail_unattributed_open', 'skip_infra', 'fail_open_runner_error'], true)) {
-                continue;
-            }
-            if ($status !== 'pass') {
-                $missing[] = $check;
-            }
-        }
-
-        return $missing;
-    }
-
-    /**
      * The policy-declared required_checks for this risk level, reused as the gate replay plan's
-     * `packet_facts.declared_gates` input — the same checks {@see missingRerun()} already treats
-     * as required for this risk level, now also fed into the richer file/risk-derived plan.
+     * `packet_facts.declared_gates` input and as the required set for
+     * {@see CommitGovernancePureMappers::missingRerun()} pure comparison.
+     * I/O / policy plane stays on the chain.
      *
      * @return list<string>
      */
     private function missingRerunPolicyDeclaredGates(string $riskLevel): array
     {
         return ($this->policyPlane ?? new AtlasTaskGovernancePolicyPlane)->requiredChecksFor($riskLevel);
-    }
-
-    /**
-     * Map changed file paths to the human-readable organ labels the RiskClassifier scores. Deterministic, pure.
-     *
-     * @param  list<string>  $changed
-     * @return list<string>
-     */
-    private function touchedOrgans(array $changed): array
-    {
-        $organs = [];
-        foreach ($changed as $path) {
-            if (str_contains($path, 'MergeGovernor')) {
-                $organs['Merge Governor'] = true;
-            }
-            if (str_contains($path, 'VerificationCourt')) {
-                $organs['Verification Court'] = true;
-            }
-            if (str_contains($path, 'AgentControlPlane') || str_contains($path, 'TaskServing') || str_contains($path, 'TaskPacket') || str_contains($path, 'AtlasTaskQueue') || str_contains($path, 'TaskQueueOrchestrator')) {
-                $organs['Task Fabric'] = true;
-            }
-            if (str_contains($path, 'HarnessGuard') || str_contains($path, 'Constitution')) {
-                $organs['Constitution'] = true;
-            }
-            if (str_contains($path, 'MasterSwitch') || str_contains($path, 'LoopMasterSwitch')) {
-                $organs['MasterSwitch'] = true;
-            }
-            if (str_contains($path, 'WorkspaceMaterializer')) {
-                $organs['WorkspaceMaterializer'] = true;
-            }
-        }
-
-        return array_keys($organs);
-    }
-
-    /**
-     * Distinct directory roots of the changed files — used as the project-lane scope roots so the rollback plan
-     * is lane-conformant (every affected file lives under a declared root).
-     *
-     * @param  list<string>  $changed
-     * @return list<string>
-     */
-    private function scopeRoots(array $changed): array
-    {
-        $roots = [];
-        foreach ($changed as $path) {
-            $dir = trim(dirname($path), '.');
-            if ($dir !== '' && $dir !== '/') {
-                $roots[$dir] = true;
-            }
-        }
-
-        return $roots === [] ? ['.'] : array_keys($roots);
-    }
-
-    /** @param  list<string>  $files @return list<string> */
-    private function normalizeFiles(array $files): array
-    {
-        $out = [];
-        foreach ($files as $f) {
-            $p = ltrim(trim(str_replace('\\', '/', (string) $f)), '/');
-            if ($p !== '') {
-                $out[$p] = true;
-            }
-        }
-
-        return array_keys($out);
-    }
-
-    private function deterministicHash(mixed $payload): string
-    {
-        return hash('sha256', (string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
     private function defaultVerdictLedger(): AtlasVerificationCourtVerdictLedger
