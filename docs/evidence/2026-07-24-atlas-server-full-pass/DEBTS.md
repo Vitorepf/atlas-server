@@ -126,6 +126,7 @@
 - [x] data_getYesNo mass compile bug
 - [x] CodeAttentionClassifier
 - [x] TaskFabricTemplateFarmSignalSupport
+- [x] CommitGovernancePureMappers
 
 - [x] RivalsOneShot dimension credit Support
 - [x] ForgeProviderCapacityClassifier pure FSM
