@@ -134,6 +134,7 @@
 - [x] AiWorkerSupport residual pure (scout/steer/repair/mac)
 - [x] CapabilityMaturityLevelCheckSupport
 - [x] SpecComposerBuildersSupport
+- [x] OpenBrain TextNormalizeSupport scalar SSOT
 - [x] ProgrammingConsoleEnvelopeSupport
 - [x] ProgrammingConsoleEnvelopeSupport (status/blocker/action/evidence/intent pure; console 1442→1195)
 
