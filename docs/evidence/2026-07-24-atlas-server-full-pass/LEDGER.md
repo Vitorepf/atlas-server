@@ -9,6 +9,7 @@ full_pass_commits: 197+
 rescan: FINDINGS-RESCAN-3
 recent:
   - ProgrammingConsoleEnvelopeSupport (console 1442→1195; 10/60)
+  - AiPromptInstructionSupport (1589→1076)
   - CompletionAuditPowerScorecardSupport (1425→1140)
   - OpenBrain TextNormalizeSupport scalar SSOT
   - SpecComposerBuildersSupport (1491→1082)

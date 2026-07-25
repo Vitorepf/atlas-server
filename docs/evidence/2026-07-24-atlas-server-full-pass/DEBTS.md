@@ -136,6 +136,7 @@
 - [x] SpecComposerBuildersSupport
 - [x] OpenBrain TextNormalizeSupport scalar SSOT
 - [x] CompletionAuditPowerScorecardSupport
+- [x] AiPromptInstructionSupport
 - [x] ProgrammingConsoleEnvelopeSupport
 - [x] ProgrammingConsoleEnvelopeSupport (status/blocker/action/evidence/intent pure; console 1442→1195)
 
