@@ -29,6 +29,7 @@ use App\Services\Ai\Memory\AtlasMemoryUsageService;
 use App\Services\Ai\Obra\AtlasDeterministicBriefService;
 use App\Services\Ai\Obra\AtlasObraStateService;
 use App\Services\Ai\OpenBrain\AtlasAobgLatencyLedger;
+use App\Services\Ai\OpenBrain\Support\GraphPathFilterSupport;
 use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
 use App\Services\Ai\SelfConstruction\Lineage\AtlasDecisionLineageLedger;
 use App\Services\Ai\Support\DatabaseTableAvailability;
@@ -523,21 +524,16 @@ class AtlasOpenBrainContextPackService
      */
     private static function runtimeFingerprint(array $features): string
     {
-        sort($features);
-
-        return hash('sha256', (string) json_encode([
-            'schema_version' => self::RUNTIME_SCHEMA,
-            'runtime_version' => self::RUNTIME_VERSION,
-            'feature_flags' => $features,
-        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        return GraphPathFilterSupport::runtimeFingerprint(
+            $features,
+            self::RUNTIME_SCHEMA,
+            self::RUNTIME_VERSION,
+        );
     }
 
     // ------------------------------------------------------------------
-    // Sections — each independent + fail-safe (honest empty on any fault).
+    // Sections — pure graph filters live on GraphPathFilterSupport (BC wrappers).
     // ------------------------------------------------------------------
-
-    /** Hard cap for an untrusted reality-graph node label rendered into the model context. */
-    private const GRAPH_LABEL_MAX_CHARS = 160;
 
     /**
      * Reality-graph node labels are UNTRUSTED display text — a label can be a verbatim past operator
@@ -547,9 +543,7 @@ class AtlasOpenBrainContextPackService
      */
     public static function sanitizeGraphLabel(string $raw): string
     {
-        $collapsed = trim((string) preg_replace('/\s+/u', ' ', $raw));
-
-        return mb_substr($collapsed, 0, self::GRAPH_LABEL_MAX_CHARS);
+        return GraphPathFilterSupport::sanitizeGraphLabel($raw);
     }
 
     /**
@@ -558,30 +552,7 @@ class AtlasOpenBrainContextPackService
      */
     public static function isSessionArtifactLabel(string $label): bool
     {
-        $label = mb_strtolower(trim($label));
-        if ($label === '') {
-            return false;
-        }
-        if (in_array($label, ['session capture', '[request interrupted by user]', '[request interrupted by user for tool use]', 'continue from where you left off.'], true)) {
-            return true;
-        }
-
-        foreach ([
-            'você é um', 'voce e um', 'vc é um', 'vc e um',
-            'que merda', 'xingando',
-            'você não', 'voce nao', 'vc não', 'vc nao', 'não entendeu', 'nao entendeu',
-            'me confirma', 'me fala mais', 'faça uma', 'faca uma', 'precisamos fazer',
-            'vc pode', 'você pode', 'voce pode', 'preciso que',
-            'o que eu quero', 'tem um codex rodando',
-            'pelo o que entendi', 'basicamente pegar uma area', 'evoluir ela',
-            'my request for codex', 'continue from where you left off',
-        ] as $marker) {
-            if (str_contains($label, $marker)) {
-                return true;
-            }
-        }
-
-        return false;
+        return GraphPathFilterSupport::isSessionArtifactLabel($label);
     }
 
     /**
@@ -590,25 +561,7 @@ class AtlasOpenBrainContextPackService
      */
     public static function isSessionArtifactPath(array $path, array $chain): bool
     {
-        foreach (['target', 'seed'] as $field) {
-            if (self::isSessionArtifactLabel((string) ($path[$field] ?? ''))) {
-                return true;
-            }
-        }
-
-        foreach ($chain as $node) {
-            // PROVENANCE beats heuristics: a mission minted by the AOBG write-back
-            // (session capture) carries meta.origin — its label is raw session text,
-            // never an operator decision, regardless of what the text looks like.
-            if (($node['origin'] ?? '') === AtlasOpenBrainWriteBackService::MISSION_ORIGIN_SESSION_CAPTURE) {
-                return true;
-            }
-            if (self::isSessionArtifactLabel((string) ($node['label'] ?? ''))) {
-                return true;
-            }
-        }
-
-        return false;
+        return GraphPathFilterSupport::isSessionArtifactPath($path, $chain);
     }
 
     /**
@@ -617,22 +570,7 @@ class AtlasOpenBrainContextPackService
      */
     public static function isDocumentationMissionPath(string $task, array $path, array $chain): bool
     {
-        if (preg_match('/\b(doc|docs|document|documentation|backlog|kb|knowledge|canonical|canonica|canônica)\b/iu', $task) === 1) {
-            return false;
-        }
-
-        foreach ($chain as $node) {
-            if (($node['source_kind'] ?? null) !== 'mission') {
-                continue;
-            }
-
-            $text = mb_strtolower((string) ($node['label'] ?? '').' '.(string) ($path['target'] ?? ''));
-            if (preg_match('/\b(doc|docs|document|documentation|backlog|knowledge|canonical|canonica|canônica)\b/iu', $text) === 1) {
-                return true;
-            }
-        }
-
-        return false;
+        return GraphPathFilterSupport::isDocumentationMissionPath($task, $path, $chain);
     }
 
     // ------------------------------------------------------------------
