@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\TaskFabric;
 
+use App\Services\Ai\SelfConstruction\Support\TaskFabricTemplateFarmSignalSupport;
+
 /**
  * Pure gate: detects template-farm repetition across a batch of packets by comparing
  * normalised objective stems and acceptance fragments.
@@ -27,6 +29,9 @@ namespace App\Services\Ai\SelfConstruction\TaskFabric;
  * replacement_hint (new): non-null only when blocking=true. Names which repeated signal(s)
  * triggered the block and asks explicitly for a different leverage MECHANISM — a renamed
  * target or rewritten prose that keeps the same stem/proof shape does not satisfy it.
+ *
+ * Signal extraction / ratio math lives on
+ * {@see TaskFabricTemplateFarmSignalSupport} (pure Support peel).
  */
 final class AtlasTaskFabricTemplateFarmSimilarityGate
 {
@@ -34,17 +39,8 @@ final class AtlasTaskFabricTemplateFarmSimilarityGate
 
     public const BLOCKING_THRESHOLD = 0.7;
 
-    public const STEM_WORD_COUNT = 8;
-
-    private const CLASS_NAME_PATTERN = '/\b[A-Z][A-Za-z]{4,}\b/';
-
-    private const FRAGMENT_MAX_LEN = 60;
-
-    private const MIN_WORD_LEN = 2;
-
-    private const PROOF_PATH_PATTERN = '/--filter=\s*[A-Za-z0-9_]+|\bexits?\s*0\b|\bphp artisan test\b/i';
-
-    private const ACCEPTANCE_VERB_PATTERN = '/\b(?:must|shall|will)\s+([a-z]+)\b/i';
+    /** @deprecated Use TaskFabricTemplateFarmSignalSupport::STEM_WORD_COUNT */
+    public const STEM_WORD_COUNT = TaskFabricTemplateFarmSignalSupport::STEM_WORD_COUNT;
 
     /**
      * @param  list<array<string,mixed>>  $packets  Each: objective, acceptance_criteria, allowed_files
@@ -70,7 +66,10 @@ final class AtlasTaskFabricTemplateFarmSimilarityGate
             ];
         }
 
-        $stems = array_map(fn (array $p): string => $this->extractStem((string) ($p['objective'] ?? '')), $packets);
+        $stems = array_map(
+            static fn (array $p): string => TaskFabricTemplateFarmSignalSupport::extractStem((string) ($p['objective'] ?? '')),
+            $packets,
+        );
 
         $stemCounts = array_count_values($stems);
         $repeatedStems = array_values(array_keys(array_filter($stemCounts, static fn (int $c): bool => $c >= 2)));
@@ -80,10 +79,13 @@ final class AtlasTaskFabricTemplateFarmSimilarityGate
             $stems,
         ));
 
-        $packetFragments = array_map(function (array $p): array {
+        $packetFragments = array_map(static function (array $p): array {
             $criteria = is_array($p['acceptance_criteria'] ?? null) ? $p['acceptance_criteria'] : [];
             $frags = array_filter(
-                array_unique(array_map(fn (mixed $c): string => $this->extractFragment((string) $c), $criteria)),
+                array_unique(array_map(
+                    static fn (mixed $c): string => TaskFabricTemplateFarmSignalSupport::extractFragment((string) $c),
+                    $criteria,
+                )),
                 static fn (string $f): bool => strlen($f) >= 5,
             );
 
@@ -110,30 +112,46 @@ final class AtlasTaskFabricTemplateFarmSimilarityGate
             }
         }
 
-        $shapes = array_map(fn (array $p): ?string => $this->extractAllowedFilesShape((array) ($p['allowed_files'] ?? [])), $packets);
-        [$repeatedShapes, $packetsWithRepeatedShape] = $this->repeatedSignalRatio($shapes);
+        $shapes = array_map(
+            static fn (array $p): ?string => TaskFabricTemplateFarmSignalSupport::extractAllowedFilesShape((array) ($p['allowed_files'] ?? [])),
+            $packets,
+        );
+        [$repeatedShapes, $packetsWithRepeatedShape] = TaskFabricTemplateFarmSignalSupport::repeatedSignalRatio($shapes);
 
-        $proofPaths = array_map(fn (array $p): array => $this->extractProofPaths(is_array($p['acceptance_criteria'] ?? null) ? $p['acceptance_criteria'] : []), $packets);
-        [$repeatedProofPaths, $packetsWithRepeatedProofPath] = $this->repeatedMultiSignalRatio($proofPaths);
+        $proofPaths = array_map(
+            static fn (array $p): array => TaskFabricTemplateFarmSignalSupport::extractProofPaths(
+                is_array($p['acceptance_criteria'] ?? null) ? $p['acceptance_criteria'] : [],
+            ),
+            $packets,
+        );
+        [$repeatedProofPaths, $packetsWithRepeatedProofPath] = TaskFabricTemplateFarmSignalSupport::repeatedMultiSignalRatio($proofPaths);
 
-        $verbs = array_map(fn (array $p): array => $this->extractAcceptanceVerbs(is_array($p['acceptance_criteria'] ?? null) ? $p['acceptance_criteria'] : []), $packets);
-        [$repeatedVerbs, $packetsWithRepeatedVerb] = $this->repeatedMultiSignalRatio($verbs);
+        $verbs = array_map(
+            static fn (array $p): array => TaskFabricTemplateFarmSignalSupport::extractAcceptanceVerbs(
+                is_array($p['acceptance_criteria'] ?? null) ? $p['acceptance_criteria'] : [],
+            ),
+            $packets,
+        );
+        [$repeatedVerbs, $packetsWithRepeatedVerb] = TaskFabricTemplateFarmSignalSupport::repeatedMultiSignalRatio($verbs);
 
         // Noun-substitution templates: stems that differ from each other by exactly one word
         // (e.g. "implement service to validate user accounts" vs "... order accounts") are the
         // same disguised template even though they are not byte-identical stems.
-        $templateSignatures = array_map(fn (string $stem): array => $this->extractTemplateSignatures($stem), $stems);
-        [$repeatedTemplates, $packetsWithRepeatedTemplate] = $this->repeatedMultiSignalRatio($templateSignatures);
+        $templateSignatures = array_map(
+            static fn (string $stem): array => TaskFabricTemplateFarmSignalSupport::extractTemplateSignatures($stem),
+            $stems,
+        );
+        [$repeatedTemplates, $packetsWithRepeatedTemplate] = TaskFabricTemplateFarmSignalSupport::repeatedMultiSignalRatio($templateSignatures);
 
         // Mechanism hash: stem + sorted proof-path shapes, hashed. Two arm/wrapper/proxy packets
         // that differ only by class name collapse to the same hash here even if none of the
         // above signals individually crossed the repetition threshold.
         $mechanismHashes = array_map(
-            fn (string $stem, array $proofPaths): string => $this->mechanismHash($stem, $proofPaths),
+            static fn (string $stem, array $proofPaths): string => TaskFabricTemplateFarmSignalSupport::mechanismHash($stem, $proofPaths),
             $stems,
             $proofPaths,
         );
-        [$repeatedMechanismHashes, $packetsWithRepeatedMechanismHash] = $this->repeatedSignalRatio($mechanismHashes);
+        [$repeatedMechanismHashes, $packetsWithRepeatedMechanismHash] = TaskFabricTemplateFarmSignalSupport::repeatedSignalRatio($mechanismHashes);
 
         $score = round(max(
             $packetsWithRepeatedStem / $total,
@@ -189,217 +207,11 @@ final class AtlasTaskFabricTemplateFarmSimilarityGate
             'repeated_noun_substitution_templates' => $repeatedTemplates,
             'repeated_mechanism_hashes' => $repeatedMechanismHashes,
             'corroborating_signal_families' => $repeatedSignalFamilies,
-            'replacement_hint' => $blocking ? $this->replacementHint($repeatedMechanismHashes) : null,
+            'replacement_hint' => $blocking
+                ? TaskFabricTemplateFarmSignalSupport::replacementHint($repeatedMechanismHashes)
+                : null,
             'blocking' => $blocking,
             'packet_count' => $total,
         ];
-    }
-
-    /**
-     * @param  list<string>  $repeatedMechanismHashes
-     */
-    private function replacementHint(array $repeatedMechanismHashes): string
-    {
-        return $repeatedMechanismHashes !== []
-            ? 'Multiple packets share a mechanism hash (same stem + proof shape). Renaming the target class or rewording the objective will not clear this — propose a genuinely different leverage mechanism (different failure mode, different proof path, different structural approach) for the duplicate packets.'
-            : 'This batch is a disguised template farm. Renaming the target class or rewording the objective will not clear this — propose a genuinely different leverage mechanism (different failure mode, different proof path, different structural approach) for the repeated packets.';
-    }
-
-    /**
-     * @param  list<string>  $proofPaths
-     */
-    private function mechanismHash(string $stem, array $proofPaths): string
-    {
-        sort($proofPaths);
-
-        return hash('sha256', $stem.'|'.implode(',', $proofPaths));
-    }
-
-    /**
-     * Generic "one signal value per packet" repetition ratio (used by the allowed_files shape
-     * signal). Null/empty values never count toward repetition.
-     *
-     * @param  list<?string>  $values
-     * @return array{0:list<string>,1:int}
-     */
-    private function repeatedSignalRatio(array $values): array
-    {
-        $counts = array_count_values(array_filter($values, static fn (?string $v): bool => $v !== null && $v !== ''));
-        $repeated = array_values(array_keys(array_filter($counts, static fn (int $c): bool => $c >= 2)));
-        sort($repeated);
-
-        $packetsWithRepeated = 0;
-        foreach ($values as $v) {
-            if ($v !== null && $v !== '' && ($counts[$v] ?? 0) >= 2) {
-                $packetsWithRepeated++;
-            }
-        }
-
-        return [$repeated, $packetsWithRepeated];
-    }
-
-    /**
-     * Generic "one packet may contribute multiple signal values" repetition ratio (used by the
-     * proof-path and acceptance-verb signals, since a packet's acceptance_criteria is a list).
-     *
-     * @param  list<list<string>>  $perPacketValues
-     * @return array{0:list<string>,1:int}
-     */
-    private function repeatedMultiSignalRatio(array $perPacketValues): array
-    {
-        $occurrences = [];
-        foreach ($perPacketValues as $values) {
-            foreach (array_unique($values) as $v) {
-                $occurrences[$v] = ($occurrences[$v] ?? 0) + 1;
-            }
-        }
-
-        $repeated = array_values(array_keys(array_filter($occurrences, static fn (int $c): bool => $c >= 2)));
-        sort($repeated);
-
-        $packetsWithRepeated = 0;
-        foreach ($perPacketValues as $values) {
-            foreach (array_unique($values) as $v) {
-                if (($occurrences[$v] ?? 0) >= 2) {
-                    $packetsWithRepeated++;
-                    break;
-                }
-            }
-        }
-
-        return [$repeated, $packetsWithRepeated];
-    }
-
-    /**
-     * Structural shape of a packet's allowed_files: sorted (directory, extension) pairs with the
-     * specific basename stripped. Empty input yields null (excluded from repetition — a missing
-     * allowed_files list is not itself a farm signal).
-     *
-     * @param  list<mixed>  $allowedFiles
-     */
-    private function extractAllowedFilesShape(array $allowedFiles): ?string
-    {
-        if ($allowedFiles === []) {
-            return null;
-        }
-
-        $pairs = [];
-        foreach ($allowedFiles as $file) {
-            $file = (string) $file;
-            if ($file === '') {
-                continue;
-            }
-            $dir = dirname($file);
-            $ext = pathinfo($file, PATHINFO_EXTENSION);
-            $pairs[] = $dir.':'.$ext;
-        }
-
-        if ($pairs === []) {
-            return null;
-        }
-
-        sort($pairs);
-
-        return implode('|', $pairs);
-    }
-
-    /**
-     * Acceptance criteria that look like a runnable proof-gate statement (CLI filter, "exits 0",
-     * "php artisan test"), normalised with the specific class/filter token redacted so repeated
-     * BOILERPLATE structure (not the legitimate target name) is what triggers the signal.
-     *
-     * @param  list<mixed>  $acceptanceCriteria
-     * @return list<string>
-     */
-    private function extractProofPaths(array $acceptanceCriteria): array
-    {
-        $paths = [];
-        foreach ($acceptanceCriteria as $criterion) {
-            $criterion = (string) $criterion;
-            if (preg_match(self::PROOF_PATH_PATTERN, $criterion) !== 1) {
-                continue;
-            }
-            $paths[] = $this->extractProofPathFragment($criterion);
-        }
-
-        return $paths;
-    }
-
-    /**
-     * The verb immediately following a modal ("must"/"shall"/"will") in each acceptance
-     * criterion — repeated boilerplate verbs across many packets (independent of target names)
-     * is a disguised-farm signal distinct from the full-fragment comparison.
-     *
-     * @param  list<mixed>  $acceptanceCriteria
-     * @return list<string>
-     */
-    private function extractAcceptanceVerbs(array $acceptanceCriteria): array
-    {
-        $verbs = [];
-        foreach ($acceptanceCriteria as $criterion) {
-            $criterion = (string) $criterion;
-            if (preg_match(self::ACCEPTANCE_VERB_PATTERN, $criterion, $m) === 1) {
-                $verbs[] = strtolower($m[1]);
-            }
-        }
-
-        return $verbs;
-    }
-
-    /**
-     * All single-word-masked variants of a stem — two stems sharing any masked variant differ by
-     * exactly one word (the disguised noun) and are the same underlying template.
-     *
-     * @return list<string>
-     */
-    private function extractTemplateSignatures(string $stem): array
-    {
-        if ($stem === '') {
-            return [];
-        }
-
-        $words = explode(' ', $stem);
-        $wordCount = count($words);
-        if ($wordCount < 3) {
-            return [];
-        }
-
-        $signatures = [];
-        for ($i = 0; $i < $wordCount; $i++) {
-            $masked = $words;
-            $masked[$i] = '*';
-            $signatures[] = implode(' ', $masked);
-        }
-
-        return $signatures;
-    }
-
-    private function extractStem(string $objective): string
-    {
-        $cleaned = preg_replace(self::CLASS_NAME_PATTERN, '', $objective) ?? $objective;
-        $cleaned = strtolower(trim((string) preg_replace('/\s+/', ' ', $cleaned)));
-        $words = array_values(array_filter(explode(' ', $cleaned), static fn (string $w): bool => strlen($w) > self::MIN_WORD_LEN));
-
-        return implode(' ', array_slice($words, 0, self::STEM_WORD_COUNT));
-    }
-
-    /**
-     * Same normalisation as extractFragment(), plus the --filter=<target> value itself redacted
-     * (the target token routinely mixes digits with the class name — e.g. AtlasVariant0Test —
-     * which the generic CLASS_NAME_PATTERN does not fully strip).
-     */
-    private function extractProofPathFragment(string $criterion): string
-    {
-        $withoutFilterValue = preg_replace('/--filter=\S+/', '--filter=', $criterion) ?? $criterion;
-
-        return $this->extractFragment($withoutFilterValue);
-    }
-
-    private function extractFragment(string $criterion): string
-    {
-        $cleaned = preg_replace(self::CLASS_NAME_PATTERN, '', $criterion) ?? $criterion;
-        $cleaned = strtolower(trim((string) preg_replace('/\s+/', ' ', $cleaned)));
-
-        return substr($cleaned, 0, self::FRAGMENT_MAX_LEN);
     }
 }
