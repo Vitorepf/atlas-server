@@ -129,6 +129,7 @@
 - [x] CommitGovernancePureMappers
 - [x] ForgeProviderFallbackPolicySupport
 - [x] OperatorProfilePolicyCompilerSupport
+- [x] TaskFabricGiveBackLearningSupport
 
 - [x] RivalsOneShot dimension credit Support
 - [x] ForgeProviderCapacityClassifier pure FSM
