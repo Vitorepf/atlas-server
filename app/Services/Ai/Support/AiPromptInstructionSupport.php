@@ -537,4 +537,27 @@ Regras:
 - Se faltar contexto, faca uma pergunta objetiva em uma frase.
 TXT;
     }
+
+    /**
+     * @param  array<int,array<string,mixed>>  $catalog
+     */
+    public static function skillCatalogSection(array $catalog): string
+    {
+        if ($catalog === []) {
+            return '';
+        }
+
+        $lines = ['# Available Skills'];
+        foreach ($catalog as $entry) {
+            $compatibility = is_string($entry['compatibility'] ?? null) && $entry['compatibility'] !== ''
+                ? ' ['.$entry['compatibility'].']'
+                : '';
+            $lines[] = '- '.$entry['name'].': '.$entry['description'].$compatibility;
+        }
+
+        $lines[] = '';
+        $lines[] = 'Use uma skill quando o pedido combinar com a descricao. Nao carregue referencias, scripts ou assets automaticamente; solicite leitura sob demanda quando necessario.';
+
+        return implode("\n", $lines);
+    }
 }
