@@ -16,9 +16,13 @@ trait MobileArrayHelper
         return is_array($value) ? $value : [];
     }
 
-    private function string(mixed $value): ?string
+    private function string(mixed $value, ?string $default = null): ?string
     {
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
+        if (is_string($value) && trim($value) !== '') {
+            return trim($value);
+        }
+
+        return $default;
     }
 
     private function positiveInt(mixed $value): ?int
