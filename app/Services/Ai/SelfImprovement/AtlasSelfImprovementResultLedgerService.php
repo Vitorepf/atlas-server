@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfImprovement;
 
 use App\Models\AtlasProject;
+use App\Services\Ai\SelfImprovement\Support\ResultLedgerGradeSupport;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -365,39 +366,7 @@ class AtlasSelfImprovementResultLedgerService
      */
     private function deriveGrade(array $delta, array $invariant, array $regression, array $context): string
     {
-        $evidenceStrength = $this->evidenceStrength($context);
-        if ($evidenceStrength === 'invalid') {
-            return self::GRADE_INVALID;
-        }
-
-        $invariantPassed = ($invariant['status'] ?? 'unknown') === 'passed';
-        $regressionStatus = (string) ($regression['status'] ?? 'unknown');
-        if (! $invariantPassed) {
-            return self::GRADE_REGRESSED;
-        }
-        if ($regressionStatus === 'blocked') {
-            return self::GRADE_REGRESSED;
-        }
-
-        $hardRegression = (bool) ($delta['hard_regression_detected'] ?? false);
-        if ($hardRegression) {
-            return self::GRADE_REGRESSED;
-        }
-
-        $recommendation = (string) ($delta['recommendation'] ?? 'hold');
-        if ($recommendation === AtlasSelfImprovementDeltaScorecardService::RECOMMEND_ROLLBACK) {
-            return self::GRADE_REGRESSED;
-        }
-
-        $normalized = (float) ($delta['normalized_score'] ?? 0.0);
-        if ($normalized >= 25.0 && $recommendation === AtlasSelfImprovementDeltaScorecardService::RECOMMEND_PROMOTE) {
-            return self::GRADE_MAJOR_IMPROVEMENT;
-        }
-        if ($normalized > 0.0) {
-            return self::GRADE_IMPROVED;
-        }
-
-        return self::GRADE_NEUTRAL;
+        return ResultLedgerGradeSupport::deriveGrade($delta, $invariant, $regression, $context);
     }
 
     /**
@@ -405,20 +374,7 @@ class AtlasSelfImprovementResultLedgerService
      */
     private function evidenceStrength(array $context): string
     {
-        $refs = (array) ($context['evidence_refs'] ?? []);
-        $explicit = $this->stringOrNull($context['evidence_strength'] ?? null);
-        if ($explicit !== null && in_array($explicit, ['strong', 'moderate', 'weak', 'invalid'], true)) {
-            return $explicit;
-        }
-        // Default heuristic: invalid when no refs at all; weak with 1; moderate 2-3; strong 4+.
-        $count = count(array_filter($refs, static fn (mixed $r): bool => is_string($r) && $r !== ''));
-
-        return match (true) {
-            $count === 0 => 'invalid',
-            $count === 1 => 'weak',
-            $count <= 3 => 'moderate',
-            default => 'strong',
-        };
+        return ResultLedgerGradeSupport::evidenceStrength($context);
     }
 
     /**
@@ -432,14 +388,7 @@ class AtlasSelfImprovementResultLedgerService
     {
         $what = $this->stringOrNull($context['what_changed'] ?? null) ?? 'unspecified';
         $why = $this->stringOrNull($context['why_it_mattered'] ?? null) ?? 'unspecified';
-        $confidence = match ($grade) {
-            self::GRADE_MAJOR_IMPROVEMENT => 0.9,
-            self::GRADE_IMPROVED => 0.7,
-            self::GRADE_NEUTRAL => 0.4,
-            self::GRADE_REGRESSED => 0.2,
-            self::GRADE_INVALID => 0.0,
-            default => 0.3,
-        };
+        $confidence = ResultLedgerGradeSupport::learningConfidenceFor($grade);
         $newRule = $grade === self::GRADE_MAJOR_IMPROVEMENT
             ? $this->stringOrNull($context['new_rule_candidate'] ?? null)
             : null;
@@ -465,38 +414,17 @@ class AtlasSelfImprovementResultLedgerService
 
     private function trustDeltaFor(string $grade): float
     {
-        return match ($grade) {
-            self::GRADE_MAJOR_IMPROVEMENT => 1.0,
-            self::GRADE_IMPROVED => 0.4,
-            self::GRADE_NEUTRAL => 0.0,
-            self::GRADE_REGRESSED => -0.5,
-            self::GRADE_INVALID => -0.2,
-            default => 0.0,
-        };
+        return ResultLedgerGradeSupport::trustDeltaFor($grade);
     }
 
     private function trustOutcomeFor(string $grade): string
     {
-        return match ($grade) {
-            self::GRADE_MAJOR_IMPROVEMENT => AtlasSelfImprovementHumanTrustLedgerService::OUTCOME_SELF_IMPROVEMENT_MAJOR_IMPROVEMENT,
-            self::GRADE_IMPROVED => AtlasSelfImprovementHumanTrustLedgerService::OUTCOME_SELF_IMPROVEMENT_IMPROVED,
-            self::GRADE_NEUTRAL => AtlasSelfImprovementHumanTrustLedgerService::OUTCOME_SELF_IMPROVEMENT_NEUTRAL,
-            self::GRADE_REGRESSED => AtlasSelfImprovementHumanTrustLedgerService::OUTCOME_SELF_IMPROVEMENT_REGRESSED,
-            self::GRADE_INVALID => AtlasSelfImprovementHumanTrustLedgerService::OUTCOME_SELF_IMPROVEMENT_INVALID_EVIDENCE,
-            default => AtlasSelfImprovementHumanTrustLedgerService::OUTCOME_SELF_IMPROVEMENT_NEUTRAL,
-        };
+        return ResultLedgerGradeSupport::trustOutcomeFor($grade);
     }
 
     private function nextActionFor(string $grade): string
     {
-        return match ($grade) {
-            self::GRADE_MAJOR_IMPROVEMENT => 'consider_promoting_rule_candidate_with_human_review',
-            self::GRADE_IMPROVED => 'broaden_scope_or_continue_capability_in_next_cycle',
-            self::GRADE_NEUTRAL => 'gather_more_evidence_or_re-evaluate_proposal_value',
-            self::GRADE_REGRESSED => 'rollback_or_replan_proposal_repair_regression',
-            self::GRADE_INVALID => 'gather_evidence_then_re-measure_result',
-            default => 'inspect_result_entry_and_decide_manually',
-        };
+        return ResultLedgerGradeSupport::nextActionFor($grade);
     }
 
     /**
