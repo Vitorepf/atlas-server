@@ -5,8 +5,8 @@ namespace App\Services\Ai\OperatorIntelligence;
 use App\Models\AiMemoryDelta;
 use App\Models\OperatorLearningCandidate;
 use App\Models\OperatorProfileItem;
+use App\Services\Ai\OperatorIntelligence\Support\OperatorProfileRegistrySupport;
 use App\Services\Ai\Support\DatabaseTableAvailability;
-use Illuminate\Support\Str;
 
 class OperatorProfileRegistry
 {
@@ -28,7 +28,7 @@ class OperatorProfileRegistry
         // and valid_until so the active-item expiry gate can expire momentary
         // preferences instead of injecting them into every future prompt forever.
         $validityHint = (string) ($signal?->metadata['validity_hint'] ?? $value['validity_hint'] ?? 'durable');
-        [$validityKind, $validUntil] = $this->resolveValidity($validityHint, $value, $signal);
+        [$validityKind, $validUntil] = $this->resolveValidity($validityHint, $value, $signal); // uses pure hint map
 
         $existing = OperatorProfileItem::query()
             ->where('operator_id', $candidate->operator_id)
@@ -92,11 +92,12 @@ class OperatorProfileRegistry
             ];
         }
 
-        return match ($hint) {
-            'momentary' => ['temporary', now()->addHour()],
-            'scoped'    => ['session', now()->addHours(8)],
-            default     => ['permanent', $value['valid_until'] ?? $signal?->valid_until],
-        };
+        [$kind, $hours] = OperatorProfileRegistrySupport::validityFromHint($hint);
+        if ($hours === null) {
+            return [$kind, $value['valid_until'] ?? $signal?->valid_until];
+        }
+
+        return [$kind, now()->addHours($hours)];
     }
 
     /**
@@ -149,26 +150,21 @@ class OperatorProfileRegistry
 
     private function profileKey(OperatorLearningCandidate $candidate, array $value): string
     {
-        $key = is_string($value['profile_key'] ?? null) ? trim($value['profile_key']) : '';
-        if ($key !== '') {
-            return Str::limit($key, 160, '');
-        }
-
-        return strtolower(str_replace('-', '_', $candidate->taxonomy_item_id)).'.operator_profile';
+        return OperatorProfileRegistrySupport::profileKey(
+            (string) $candidate->taxonomy_item_id,
+            is_string($value['profile_key'] ?? null) ? $value['profile_key'] : null,
+        );
     }
 
     private function automationLevel(OperatorLearningCandidate $candidate, array $value): string
     {
-        $level = is_string($value['automation_level'] ?? null) ? $value['automation_level'] : null;
-        if ($level !== null && in_array($level, OperatorProfileItem::AUTOMATION_LEVELS, true)) {
-            return $level;
-        }
-
-        if ($candidate->auto_apply_eligible && (bool) config('atlas_operator_intelligence.auto_apply_enabled', false)) {
-            return 'auto_apply_reversible';
-        }
-
-        return (string) config('atlas_operator_intelligence.default_automation_level', 'observe');
+        return OperatorProfileRegistrySupport::automationLevel(
+            is_string($value['automation_level'] ?? null) ? $value['automation_level'] : null,
+            (bool) $candidate->auto_apply_eligible,
+            (bool) config('atlas_operator_intelligence.auto_apply_enabled', false),
+            (string) config('atlas_operator_intelligence.default_automation_level', 'observe'),
+            OperatorProfileItem::AUTOMATION_LEVELS,
+        );
     }
 
     private function mirrorToMemoryDelta(OperatorProfileItem $item): void

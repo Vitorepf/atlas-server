@@ -6,6 +6,7 @@ namespace App\Services\Ai\OperatorIntelligence;
 
 use App\Models\OperatorLearningSignal;
 use App\Models\OperatorPatternDetection;
+use App\Services\Ai\OperatorIntelligence\Support\OperatorComprehensionGateSupport;
 use App\Services\Ai\OperatorIntelligence\Support\OperatorPatternDetectSupport;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
@@ -219,16 +220,9 @@ final class OperatorPatternDetector
      */
     private function raisePrivacy(Collection $group): string
     {
-        $rank = ['normal' => 0, 'private' => 1, 'sensitive' => 2, 'secret' => 3];
-        $max = 'normal';
-        foreach ($group as $s) {
-            $c = (string) $s->privacy_class;
-            if (($rank[$c] ?? 0) > ($rank[$max] ?? 0)) {
-                $max = $c;
-            }
-        }
-
-        return $max;
+        return OperatorComprehensionGateSupport::raisePrivacyList(
+            $group->map(fn (OperatorLearningSignal $s): string => (string) $s->privacy_class)->all(),
+        );
     }
 
     /**

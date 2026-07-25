@@ -4,6 +4,7 @@ namespace App\Services\Ai\OperatorIntelligence;
 
 use App\Jobs\OperatorComprehensionExtractionJob;
 use App\Models\AiTrace;
+use App\Services\Ai\OperatorIntelligence\Support\OperatorLearningRuntimeCaptureSupport;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -60,9 +61,7 @@ class OperatorLearningRuntimeCaptureService
      */
     public static function operatorWords(string $input, array $options): string
     {
-        $written = data_get($options, 'payload.operator_text');
-
-        return is_string($written) && trim($written) !== '' ? trim($written) : $input;
+        return OperatorLearningRuntimeCaptureSupport::operatorWords($input, $options);
     }
 
     /**
@@ -203,8 +202,9 @@ class OperatorLearningRuntimeCaptureService
         $allowed = config('atlas_operator_intelligence.chat_capture_source_types', ['manual', 'app', 'voice_realtime']);
         $allowed = is_array($allowed) ? $allowed : ['manual', 'app', 'voice_realtime'];
         $sourceType = (string) ($trace->source_type ?: ($options['source_type'] ?? ''));
-        if (! in_array($sourceType, $allowed, true)) {
-            return ['available' => false, 'reason' => 'source_type_not_allowed', 'missing_tables' => []];
+        $sourceGate = OperatorLearningRuntimeCaptureSupport::sourceTypeGate($sourceType, $allowed);
+        if (! (bool) $sourceGate['available']) {
+            return $sourceGate;
         }
 
         $missingTables = DatabaseTableAvailability::missing(self::REQUIRED_TABLES);
@@ -220,14 +220,10 @@ class OperatorLearningRuntimeCaptureService
      */
     private function operatorId(array $options): string
     {
-        $operatorId = data_get($options, 'payload.operator_id')
-            ?: data_get($options, 'payload.operator.id')
-            ?: data_get($options, 'operator_id')
-            ?: config('atlas_operator_intelligence.default_operator_id', 'default');
-
-        return is_string($operatorId) && trim($operatorId) !== ''
-            ? trim($operatorId)
-            : 'default';
+        return OperatorLearningRuntimeCaptureSupport::resolveOperatorId(
+            $options,
+            (string) config('atlas_operator_intelligence.default_operator_id', 'default'),
+        );
     }
 
     /**
@@ -235,13 +231,11 @@ class OperatorLearningRuntimeCaptureService
      */
     private function scopeId(AiTrace $trace, array $options, string $scopeType): ?string
     {
-        if ($scopeType === 'global') {
-            return null;
-        }
-
-        return data_get($options, 'payload.workspace')
-            ?: data_get($options, 'payload.project_id')
-            ?: ($trace->thread_id ? (string) $trace->thread_id : null);
+        return OperatorLearningRuntimeCaptureSupport::scopeIdFromOptions(
+            $options,
+            $trace->thread_id ? (string) $trace->thread_id : null,
+            $scopeType,
+        );
     }
 
     /**
@@ -250,15 +244,7 @@ class OperatorLearningRuntimeCaptureService
      */
     private function receipt(array $result): array
     {
-        return [
-            'schema_version' => 'atlas.operator_learning_runtime_capture.v1',
-            'status' => 'captured',
-            'signal_id' => data_get($result, 'signal.id'),
-            'candidate_id' => data_get($result, 'candidate.id'),
-            'candidate_status' => data_get($result, 'candidate.status'),
-            'taxonomy_item_id' => data_get($result, 'signal.taxonomy_item_id'),
-            'automation' => data_get($result, 'automation'),
-        ];
+        return OperatorLearningRuntimeCaptureSupport::receipt($result);
     }
 
     /**

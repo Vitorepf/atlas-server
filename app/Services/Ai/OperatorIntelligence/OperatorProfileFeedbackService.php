@@ -159,7 +159,7 @@ class OperatorProfileFeedbackService
      */
     private function encodeReverseHandle(array $payload): string
     {
-        return 'operator-profile-confidence:'.rtrim(strtr(base64_encode(json_encode($payload, JSON_THROW_ON_ERROR)), '+/', '-_'), '=');
+        return OperatorProfileFeedbackSupport::encodeReverseHandle($payload);
     }
 
     /**
@@ -167,22 +167,6 @@ class OperatorProfileFeedbackService
      */
     private function decodeReverseHandle(string $handle): array
     {
-        $prefix = 'operator-profile-confidence:';
-        if (! str_starts_with($handle, $prefix)) {
-            throw new \InvalidArgumentException('Invalid operator profile confidence reverse handle.');
-        }
-
-        $encoded = substr($handle, strlen($prefix));
-        $json = base64_decode(strtr($encoded, '-_', '+/'), true);
-        if (! is_string($json)) {
-            throw new \InvalidArgumentException('Invalid operator profile confidence reverse payload.');
-        }
-
-        $payload = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
-        if (! is_array($payload)) {
-            throw new \InvalidArgumentException('Invalid operator profile confidence reverse payload.');
-        }
-
-        return $payload;
+        return OperatorProfileFeedbackSupport::decodeReverseHandle($handle);
     }
 }

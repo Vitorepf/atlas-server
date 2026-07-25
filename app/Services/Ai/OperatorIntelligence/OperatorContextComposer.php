@@ -3,6 +3,7 @@
 namespace App\Services\Ai\OperatorIntelligence;
 
 use App\Models\OperatorProfileItem;
+use App\Services\Ai\OperatorIntelligence\Support\OperatorContextComposeSupport;
 use Illuminate\Support\Carbon;
 
 class OperatorContextComposer
@@ -19,7 +20,9 @@ class OperatorContextComposer
     public function compose(array $input): array
     {
         $operatorId = (string) ($input['operator_id'] ?? config('atlas_operator_intelligence.default_operator_id', 'default'));
-        $max = max(1, min(50, (int) ($input['limit'] ?? config('atlas_operator_intelligence.max_injected_profile_items', 8))));
+        $max = OperatorContextComposeSupport::clampLimit(
+            (int) ($input['limit'] ?? config('atlas_operator_intelligence.max_injected_profile_items', 8)),
+        );
         $providerExternal = (bool) ($input['provider_external'] ?? false);
         $allowedPrivacy = $providerExternal
             ? (array) config('atlas_operator_intelligence.provider_safe_privacy_classes', ['normal'])
@@ -32,7 +35,7 @@ class OperatorContextComposer
         $omitted = [];
 
         foreach ($items as $item) {
-            if (! in_array($item->privacy_class, $allowedPrivacy, true)) {
+            if (! OperatorContextComposeSupport::privacyAllowed((string) $item->privacy_class, $allowedPrivacy)) {
                 $omitted[] = $this->omitted($item, 'privacy_class_not_allowed');
                 continue;
             }
@@ -81,8 +84,8 @@ class OperatorContextComposer
             $aFlow = $this->flowScore($a, $flow);
             $bFlow = $this->flowScore($b, $flow);
 
-            return [$bFlow, $b->confidence, $b->updated_at?->getTimestamp() ?? 0]
-                <=> [$aFlow, $a->confidence, $a->updated_at?->getTimestamp() ?? 0];
+            return OperatorContextComposeSupport::rankTuple($bFlow, (float) $b->confidence, $b->updated_at?->getTimestamp() ?? 0)
+                <=> OperatorContextComposeSupport::rankTuple($aFlow, (float) $a->confidence, $a->updated_at?->getTimestamp() ?? 0);
         });
 
         return $items;
@@ -91,16 +94,16 @@ class OperatorContextComposer
     private function flowScore(OperatorProfileItem $item, ?string $flow): int
     {
         if ($flow === null) {
-            return 0;
+            return OperatorContextComposeSupport::flowScoreForMatch(false);
         }
 
         foreach ($item->policyRules as $rule) {
             if ($rule->applies_to_flow === $flow) {
-                return 2;
+                return OperatorContextComposeSupport::flowScoreForMatch(true);
             }
         }
 
-        return 0;
+        return OperatorContextComposeSupport::flowScoreForMatch(false);
     }
 
     /**
@@ -137,11 +140,11 @@ class OperatorContextComposer
      */
     private function omitted(OperatorProfileItem $item, string $reason): array
     {
-        return [
-            'id' => $item->id,
-            'profile_key' => $item->profile_key,
-            'privacy_class' => $item->privacy_class,
-            'reason' => $reason,
-        ];
+        return OperatorContextComposeSupport::omitted(
+            $item->id,
+            $item->profile_key,
+            $item->privacy_class,
+            $reason,
+        );
     }
 }

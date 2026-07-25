@@ -41,39 +41,6 @@ final class OperatorComprehensionExtractor
 {
     public const SCHEMA_VERSION = 'atlas.operator_comprehension_extractor.v1';
 
-    private const MIN_QUOTE_CHARS = 20;
-
-    /** tier → numeric confidence (the classifier clamps implicit/inferred again, ≤0.6). */
-    private const TIER_CONFIDENCE = ['explicit' => 0.9, 'repeated' => 0.8, 'single_inference' => 0.55];
-
-    /**
-     * Uncertainty/hedging markers. Their presence means a statement is NOT an unambiguous
-     * explicit declaration — used to gate the registry's EXPLICIT_ONLY items so the LLM's
-     * bare 'explicit' label can never be honored over a hedged source. Folded + matched
-     * at a word boundary (space-prefixed).
-     */
-    private const HEDGE_TOKENS = [
-        'as vezes', 'acho que', 'eu acho', 'talvez', 'nao sei', 'sei la', 'pode ser',
-        'quem sabe', 'imagino que', 'suponho', 'me parece', 'parece que', 'meio que',
-        'nao tenho certeza', 'sem certeza', 'nao tenho bem certeza',
-        'i think', 'i guess', 'maybe', 'perhaps', 'not sure', 'kind of', 'sort of',
-        'i suppose', 'probably',
-    ];
-
-    /** Universal/permanent quantifiers — a claim using one must have it grounded in the quote. */
-    private const UNIVERSAL_TOKENS = [
-        'sempre', 'todos', 'todas', 'qualquer', 'nunca', 'jamais', 'para sempre', 'em todos',
-        'always', 'every', 'everything', 'all', 'never', 'forever',
-    ];
-
-    /** Momentary/scoping markers — a quote carrying one is a poor anchor for a forever-rule. */
-    private const MOMENTARY_MARKERS = [
-        'queria testar', 'quero testar', 'vou testar', 'testar uma', 'um pouco', 'nesse caso',
-        'neste caso', 'nesse momento', 'desta vez', 'dessa vez', 'so dessa vez', 'por agora',
-        'so queria', 'so quero', 'this time', 'for now', 'just now', 'right now', 'in this case',
-        'just wanted', 'wanted to test', 'a bit', 'one off', 'just this once',
-    ];
-
     private ?string $cannedResponse = null;
 
     private ?bool $cannedRefute = null;
@@ -154,7 +121,7 @@ final class OperatorComprehensionExtractor
 
         $claim = trim((string) ($row['claim'] ?? ''));
         $quote = trim((string) ($row['evidence_quote'] ?? ''));
-        if ($claim === '' || ! $this->quoteIsGrounded($quote, $sourceText)) {
+        if ($claim === '' || ! OperatorComprehensionGateSupport::quoteIsGrounded($quote, $sourceText)) {
             return null; // Gate 3: a claim with no real verbatim anchor is invention.
         }
 
@@ -169,21 +136,20 @@ final class OperatorComprehensionExtractor
         // auto-apply. This wires the previously dead registry floor structurally.
         $explicitOnly = (string) ($item['inferability'] ?? '') === 'explicit_only';
         $verifiedExplicit = $inferenceType === 'explicit'
-            && ! $this->isHedged($quote)
-            && ! $this->isHedged($sourceText);
+            && ! OperatorComprehensionGateSupport::isHedged($quote)
+            && ! OperatorComprehensionGateSupport::isHedged($sourceText);
         $explicitOnlyUnverified = $explicitOnly && ! $verifiedExplicit;
         if ($explicitOnlyUnverified) {
             $inferenceType = 'implicit'; // correct provenance — this is not a verified declaration
         }
 
         $tier = (string) ($row['confidence_tier'] ?? ($inferenceType === 'explicit' ? 'explicit' : 'single_inference'));
-        $tier = isset(self::TIER_CONFIDENCE[$tier]) ? $tier : 'single_inference';
+        $tier = OperatorComprehensionGateSupport::normalizeTier($tier);
         if ($explicitOnlyUnverified) {
             $tier = 'single_inference'; // an unverified explicit-only item cannot keep an 'explicit' tier
         }
 
-        $scopeType = in_array((string) ($row['scope_type'] ?? 'global'), ['global', 'project', 'session', 'thread'], true)
-            ? (string) ($row['scope_type'] ?? 'global') : 'global';
+        $scopeType = OperatorComprehensionGateSupport::normalizeScopeType((string) ($row['scope_type'] ?? 'global'));
 
         // Gate 5: quality + content-dedup (kills the "saved 50x" noise mode).
         $verdict = $this->quality->assess(['kind' => 'operator_'.$inferenceType, 'claim' => $claim, 'content' => ['quote' => $quote]]);
@@ -194,11 +160,10 @@ final class OperatorComprehensionExtractor
         // Privacy RAISE-ONLY against the registry's declared floor — the SENSITIVE_DEFAULT
         // items (OP-131/132/… intrinsically sensitive) are protected STRUCTURALLY, not by
         // the keyword scan the LLM can dodge by labelling them 'normal'.
-        $llmPrivacy = in_array((string) ($row['privacy_class'] ?? 'normal'), ['normal', 'private', 'sensitive', 'secret'], true)
-            ? (string) ($row['privacy_class'] ?? 'normal') : 'normal';
-        $privacy = $this->raisePrivacy($llmPrivacy, (string) ($item['privacy_default'] ?? 'normal'));
+        $llmPrivacy = OperatorComprehensionGateSupport::normalizePrivacyClass((string) ($row['privacy_class'] ?? 'normal'));
+        $privacy = OperatorComprehensionGateSupport::raisePrivacy($llmPrivacy, (string) ($item['privacy_default'] ?? 'normal'));
 
-        $confidence = self::TIER_CONFIDENCE[$tier];
+        $confidence = OperatorComprehensionGateSupport::TIER_CONFIDENCE[$tier];
         // Force DEEP review (≤0.35) for the costliest cases regardless of the LLM's label:
         // a high-stakes id, or an explicit-only id reached WITHOUT a verified declaration.
         // Closes the hedged-source-labelled-explicit bypass for the whole protected set.
@@ -209,8 +174,8 @@ final class OperatorComprehensionExtractor
         // verbatim-grounded in the quote, or a global scope riding a visibly momentary/scoped
         // quote, is the classic "real fragment, fabricated rule" — the quote anchors the
         // WORDS, not the claimed breadth. Clamp to review.
-        if ($this->overGeneralizes($claim, $quote)
-            || ($scopeType === 'global' && ($inferenceType === 'implicit' || $this->quoteIsVisiblyScoped($quote)))) {
+        if (OperatorComprehensionGateSupport::overGeneralizes($claim, $quote)
+            || ($scopeType === 'global' && ($inferenceType === 'implicit' || OperatorComprehensionGateSupport::quoteIsVisiblyScoped($quote)))) {
             $confidence = min($confidence, 0.55);
         }
 
@@ -236,8 +201,7 @@ final class OperatorComprehensionExtractor
             'taxonomy_item_id' => $id,
             'claim' => $claim,
             'normalized_claim' => $claim,
-            'signal_kind' => Str::startsWith($id, 'COL-') ? 'collaboration_preference'
-                : ($inferenceType === 'implicit' ? 'operator_inference' : 'operator_preference'),
+            'signal_kind' => OperatorComprehensionGateSupport::signalKind($id, $inferenceType),
             'privacy_class' => $privacy,
             'confidence' => $confidence,
             'inference_type' => $inferenceType,
@@ -254,58 +218,6 @@ final class OperatorComprehensionExtractor
                 'content_hash' => $verdict['content_hash'] ?? null,
             ],
         ];
-    }
-
-    /**
-     * Verbatim lock: the quote must appear as a CONTIGUOUS run in the source with only
-     * case + whitespace folded (NOT punctuation-stripped — that would degrade the lock to
-     * loose word-bag containment), and be long enough to be distinctive.
-     */
-    private function quoteIsGrounded(string $quote, string $source): bool
-    {
-        return OperatorComprehensionGateSupport::quoteIsGrounded($quote, $source, self::MIN_QUOTE_CHARS);
-    }
-
-    private function fold(string $s): string
-    {
-        return OperatorComprehensionGateSupport::fold($s);
-    }
-
-    /** Return the MORE restrictive of two privacy classes (escalate-only). */
-    private function raisePrivacy(string $a, string $b): string
-    {
-        $rank = ['normal' => 0, 'private' => 1, 'sensitive' => 2, 'secret' => 3];
-
-        return ($rank[$a] ?? 0) >= ($rank[$b] ?? 0) ? $a : $b;
-    }
-
-    /**
-     * A claim over-generalizes when its breadth is not grounded: a universal quantifier
-     * (sempre/todos/…) in the claim that does NOT appear verbatim in the quote is fabricated
-     * reach (the quote anchors the WORDS, so it must anchor the breadth too), or a
-     * universalizing claim whose quote is visibly momentary/scoped. Either → force review.
-     * This replaces the gameable length-only heuristic (a long-but-scoped quote dodged it).
-     */
-    private function overGeneralizes(string $claim, string $quote): bool
-    {
-        return OperatorComprehensionGateSupport::overGeneralizes(
-            $claim,
-            $quote,
-            self::UNIVERSAL_TOKENS,
-            self::MOMENTARY_MARKERS,
-        );
-    }
-
-    /** Quote carries a momentary/scoping marker → a weak anchor for any durable rule. */
-    private function quoteIsVisiblyScoped(string $quote): bool
-    {
-        return OperatorComprehensionGateSupport::quoteIsVisiblyScoped($quote, self::MOMENTARY_MARKERS);
-    }
-
-    /** Text contains an uncertainty/hedging marker → not an unambiguous explicit declaration. */
-    private function isHedged(string $text): bool
-    {
-        return OperatorComprehensionGateSupport::isHedged($text, self::HEDGE_TOKENS);
     }
 
     private function callProvider(string $text): ?string
