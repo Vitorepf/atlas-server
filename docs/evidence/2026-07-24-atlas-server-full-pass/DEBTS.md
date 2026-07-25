@@ -120,6 +120,8 @@
 
 ### Residual monstruos (RESCAN-3 rank)
 
+- [x] ActivationCockpitPresentationSupport
+
 - [x] RivalsOneShot dimension credit Support
 - [x] ForgeProviderCapacityClassifier pure FSM
 - [x] ForgeFastPath lifecycle Support
@@ -134,7 +136,7 @@
 - [x] AiWorker predicates/time residual
 - [x] HubDelegators same-name one-line compact (method_exists preserved; __call reserved for workbench)
 - [ ] PRE leave-Http (R103 staged)
-- [ ] Suite filter fatal: EliteExecutorKernel mock eventById signature (unrelated pre-existing)
+- [x] Suite filter fatal: EliteExecutorKernel mock eventById/latestForCorrelation tenant signatures
 
 ### Floors (do not rush)
 
