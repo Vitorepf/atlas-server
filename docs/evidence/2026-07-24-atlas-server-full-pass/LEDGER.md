@@ -8,6 +8,7 @@ execution: in_progress
 full_pass_commits: 197+
 rescan: FINDINGS-RESCAN-3
 recent:
+  - ProgrammingConsoleEnvelopeSupport (console 1442→1195; 10/60)
   - CapabilityMaturityLevelCheckSupport
   - AiWorkerSupport residual pure peels
   - ExecutionOptimizationPolicySupport
@@ -34,7 +35,7 @@ recent:
   - SignalDetector DetectSupport + OI elevate wave
   - UnattendedLiveness + NamingPolicyRules
 unit_proof: HubDelegators 340/1386; AiWorker pure 6/25; FileContext 5; ClosedLoop 22; OI 51
-next: PRE staged · OpenBrain scalar fuse · remaining monstruos
+next: PRE staged · OpenBrain scalar fuse · SpecComposer pure builders · remaining monstruos
 ```
 
 ## Progress summary
