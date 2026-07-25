@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Support\ForgeExecutionStageSupport;
 use App\Jobs\AtlasCodeForgeLiveExecutionJob;
 use App\Models\AtlasEngineeringEvidence;
 use App\Models\AtlasEngineeringRun;
@@ -1212,22 +1213,12 @@ final class AtlasCodeForgeExecutionController extends Controller
 
     private function phaseForStage(string $name): string
     {
-        return match ($name) {
-            'obra_binding', 'sandbox_provision', 'context_pack' => 'context',
-            'patch_apply', 'action_manifest' => 'execute',
-            'patch_verifier', 'test_run' => 'verify',
-            'stage_receipts', 'evidence_ledger' => 'evidence',
-            'repair_loop' => 'repair',
-            'sandbox_rollback' => 'cleanup',
-            default => 'runtime',
-        };
+        return ForgeExecutionStageSupport::phaseForStage($name);
     }
 
     private function stageIsBlocking(string $status, mixed $blocker): bool
     {
-        $hasBlocker = is_string($blocker) && $blocker !== '';
-
-        return $hasBlocker || in_array($status, ['blocked', 'failed', 'degraded'], true);
+        return ForgeExecutionStageSupport::stageIsBlocking($status, $blocker);
     }
 
     /**
