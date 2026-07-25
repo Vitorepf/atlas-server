@@ -84,7 +84,8 @@
 | LedgerReplay agent/decision/inbox/kernel/SI | 22 unit green per step |
 | stringOption variants + LoadsNamedJson | 3+2 unit green |
 | Combined package | see goal-wave-combined-proof.log |
+| ProductModeOperationalInboxProjectionSupport | 16 unit / 163 asserts + 12 inbox path / 80 asserts; service 1088→309 |
 
 ## Residual
 
-PRE leave Http (R103 staged) · floors RSI/TaskQueue · OpenBrain scalar fuse · SpecComposer pure builders · CompletionAudit powerScorecard residual · HubDelegators true map+__call · suite filter fatal EliteExecutor mock signature (unrelated)
+PRE leave Http (R103 staged) · floors RSI/TaskQueue · CompletionAudit cert FS residual · HubDelegators true map+__call · ProductMode controls/receipt pure residual · suite filter pre-existing EliteExecutor mock (unrelated when filter broad)

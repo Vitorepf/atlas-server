@@ -139,6 +139,7 @@
 - [x] AiPromptInstructionSupport
 - [x] AiPromptAttachmentSupport
 - [x] ProductModeCockpitProjectionSupport
+- [x] ProductModeOperationalInboxProjectionSupport (inbox 1088→309; 16 unit + 12 path green)
 - [x] ProgrammingConsoleEnvelopeSupport
 - [x] ProgrammingConsoleEnvelopeSupport (status/blocker/action/evidence/intent pure; console 1442→1195)
 
