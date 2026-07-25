@@ -6,6 +6,7 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Support\StewardshipPriorityBacklogMaterializationSupport;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Support\StewardshipPriorityContextQualitySupport;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Support\StewardshipPriorityScoringSupport;
 
 /**
@@ -28,23 +29,16 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
     public const SCOPE_FACTORY_MAX = AreaFocusScopeProfileNormalizer::FACTORY_MAX;
 
     /**
-     * Step 2 of 3 — context quality score entry seam.
+     * Context quality score entry seam (AP-785 step 2/3).
      *
-     * Validates bounded input keys and materializes {@see ContextQualityScoreContract}.
-     * Empty input returns the default contract; no ranking boost wiring yet.
+     * Thin host facade over pure {@see StewardshipPriorityContextQualitySupport::score()}.
      *
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
     public function contextQualityScore(array $input = []): array
     {
-        if ($input === []) {
-            return ContextQualityScoreContract::defaults()->toArray();
-        }
-
-        return ContextQualityScoreContract::fromArray(
-            $this->validateContextQualityScoreInput($input)
-        )->toArray();
+        return StewardshipPriorityContextQualitySupport::score($input);
     }
 
     public function rank(array $input): array
@@ -53,14 +47,14 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
         $focus = (string) ($input['focus'] ?? 'dev_forge');
         $scopeProfile = strtolower(trim((string) ($input['scope_profile'] ?? '')));
         $hasLiveForgeAuthority = (bool) ($input['has_live_forge_authority'] ?? false);
-        $candidates = $this->candidates($input);
+        $candidates = StewardshipPriorityContextQualitySupport::candidatesFromInput($input);
         if ($candidates === []) {
             $candidates = $this->canonicalSeedCandidates();
         }
 
         $ranked = [];
         foreach ($candidates as $index => $candidate) {
-            $ranked[] = $this->applyContextQualityPriorityBoost(
+            $ranked[] = StewardshipPriorityContextQualitySupport::applyPriorityBoost(
                 $input,
                 $candidate,
                 StewardshipPriorityScoringSupport::scoreItem($candidate, $index, $scopeProfile, $hasLiveForgeAuthority),
@@ -143,69 +137,11 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
             ],
             'generated_at' => AreaFocusUtcClock::atomNow(),
         ];
-        $payload['priority_hash'] = 'sha256:'.MissionCanonicalHash::sha256($this->identity($payload));
+        $payload['priority_hash'] = 'sha256:'.MissionCanonicalHash::sha256(
+            StewardshipPriorityContextQualitySupport::identity($payload)
+        );
 
         return $payload;
-    }
-
-    /**
-     * @param  array<string,mixed>  $input
-     * @return list<array<string,mixed>>
-     */
-    private function candidates(array $input): array
-    {
-        if (is_array($input['candidates'] ?? null)) {
-            return AreaFocusLoopPayloadNormalizer::listOfArrays($input['candidates']);
-        }
-
-        if (is_array($input['findings'] ?? null)) {
-            return AreaFocusLoopPayloadNormalizer::listOfArrays($input['findings']);
-        }
-
-        if (is_array($input['deep_scan_report'] ?? null)) {
-            return AreaFocusLoopPayloadNormalizer::listOfArrays($input['deep_scan_report']['findings'] ?? []);
-        }
-
-        if (is_array($input['branches'] ?? null)) {
-            return AreaFocusLoopPayloadNormalizer::listOfArrays($input['branches']);
-        }
-
-        if (is_array($input['specs'] ?? null)) {
-            return AreaFocusLoopPayloadNormalizer::listOfArrays($input['specs']);
-        }
-
-        if (is_array($input['work_orders'] ?? null)) {
-            return AreaFocusLoopPayloadNormalizer::listOfArrays($input['work_orders']);
-        }
-
-        if (is_array($input['queue_items'] ?? null)) {
-            return AreaFocusLoopPayloadNormalizer::listOfArrays($input['queue_items']);
-        }
-
-        return [];
-    }
-
-
-    /**
-     * @return array<string,mixed>
-     */
-    private function blocked(string $areaId, string $reason, string $detail): array
-    {
-        return [
-            'schema_version' => self::REPORT_SCHEMA,
-            'ap_contract' => 'AP-785',
-            'status' => self::STATUS_BLOCKED,
-            'area_id' => $areaId,
-            'reason' => $reason,
-            'detail' => $detail,
-            'blockers' => [$reason],
-            'claim_policy' => [
-                'provider_invoked' => false,
-                'branch_created' => false,
-                'merge_performed' => false,
-            ],
-            'generated_at' => AreaFocusUtcClock::atomNow(),
-        ];
     }
 
     /**
@@ -369,99 +305,5 @@ final class StewardshipPriorityEngineService implements StewardshipPriorityRanke
         return rtrim((string) $root, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.ltrim($relativePath, DIRECTORY_SEPARATOR);
     }
 
-    /**
-     * @param  array<string,mixed>  $payload
-     * @return array<string,mixed>
-     */
-    private function identity(array $payload): array
-    {
-        $copy = $payload;
-        unset($copy['priority_hash'], $copy['generated_at']);
-
-        return $copy;
-    }
-
-    /**
-     * Step 3 of 3 — first ranking rule only: when rank input carries degraded
-     * context certification, boost candidates tagged context_memory_retrieval_gap.
-     * Per-candidate kinds and remaining rules are future steps.
-     *
-     * @param  array<string,mixed>  $input
-     * @param  array<string,mixed>  $candidate
-     * @param  array<string,mixed>  $rankedItem
-     * @return array<string,mixed>
-     */
-    private function applyContextQualityPriorityBoost(array $input, array $candidate, array $rankedItem): array
-    {
-        $contextInput = $input['context_quality_score'] ?? null;
-        if (! is_array($contextInput) || $contextInput === []) {
-            return $rankedItem;
-        }
-
-        if ($this->candidateFindingKind($candidate) !== ContextQualityScoreContract::FINDING_KIND_CONTEXT_MEMORY_RETRIEVAL_GAP) {
-            return $rankedItem;
-        }
-
-        $contextQuality = $this->contextQualityScore(array_merge(
-            $contextInput,
-            ['finding_kind' => ContextQualityScoreContract::FINDING_KIND_CONTEXT_MEMORY_RETRIEVAL_GAP],
-        ));
-        $boostPoints = (int) ($contextQuality['outputs']['priority_boost_points'] ?? 0);
-        if ($boostPoints <= 0) {
-            return $rankedItem;
-        }
-
-        $boostedScore = round(min(100.0, (float) ($rankedItem['final_priority_score'] ?? 0.0) + $boostPoints), 2);
-        $rankedItem['final_priority_score'] = $boostedScore;
-        $rankedItem['priority_score'] = $boostedScore;
-        $rankedItem['context_quality_priority_boost_points'] = $boostPoints;
-        $rankedItem['reason_machine'] = AreaFocusStringListNormalizer::uniqueMergedStringValues(
-            (array) ($rankedItem['reason_machine'] ?? []),
-            ['context_quality_priority_boost'],
-        );
-        if (is_array($rankedItem['score_breakdown'] ?? null)) {
-            $rankedItem['score_breakdown']['context_quality_priority_boost_points'] = $boostPoints;
-            $rankedItem['score_breakdown']['final_priority_score'] = $boostedScore;
-        }
-
-        return $rankedItem;
-    }
-
-    /**
-     * @param  array<string,mixed>  $candidate
-     */
-    private function candidateFindingKind(array $candidate): string
-    {
-        foreach (['finding_kind', 'kind', 'type', 'classification'] as $key) {
-            $value = strtolower(trim((string) ($candidate[$key] ?? '')));
-            if ($value === ContextQualityScoreContract::FINDING_KIND_CONTEXT_MEMORY_RETRIEVAL_GAP) {
-                return ContextQualityScoreContract::FINDING_KIND_CONTEXT_MEMORY_RETRIEVAL_GAP;
-            }
-        }
-
-        return '';
-    }
-
-    /**
-     * @param  array<string,mixed>  $input
-     * @return array<string,mixed>
-     */
-    private function validateContextQualityScoreInput(array $input): array
-    {
-        $validated = [];
-        foreach ([
-            'area_id',
-            'focus',
-            'certification_quality_score',
-            'certification_target_score',
-            'certification_status',
-            'finding_kind',
-        ] as $key) {
-            if (array_key_exists($key, $input)) {
-                $validated[$key] = $input[$key];
-            }
-        }
-
-        return $validated;
-    }
 }
+
