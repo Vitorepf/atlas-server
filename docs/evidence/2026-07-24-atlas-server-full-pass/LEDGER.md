@@ -8,6 +8,7 @@ execution: in_progress
 full_pass_commits: 197+
 rescan: FINDINGS-RESCAN-3
 recent:
+  - OpenBrain PromptAssemblySupport pure residual (host 1874→1171; Support 747; 8 Support unit + 60 host path / 419 asserts; provider-safe choke + fusion order + memory-quality projection + programming summary + promptSection render)
   - FrontendDesignRuntime pure static sub-contracts residual (host 1108→670; Support 354→807; 9 Support unit + 3 host path / 426 asserts; gauntlet/blueprint/runbook/work-order/packet/scenarios/evidence/gate/cert/handoff/outcome pure without app())
   - StewardshipPriorityBacklogMaterializationSupport (engine 860→467; 10 Support + 17 host / 241 asserts; terminal rebalance/unlock/replenish/report pure)
   - FrontendDesignRuntimeContractSupport (host 1434→1108; 7 Support unit + 3 host path; pure signals/gates/scorecard/variant/live)
@@ -52,7 +53,7 @@ recent:
   - SignalDetector DetectSupport + OI elevate wave
   - UnattendedLiveness + NamingPolicyRules
 unit_proof: HubDelegators 340/1386; AiWorker pure 6/25; FileContext 5; ClosedLoop 22; OI 51
-next: PRE staged · CompletionAudit cert FS residual · HubDelegators true map+__call · FileAttachment zipEntries residual · DesignRuntime certify FS residual (routes/api.php + rival harness needles) · DesignRuntime app()-backed nested contracts residual · PriorityEngine context-quality boost residual
+next: PRE staged · CompletionAudit cert FS residual · HubDelegators true map+__call · FileAttachment zipEntries residual · DesignRuntime certify FS residual (routes/api.php + rival harness needles) · DesignRuntime app()-backed nested contracts residual · PriorityEngine context-quality boost residual · OpenBrain injection residual (policy/surface/summary host IO cluster)
 ```
 
 ## Progress summary

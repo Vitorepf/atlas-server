@@ -91,6 +91,7 @@
 | FrontendDesignRuntimeContractSupport | 7 Support unit + 3 host path / 303 asserts; host 1434→1108; signals/gates/evidence/scorecard/variant/live pure |
 | StewardshipPriorityBacklogMaterializationSupport | 10 Support unit + 17 host path / 241 asserts; engine 860→467; rebalance/unlock/replenish/report pure |
 | FrontendDesignRuntime pure static sub-contracts residual | 9 Support unit + 3 host path / 426 asserts; host 1108→670; gauntlet/blueprint/runbook/work-order/scenarios/evidence/gate/handoff/outcome pure (no app()) |
+| OpenBrain PromptAssemblySupport pure peel | 8 Support unit / 134 asserts + 60 host path / 285 asserts (68/419 combined); host 1874→1171; memory-quality/fusion/provider-safe choke/programming summary/prompt render pure |
 
 ## Residual
 

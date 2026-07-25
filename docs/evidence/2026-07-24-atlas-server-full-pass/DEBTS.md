@@ -135,6 +135,7 @@
 - [x] CapabilityMaturityLevelCheckSupport
 - [x] SpecComposerBuildersSupport
 - [x] OpenBrain TextNormalizeSupport scalar SSOT
+- [x] OpenBrain PromptAssemblySupport (injection 1874→1171; provider-safe/filter/fusion/memory-quality/programming/prompt pure; 8 Support unit + 60 host path; 68/419)
 - [x] CompletionAuditPowerScorecardSupport
 - [x] AiPromptInstructionSupport
 - [x] AiPromptAttachmentSupport
