@@ -8,16 +8,15 @@ execution: in_progress
 full_pass_commits: 197+
 rescan: FINDINGS-RESCAN-3
 recent:
+  - ProjectStackLearnSupport pure extractors
+  - ForgeProviderCapacityClassifier + ForgeFastPathLifecycleSupport
+  - RivalsOneShotDimensionCreditSupport (eval 695→264)
   - SignalDetector heuristics → DetectSupport + Classify privacy/risk fuse
-  - OI elevate: Gate tokens/privacy, RuntimeCapture, ContextCompose, ProfileRegistry
-  - UnattendedLivenessFactsNormalizer pure (snapshot 303→132)
-  - NamingPolicyRules pure string gates
-  - SkillScaffoldTextSupport + OperatorLearningGateSupport peels
-  - OperatorLearningCandidate/Pattern/Comprehension/Detect/Classify supports
+  - OI elevate: Gate/Runtime/Context/Profile supports
+  - UnattendedLivenessFactsNormalizer; NamingPolicyRules
   - ASP shell ~73; routes api.php ~90; ProviderCatalog SSOT
-  - YouTube peels ingestion ~1140; HubDelegators ~6044
-unit_proof: OI unit 51/692; NamingPolicy 32; Liveness Unit 32; prior continuous green
-next: Rivals/Capacity/FastPath pure · OpenBrain FileContext/Expansion · AWIS scoring · PRE staged
+unit_proof: OI 51/692; Capacity 19; Rivals 15; FastPath lifecycle 8; ProjectStack 5; Naming 32; Liveness 32
+next: AWIS scoring · OpenBrain FileContext/Expansion · ClosedLoop grade · FastPath sanitizer · PRE staged
 ```
 
 ## Progress summary

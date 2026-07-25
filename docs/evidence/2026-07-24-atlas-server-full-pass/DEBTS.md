@@ -120,15 +120,16 @@
 
 ### Residual monstruos (RESCAN-3 rank)
 
-- [ ] RivalsOneShot dimension credit Support
-- [ ] ForgeProviderCapacityClassifier pure FSM
-- [ ] ForgeFastPath lifecycle + sanitizer
+- [x] RivalsOneShot dimension credit Support
+- [x] ForgeProviderCapacityClassifier pure FSM
+- [x] ForgeFastPath lifecycle Support
+- [ ] ForgeFastPath report sanitizer residual
+- [x] ProjectStackLearnSupport
 - [ ] WorkspaceOutcomeCommandMemory scoring Support
 - [ ] OpenBrain FileContext ceiling/path pure
 - [ ] OpenBrain ContextExpansion provider-safe render
 - [ ] ClosedLoop stage / ResultLedger grade
 - [ ] SkillScaffold frontmatter/body residual
-- [ ] ProjectStackLearnSupport
 - [ ] AiWorker predicates/time residual
 - [ ] HubDelegators true map+__call residual
 - [ ] PRE leave-Http (R103 staged)

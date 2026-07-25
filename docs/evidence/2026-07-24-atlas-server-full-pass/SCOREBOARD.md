@@ -51,6 +51,10 @@
 | SignalDetector → DetectSupport heuristics | OI unit 51 / 692 asserts; detector →56 LOC |
 | NamingPolicyRules pure | 32 tests / 95 asserts |
 | UnattendedLivenessFactsNormalizer | 32 tests / 123 asserts (Unit suite) |
+| RivalsOneShotDimensionCreditSupport | 15 feature / 77 asserts; service 695→264 |
+| ForgeProviderCapacityClassifier | 19 feature / 74 asserts; service 827→544 |
+| ForgeFastPathLifecycleSupport | 8 unit lifecycle green; status 514→292 |
+| ProjectStackLearnSupport | pure unit lock + learner I/O boundary |
 | Decide operationalDecision + executionGraph | 39 unit green |
 | LedgerReplay agent/decision/inbox/kernel/SI | 22 unit green per step |
 | stringOption variants + LoadsNamedJson | 3+2 unit green |
