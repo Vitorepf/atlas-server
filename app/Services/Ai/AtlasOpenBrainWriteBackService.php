@@ -8,6 +8,7 @@ use App\Models\AiLearningProposal;
 use App\Services\Ai\Compounding\AtlasCaptureQualityGate;
 use App\Services\Ai\Compounding\AtlasLearningProposalService;
 use App\Services\Ai\Memory\AtlasMemoryRegistryService;
+use App\Services\Ai\OpenBrainContextInjection\TextNormalizeSupport;
 use App\Services\Ai\Reality\AtlasRealityGraphIngestionService;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainScaffoldRegistryGovernance;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
@@ -587,12 +588,7 @@ class AtlasOpenBrainWriteBackService
 
     private function string(mixed $value): ?string
     {
-        if (! is_scalar($value)) {
-            return null;
-        }
-        $value = trim((string) $value);
-
-        return $value !== '' ? $value : null;
+        return TextNormalizeSupport::nullableString($value);
     }
 
     /**

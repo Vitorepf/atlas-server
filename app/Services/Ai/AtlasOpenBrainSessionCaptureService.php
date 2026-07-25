@@ -6,6 +6,7 @@ namespace App\Services\Ai;
 
 use App\Services\Ai\Cognition\AtlasSurpriseGateService;
 use App\Services\Ai\Obra\AtlasObraStateService;
+use App\Services\Ai\OpenBrainContextInjection\TextNormalizeSupport;
 use App\Services\Ai\PersistentContext\AtlasPersistentContextRuntimeService;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
@@ -1129,11 +1130,6 @@ class AtlasOpenBrainSessionCaptureService
 
     private function string(mixed $value): ?string
     {
-        if (! is_scalar($value)) {
-            return null;
-        }
-        $value = trim((string) $value);
-
-        return $value !== '' ? $value : null;
+        return TextNormalizeSupport::nullableString($value);
     }
 }

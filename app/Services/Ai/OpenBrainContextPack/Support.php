@@ -6,6 +6,7 @@ namespace App\Services\Ai\OpenBrainContextPack;
 
 use App\Services\Ai\Context\AtlasCanonicalContextRef;
 use App\Services\Ai\Memory\AtlasMemoryRecallConcentrationDemotion;
+use App\Services\Ai\OpenBrainContextInjection\TextNormalizeSupport;
 use App\Services\Ai\Support\AiValueNormalizer;
 use Throwable;
 
@@ -93,13 +94,7 @@ final class Support
      */
     public function stringOpt(array $opts, string $key): ?string
     {
-        $raw = $opts[$key] ?? null;
-        if (! is_scalar($raw)) {
-            return null;
-        }
-        $raw = trim((string) $raw);
-
-        return $raw !== '' ? $raw : null;
+        return TextNormalizeSupport::stringOpt($opts, $key);
     }
 
     /**

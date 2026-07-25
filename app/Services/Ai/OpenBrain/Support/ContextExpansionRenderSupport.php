@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\OpenBrain\Support;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\OpenBrainContextInjection\TextNormalizeSupport;
 use App\Services\Ai\Support\AiValueNormalizer;
 use App\Support\YesNo;
 
@@ -189,7 +190,7 @@ final class ContextExpansionRenderSupport
 
     public static function scalarString(mixed $value, string $default = ''): string
     {
-        return is_scalar($value) && trim((string) $value) !== '' ? trim((string) $value) : $default;
+        return TextNormalizeSupport::scalarString($value, $default);
     }
 
     /**
@@ -197,20 +198,7 @@ final class ContextExpansionRenderSupport
      */
     public static function stringList(mixed $value): array
     {
-        if (is_scalar($value)) {
-            $value = [$value];
-        }
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return collect($value)
-            ->filter(static fn (mixed $item): bool => is_scalar($item) && trim((string) $item) !== '')
-            ->map(static fn (mixed $item): string => trim((string) $item))
-            ->unique()
-            ->values()
-            ->take(12)
-            ->all();
+        return TextNormalizeSupport::stringList($value, 12);
     }
 
     public static function truncate(string $value, int $budget): string

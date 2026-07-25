@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai;
 
+use App\Services\Ai\OpenBrainContextInjection\TextNormalizeSupport;
 use App\Services\Ai\OpenBrainMcp\OpenBrainMcpToolCatalog;
 use App\Models\AiTelemetryEvent;
 use App\Models\AtlasMemoryEntry;
@@ -833,13 +834,7 @@ class AtlasOpenBrainMcpService
 
     private function string(mixed $value): ?string
     {
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value !== '' ? $value : null;
+        return TextNormalizeSupport::nullableString($value);
     }
 
     /**
@@ -847,12 +842,7 @@ class AtlasOpenBrainMcpService
      */
     private function stringList(mixed $value): array
     {
-        $values = is_array($value) ? $value : [$value];
-
-        return array_values(array_unique(array_filter(array_map(
-            fn (mixed $item): ?string => $this->string($item),
-            $values,
-        ))));
+        return TextNormalizeSupport::stringList($value, null);
     }
 
     private function positiveInt(mixed $value): ?int

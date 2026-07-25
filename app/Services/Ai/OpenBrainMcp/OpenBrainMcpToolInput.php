@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\OpenBrainMcp;
 
+use App\Services\Ai\OpenBrainContextInjection\TextNormalizeSupport;
+
 /**
  * Shared input-normalization helpers for the OpenBrainMcp *Tools family.
  *
  * De-duplicates five byte-identical private helpers (object/positiveInt/string/stringList/
  * workspace) that were copied verbatim across the MCP tool classes when AtlasOpenBrainMcpService
- * was split into per-domain Tools. Single source of truth — a fix propagates to every tool.
+ * was split into per-domain Tools. Scalar string/list normalize via
+ * {@see TextNormalizeSupport} (Open Brain scalar SSOT).
  * (onlyScalarFilters is intentionally NOT here: it depends on a per-class $replayInput property.)
  */
 trait OpenBrainMcpToolInput
@@ -32,23 +35,12 @@ trait OpenBrainMcpToolInput
 
     private function string(mixed $value): ?string
     {
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value !== '' ? $value : null;
+        return TextNormalizeSupport::nullableString($value);
     }
 
     private function stringList(mixed $value): array
     {
-        $values = is_array($value) ? $value : [$value];
-
-        return array_values(array_unique(array_filter(array_map(
-            fn (mixed $item): ?string => $this->string($item),
-            $values,
-        ))));
+        return TextNormalizeSupport::stringList($value, null);
     }
 
     private function workspace(mixed $workspace): ?string
