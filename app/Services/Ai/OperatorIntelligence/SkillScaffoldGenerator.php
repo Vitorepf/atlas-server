@@ -68,21 +68,7 @@ final class SkillScaffoldGenerator
      */
     private function frontmatter(array $fm): string
     {
-        $lines = ['---'];
-        foreach ($fm as $key => $value) {
-            if (is_array($value)) {
-                $lines[] = $key.':';
-                foreach ($value as $k => $v) {
-                    $lines[] = '  '.$k.': '.$this->scalar($v);
-                }
-
-                continue;
-            }
-            $lines[] = $key.': '.$this->scalar($value);
-        }
-        $lines[] = '---';
-
-        return implode("\n", $lines)."\n\n";
+        return SkillScaffoldTextSupport::frontmatter($fm);
     }
 
     /**
@@ -95,11 +81,6 @@ final class SkillScaffoldGenerator
         return SkillScaffoldTextSupport::sanitizeSummary($s);
     }
 
-    private function scalar(mixed $value): string
-    {
-        return SkillScaffoldTextSupport::scalar($value);
-    }
-
     private function body(OperatorPatternDetection $detection, string $title, string $summary, string $slug): string
     {
         $evidence = is_array($detection->evidence) ? $detection->evidence : [];
@@ -110,34 +91,15 @@ final class SkillScaffoldGenerator
                 $dates[] = '- '.Str::limit($when, 19, '');
             }
         }
-        $evidenceBlock = $dates === [] ? '- (occurrences recorded in the pattern ledger)' : implode("\n", $dates);
 
-        return <<<MD
-        # {$title}
-
-        > Rascunho **auto-gerado pelo Atlas** a partir de um padrão recorrente no seu trabalho.
-        > Revise, refine os passos, e promova quando quiser. Nada aqui está ativo até você promover.
-
-        ## O que o Atlas notou
-        Você repetiu **{$detection->occurrence_count}x** (em {$detection->window_days} dias): {$summary}.
-        Confiança da detecção: {$detection->confidence}.
-
-        ## Automação proposta (preencha/ajuste)
-        Esta skill padroniza a tarefa acima. Descreva abaixo os passos que você quer que o Atlas siga
-        quando esse padrão aparecer — o scaffold é um ponto de partida ancorado no que foi observado,
-        não uma sequência inventada.
-
-        1. (passo 1 — defina)
-        2. (passo 2 — defina)
-
-        ## Evidência (ocorrências reais)
-        {$evidenceBlock}
-
-        ## Segurança
-        - `allowed-tools` está **vazio**: esta skill NÃO concede nenhuma ferramenta nova ao agente até você adicionar explicitamente.
-        - Promover para o vault vivo: `php artisan atlas:ai:operator-skill approve {$slug} --confirm`
-        - Rejeitar: `php artisan atlas:ai:operator-skill reject {$slug}`
-
-        MD;
+        return SkillScaffoldTextSupport::body(
+            $title,
+            $summary,
+            $slug,
+            (int) $detection->occurrence_count,
+            (int) $detection->window_days,
+            (float) $detection->confidence,
+            $dates,
+        );
     }
 }

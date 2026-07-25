@@ -6,6 +6,7 @@ namespace App\Services\Ai\OperatorIntelligence;
 
 use App\Models\OperatorPatternDetection;
 use App\Models\OperatorSkillProposal;
+use App\Services\Ai\OperatorIntelligence\Support\SkillScaffoldTextSupport;
 use Illuminate\Support\Facades\File;
 use Throwable;
 
@@ -55,7 +56,7 @@ final class OperatorSkillProposalBridge
             // Fail-closed: a staged skill MUST be tool-less + untrusted + proposed. If the
             // scaffold ever fails that (e.g. a future escaping regression injecting frontmatter
             // keys), refuse to stage it rather than trust downstream parser leniency.
-            if (! $this->scaffoldIsSafe($scaffold['markdown'])) {
+            if (! SkillScaffoldTextSupport::scaffoldIsSafe($scaffold['markdown'])) {
                 return null;
             }
             $stagingPath = storage_path(self::STAGING_DIR.'/'.$scaffold['slug'].'/SKILL.md');
@@ -87,17 +88,5 @@ final class OperatorSkillProposalBridge
         }
     }
 
-    /** The generated skill must be tool-less + untrusted + proposed, with no injected keys. */
-    private function scaffoldIsSafe(string $markdown): bool
-    {
-        if (preg_match('/^trust:\s*untrusted\s*$/m', $markdown) !== 1) {
-            return false;
-        }
-        if (preg_match('/^allowed-tools:\s*""\s*$/m', $markdown) !== 1) {
-            return false;
-        }
-        // No injected escalation keys anywhere in the frontmatter.
-        return preg_match('/^(trust:\s*trusted|tier:\s*(?:trusted|certified)|allowed[_-]tools:\s*[^"\s])/mi', $markdown) !== 1;
-    }
 }
 
