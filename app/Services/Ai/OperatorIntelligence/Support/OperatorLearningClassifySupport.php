@@ -64,7 +64,7 @@ final class OperatorLearningClassifySupport
                 return 'secret';
             }
         }
-        foreach (['saude', 'familia', 'relacionamento', 'dinheiro', 'documento'] as $needle) {
+        foreach (['saude', 'familia', 'relacionamento', 'dinheiro', 'documento', 'cpf', 'rg'] as $needle) {
             if (str_contains($lower, $needle)) {
                 return 'sensitive';
             }
@@ -80,6 +80,7 @@ final class OperatorLearningClassifySupport
         }
 
         $lower = Str::lower($claim);
+        // 'delet' covers delete/deletar; keep explicit apagar/publicar/enviar/comprar/vender/overwrite.
         foreach (['delet', 'apagar', 'overwrite', 'comprar', 'vender', 'publicar', 'enviar'] as $needle) {
             if (str_contains($lower, $needle)) {
                 return 'high';
@@ -125,9 +126,10 @@ final class OperatorLearningClassifySupport
 
     public static function privacyRaiseOnly(string $a, string $b): string
     {
-        $rank = ['normal' => 0, 'private' => 1, 'sensitive' => 2, 'secret' => 3];
+        $left = $a !== '' ? $a : 'normal';
+        $right = $b !== '' ? $b : 'normal';
 
-        return ($rank[$a] ?? 0) >= ($rank[$b] ?? 0) ? ($a !== '' ? $a : 'normal') : $b;
+        return OperatorComprehensionGateSupport::raisePrivacy($left, $right);
     }
 
     /**
