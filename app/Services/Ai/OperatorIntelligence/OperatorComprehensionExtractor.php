@@ -8,6 +8,7 @@ use App\Models\AiJob;
 use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\AtlasDecide\AtlasStructuredOutputValidator;
 use App\Services\Ai\Compounding\AtlasCaptureQualityGate;
+use App\Services\Ai\OperatorIntelligence\Support\OperatorComprehensionGateSupport;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -262,19 +263,12 @@ final class OperatorComprehensionExtractor
      */
     private function quoteIsGrounded(string $quote, string $source): bool
     {
-        $q = $this->fold($quote);
-        if (mb_strlen($q) < self::MIN_QUOTE_CHARS) {
-            return false;
-        }
-
-        return str_contains($this->fold($source), $q);
+        return OperatorComprehensionGateSupport::quoteIsGrounded($quote, $source, self::MIN_QUOTE_CHARS);
     }
 
     private function fold(string $s): string
     {
-        $s = Str::ascii(mb_strtolower($s));
-
-        return trim(preg_replace('/\s+/', ' ', $s) ?? '');
+        return OperatorComprehensionGateSupport::fold($s);
     }
 
     /** Return the MORE restrictive of two privacy classes (escalate-only). */
@@ -294,45 +288,24 @@ final class OperatorComprehensionExtractor
      */
     private function overGeneralizes(string $claim, string $quote): bool
     {
-        $c = ' '.$this->fold($claim);
-        $q = ' '.$this->fold($quote);
-        $universalizes = false;
-        foreach (self::UNIVERSAL_TOKENS as $t) {
-            if (str_contains($c, ' '.$t)) {
-                $universalizes = true;
-                if (! str_contains($q, ' '.$t)) {
-                    return true; // claimed breadth absent from the verbatim quote
-                }
-            }
-        }
-
-        return $universalizes && $this->quoteIsVisiblyScoped($quote);
+        return OperatorComprehensionGateSupport::overGeneralizes(
+            $claim,
+            $quote,
+            self::UNIVERSAL_TOKENS,
+            self::MOMENTARY_MARKERS,
+        );
     }
 
     /** Quote carries a momentary/scoping marker → a weak anchor for any durable rule. */
     private function quoteIsVisiblyScoped(string $quote): bool
     {
-        $q = ' '.$this->fold($quote);
-        foreach (self::MOMENTARY_MARKERS as $m) {
-            if (str_contains($q, ' '.$m)) {
-                return true;
-            }
-        }
-
-        return false;
+        return OperatorComprehensionGateSupport::quoteIsVisiblyScoped($quote, self::MOMENTARY_MARKERS);
     }
 
     /** Text contains an uncertainty/hedging marker → not an unambiguous explicit declaration. */
     private function isHedged(string $text): bool
     {
-        $t = ' '.$this->fold($text);
-        foreach (self::HEDGE_TOKENS as $h) {
-            if (str_contains($t, ' '.$h)) {
-                return true;
-            }
-        }
-
-        return false;
+        return OperatorComprehensionGateSupport::isHedged($text, self::HEDGE_TOKENS);
     }
 
     private function callProvider(string $text): ?string
