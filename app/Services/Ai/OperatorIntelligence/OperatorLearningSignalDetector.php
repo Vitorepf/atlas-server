@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\OperatorIntelligence;
 
+use App\Services\Ai\OperatorIntelligence\Support\OperatorLearningDetectSupport;
 use Illuminate\Support\Str;
 
 class OperatorLearningSignalDetector
@@ -80,12 +81,7 @@ class OperatorLearningSignalDetector
      */
     private function sentences(string $input): array
     {
-        $parts = preg_split('/(?<=[.!?;])\s+|\n+/u', $input) ?: [];
-
-        return array_values(array_filter(array_map(
-            static fn (string $part): string => trim($part),
-            $parts,
-        ), static fn (string $part): bool => $part !== ''));
+        return OperatorLearningDetectSupport::sentences($input);
     }
 
     private function isExplicitLearningSignal(string $normalized): bool
@@ -275,9 +271,6 @@ class OperatorLearningSignalDetector
 
     private function normalizeForMatch(string $value): string
     {
-        $value = Str::lower(Str::ascii($value));
-        $value = preg_replace('/[^\pL\pN\s]+/u', ' ', $value) ?? $value;
-
-        return trim(preg_replace('/\s+/', ' ', $value) ?? $value);
+        return OperatorLearningDetectSupport::normalizeForMatch($value);
     }
 }
