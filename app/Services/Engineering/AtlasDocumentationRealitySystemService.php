@@ -9,6 +9,7 @@ use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationEvidenceRes
 use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
+use App\Services\Engineering\DocumentationReality\DocumentationRealityClassifySupport;
 use App\Services\Engineering\DocumentationReality\DocumentationRealityEvaluationsSection;
 use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Cache;
@@ -1002,26 +1003,7 @@ class AtlasDocumentationRealitySystemService
      */
     private function declaredEvidenceRefs(mixed $raw): array
     {
-        if (! is_array($raw)) {
-            return [];
-        }
-
-        $refs = [];
-        foreach ($raw as $entry) {
-            if (is_array($entry)) {
-                $kind = trim((string) ($entry['kind'] ?? ''));
-                $ref = trim((string) ($entry['ref'] ?? ''));
-            } elseif (is_string($entry) && str_contains($entry, ':')) {
-                [$kind, $ref] = array_map('trim', explode(':', $entry, 2));
-            } else {
-                continue;
-            }
-            if ($kind !== '' && $ref !== '') {
-                $refs[] = ['kind' => $kind, 'ref' => $ref];
-            }
-        }
-
-        return $refs;
+        return DocumentationRealityClassifySupport::declaredEvidenceRefs($raw);
     }
 
     /**
@@ -1295,19 +1277,11 @@ class AtlasDocumentationRealitySystemService
      */
     private function executionFor(?string $evaluationKey): string
     {
-        if ($evaluationKey === null) {
-            return 'declared';
-        }
-
-        if (in_array($evaluationKey, self::EXECUTING_EVALUATION_KEYS, true)) {
-            return 'executes';
-        }
-
-        if (in_array($evaluationKey, self::PARTIAL_EVALUATION_KEYS, true)) {
-            return 'partial';
-        }
-
-        return 'declared';
+        return DocumentationRealityClassifySupport::executionFor(
+            $evaluationKey,
+            self::EXECUTING_EVALUATION_KEYS,
+            self::PARTIAL_EVALUATION_KEYS,
+        );
     }
 
     /**
