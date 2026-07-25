@@ -18,6 +18,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\MiniProgrammingSpec;
 use App\Services\Ai\Programming\AtlasDev\Schemas\OpenBrainProgrammingProjection;
 use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 use App\Services\Ai\Programming\AtlasDev\Support\Elevations\ElevationConfig;
+use App\Services\Ai\Programming\AtlasDev\Support\SpecComposerBuildersSupport;
 use App\Services\Ai\Programming\HermesWorkspaceDefaults;
 use InvalidArgumentException;
 
@@ -446,16 +447,7 @@ class SpecComposer
 
     private function normalizeModelFamily(string $provider, string $model): string
     {
-        if ($provider !== 'claude_cli') {
-            return $model;
-        }
-
-        $normalized = strtolower(trim($model));
-        if ($normalized === 'sonnet' || str_contains($normalized, 'sonnet')) {
-            return 'sonnet';
-        }
-
-        return $model;
+        return SpecComposerBuildersSupport::normalizeModelFamily($provider, $model);
     }
 
     /**
@@ -463,20 +455,7 @@ class SpecComposer
      */
     private function constraintValue(array $constraints, string $key): ?string
     {
-        $prefix = strtolower($key).'=';
-        foreach ($constraints as $constraint) {
-            if (! is_string($constraint)) {
-                continue;
-            }
-            $trimmed = trim($constraint);
-            if (str_starts_with(strtolower($trimmed), $prefix)) {
-                $value = trim(substr($trimmed, strlen($prefix)));
-
-                return $value === '' ? null : $value;
-            }
-        }
-
-        return null;
+        return SpecComposerBuildersSupport::constraintValue($constraints, $key);
     }
 
     private function resolveMode(OperationEnvelope $envelope, TaskClassification $classification, string $riskLevel): string
@@ -511,24 +490,12 @@ class SpecComposer
 
     private function resolveScopeMode(TaskClassification $classification, string $riskLevel): string
     {
-        if (in_array($riskLevel, [RiskLevelScorer::R3, RiskLevelScorer::R4, RiskLevelScorer::R5], true)) {
-            return self::SCOPE_STRUCTURAL;
-        }
-
-        return self::SCOPE_COMPACT;
+        return SpecComposerBuildersSupport::resolveScopeMode($riskLevel);
     }
 
     private function maxCandidates(TaskClassification $classification, string $riskLevel): int
     {
-        return match ($riskLevel) {
-            RiskLevelScorer::R0 => 4,
-            RiskLevelScorer::R1 => 4,
-            RiskLevelScorer::R2 => 6,
-            RiskLevelScorer::R3 => 10,
-            RiskLevelScorer::R4 => 12,
-            RiskLevelScorer::R5 => 12,
-            default => 6,
-        };
+        return SpecComposerBuildersSupport::maxCandidates($riskLevel);
     }
 
     private function maxFilesChangedFor(OperationEnvelope $envelope, CompactSdd $compactSdd, MiniProgrammingSpec $miniSpec): int
@@ -617,27 +584,11 @@ class SpecComposer
      */
     private function resolveEscalationTriggers(TaskClassification $classification, string $riskLevel): array
     {
-        if (in_array($riskLevel, [RiskLevelScorer::R4, RiskLevelScorer::R5], true)) {
-            return [
-                'risk_level_at_or_above_r4',
-                'human_action_required',
-            ];
-        }
-        if ($classification->taskKind === TaskClassification::KIND_REPAIR) {
-            return [
-                'same_signature_failure_twice',
-                'diff_grew_without_progress',
-                'new_scope_appeared',
-            ];
-        }
-        if ($classification->writeImplied) {
-            return [
-                'scope_explosion',
-                'same_signature_failure_twice',
-            ];
-        }
-
-        return [];
+        return SpecComposerBuildersSupport::resolveEscalationTriggers(
+            $classification->taskKind,
+            $riskLevel,
+            $classification->writeImplied,
+        );
     }
 
     /**
@@ -724,22 +675,8 @@ class SpecComposer
         // list — the rendered prompt includes this list verbatim and shipping
         // ".env" to the model trips provider-safety leak detectors (and is
         // operationally noisy: scope guard already refuses any path under env).
-        $base = ['vendor/*', 'node_modules/*', 'storage/framework/*'];
-
-        $extra = [];
-        if ($compactSdd->mode === self::MODE_ESCALATE_PREVIEW) {
-            $extra[] = 'database/migrations/*';
-            $extra[] = 'config/*';
-        }
-
-        // Merge in discovery's forbidden globs but strip any env-style entries
-        // for the same reason. The runtime scope guard owns env enforcement.
-        $clean = array_filter(
-            $discovery->forbiddenFiles,
-            static fn (string $g): bool => ! str_contains(strtolower($g), '.env'),
-        );
-
-        return AtlasDevStringListNormalizer::uniqueTrimmedStrings(array_merge($base, $extra, $clean));
+        // Runtime scope guard owns env enforcement; Support strips env globs.
+        return SpecComposerBuildersSupport::forbiddenFilesFor($compactSdd->mode, $discovery->forbiddenFiles);
     }
 
     /**
@@ -835,18 +772,7 @@ class SpecComposer
 
     private function mapContextRefKind(ContextRef $ref): string
     {
-        return match ($ref->kind) {
-            ContextRef::KIND_TEST => 'test',
-            ContextRef::KIND_SYMBOL => 'symbol',
-            ContextRef::KIND_KNOWLEDGE => 'knowledge',
-            ContextRef::KIND_DECISION => 'decision',
-            ContextRef::KIND_LEARNING => 'learning',
-            ContextRef::KIND_TECHNICAL_CONTEXT => 'technical_context',
-            ContextRef::KIND_HARNESS_LEARNING => 'harness_learning',
-            ContextRef::KIND_MEMORY => 'memory',
-            ContextRef::KIND_CODE => 'code',
-            default => 'context',
-        };
+        return SpecComposerBuildersSupport::mapContextRefKind($ref->kind);
     }
 
     /**
@@ -925,50 +851,19 @@ class SpecComposer
 
     private function testRefToPath(string $ref): ?string
     {
-        if (str_starts_with($ref, 'file://')) {
-            return substr($ref, 7);
-        }
-        if (str_contains($ref, '://')) {
-            return null;
-        }
-
-        return $ref;
+        return SpecComposerBuildersSupport::testRefToPath($ref);
     }
 
     private function phpUnitFilterFromPath(string $path): ?string
     {
-        $base = basename($path);
-        if (! str_ends_with($base, 'Test.php')) {
-            return null;
-        }
-
-        return substr($base, 0, -4);
+        return SpecComposerBuildersSupport::phpUnitFilterFromPath($path);
     }
 
     /**
      * Build the acceptance criteria for the spec.
      *
-     * For write tasks (patch/repair/frontend), the AC set is the union of:
-     *
-     *   1. Behavioral ACs (E2): one per recognized intent verb, each carrying
-     *      a real verification_ref pointing at a concrete test command sourced
-     *      from the verification plan (or the profile default when no explicit
-     *      command exists). These describe OBSERVABLE behavior tied to the
-     *      intent verb, distinct from the tautological command/scope backstop.
-     *      Gated by atlas_dev.elevations.e2.mode: off => byte-identical to the
-     *      pre-E2 baseline (no behavioral ACs emitted).
-     *
-     *   2. The command backstop ACs: "command X terminates with exit_code=0"
-     *      per verification command. Always retained (never reduced).
-     *
-     *   3. The scope backstop AC: "diff touches only expected_files". Always
-     *      retained when expected files exist (never reduced).
-     *
-     * AC strength is never reduced: behavioral ACs are ADDITIVE to the
-     * command/scope backstop, never a replacement. A tautology-only AC set
-     * (no behavioral AC despite a write task with verbs) is never silently
-     * produced while E2 is on, so the intent_not_tested flag (sibling
-     * e2-intent-text-contract feature) has a detectable basis.
+     * Pure body lives in {@see SpecComposerBuildersSupport::buildAcceptanceCriteria}.
+     * This facade resolves elevation + intent verbs (DI) then delegates.
      *
      * @param  list<string>  $verificationCommands
      * @param  list<string>  $expectedFiles
@@ -981,197 +876,20 @@ class SpecComposer
         ?OperationEnvelope $envelope = null,
         ?ElevationConfig $e2Config = null,
     ): array {
-        if ($compactSdd->mode === self::MODE_READ_ONLY) {
-            return [[
-                'id' => 'ac_1',
-                'description' => 'resposta cita refs reais (file://, doc://, symbol://) e nao inventa caminho',
-                'verification' => 'manual',
-                'verification_ref' => null,
-            ]];
-        }
-
-        if ($compactSdd->mode === self::MODE_REVIEW) {
-            return [[
-                'id' => 'ac_1',
-                'description' => 'review identifica pontos verificaveis com refs',
-                'verification' => 'manual',
-                'verification_ref' => null,
-            ]];
-        }
-
-        if ($compactSdd->mode === self::MODE_ESCALATE_PREVIEW) {
-            return [[
-                'id' => 'ac_1',
-                'description' => 'preview de promotion para Forge gerado com reasons observable, sem patch aplicado',
-                'verification' => 'evidence',
-                'verification_ref' => null,
-            ]];
-        }
-
-        $criteria = [];
-
-        // E2: behavioral ACs per recognized intent verb. Emitted BEFORE the
-        // command/scope backstop so the intent-grounded criteria lead the set.
-        // Each behavioral AC carries a real verification_ref (the concrete
-        // test command), never a placeholder. Gated off entirely when e2.mode=off
-        // so the AC set is byte-identical to the pre-E2 baseline.
         $e2 = $e2Config ?? $this->resolveE2Config();
-        if (! $e2->isOff() && $envelope !== null) {
-            foreach ($this->buildBehavioralAcceptanceCriteria($compactSdd, $envelope, $verificationCommands) as $behavioral) {
-                $criteria[] = $behavioral;
-            }
-        }
+        $e2Enabled = ! $e2->isOff() && $envelope !== null;
+        $intentVerbs = $e2Enabled
+            ? $this->extractIntentVerbs($compactSdd->intentNormalized)
+            : [];
 
-        // Command backstop (verifiable): "command X exits 0".
-        $i = 1;
-        foreach ($verificationCommands as $cmd) {
-            $criteria[] = [
-                'id' => 'ac_cmd_'.$i,
-                'description' => "comando '{$cmd}' termina com exit_code=0",
-                'verification' => 'test',
-                'verification_ref' => $cmd,
-            ];
-            $i++;
-        }
-
-        // Scope backstop (verifiable): "diff touches only expected files".
-        if ($expectedFiles !== []) {
-            $criteria[] = [
-                'id' => 'ac_scope',
-                'description' => 'diff toca somente arquivos previstos em expected_files',
-                'verification' => 'scope_guard',
-                'verification_ref' => null,
-            ];
-        }
-
-        // Fallback only when no command/scope/behavioral AC exists at all:
-        // preserves the pre-E2 manual fallback for edge cases (no tests, no
-        // verbs, no expected files).
-        if ($criteria === []) {
-            $criteria[] = [
-                'id' => 'ac_1',
-                'description' => 'patch produzido reflete o goal sem expandir escopo',
-                'verification' => 'manual',
-                'verification_ref' => null,
-            ];
-        }
-
-        return $criteria;
-    }
-
-    /**
-     * Build the behavioral (non-tautological) acceptance criteria, one per
-     * recognized intent verb. Each carries a real verification_ref pointing
-     * at a concrete test command:
-     *   - the first explicit verification command when available;
-     *   - otherwise the profile default (composer test / pnpm test).
-     *
-     * When no verification command is resolvable (e.g. generic_no_test
-     * profile with no explicit commands), no behavioral AC is emitted here;
-     * the sibling intent_not_tested flag owns the "no test backs the intent"
-     * signal, and the command/scope backstop is still emitted by the caller.
-     *
-     * AC ids are namespaced as `ac_behavior_<verb_label>` (slugified) so they
-     * never collide with the command (`ac_cmd_<n>`) or scope (`ac_scope`)
-     * backstop ids, even for multi-verb intents.
-     *
-     * @param  list<string>  $verificationCommands
-     * @return list<array{id: string, description: string, verification: string, verification_ref: ?string}>
-     */
-    private function buildBehavioralAcceptanceCriteria(
-        CompactSdd $compactSdd,
-        OperationEnvelope $envelope,
-        array $verificationCommands,
-    ): array {
-        $verbs = $this->extractIntentVerbs($compactSdd->intentNormalized);
-        if ($verbs === []) {
-            return [];
-        }
-
-        $verificationRef = $this->resolveBehavioralVerificationRef($compactSdd, $verificationCommands);
-        // When no concrete test command can back the behavioral AC, defer: the
-        // sibling intent_not_tested flag owns that signal and the command/scope
-        // backstop still carries the verifiable floor. Emitting a behavioral AC
-        // with an empty/placeholder ref would violate VAL-E2-005.
-        if ($verificationRef === null) {
-            return [];
-        }
-
-        $criteria = [];
-        foreach ($verbs as $verbLabel) {
-            $slug = $this->verbSlug($verbLabel);
-            $criteria[] = [
-                'id' => 'ac_behavior_'.$slug,
-                'description' => "diff implementa observavelmente o verbo de intencao '{$verbLabel}' (coberto por: {$verificationRef})",
-                'verification' => 'test',
-                'verification_ref' => $verificationRef,
-            ];
-        }
-
-        return $criteria;
-    }
-
-    /**
-     * Resolve a concrete test command to back a behavioral AC. Prefers the
-     * first explicit verification command; falls back to the profile default
-     * (composer test / pnpm test) for the write-capable profiles. Returns
-     * null when no executable test command is resolvable (generic_no_test
-     * profile with no explicit commands).
-     *
-     * @param  list<string>  $verificationCommands
-     */
-    private function resolveBehavioralVerificationRef(CompactSdd $compactSdd, array $verificationCommands): ?string
-    {
-        foreach ($verificationCommands as $cmd) {
-            $trimmed = trim($cmd);
-            if ($trimmed !== '') {
-                return $trimmed;
-            }
-        }
-
-        // Profile default fallback so a write task always has a real test
-        // command backing its behavioral ACs when explicit commands are absent.
-        return match ($compactSdd->verificationProfile) {
-            self::PROFILE_PHP_LARAVEL => 'composer test',
-            self::PROFILE_TS_REACT => 'pnpm test',
-            default => null,
-        };
-    }
-
-    /**
-     * Slugify a verb label for use in an AC id. Keeps ids stable, lowercase,
-     * alphanumeric-only, so multi-verb intents never produce id collisions
-     * or characters that break downstream id matching.
-     */
-    private function verbSlug(string $verbLabel): string
-    {
-        $slug = strtolower(trim($verbLabel));
-        $slug = preg_replace('/[^a-z0-9]+/', '_', $slug) ?? $slug;
-
-        return trim($slug, '_');
-    }
-
-    /**
-     * @return list<string>
-     */
-    private function buildNonGoals(CompactSdd $compactSdd): array
-    {
-        $base = [
-            'nao expandir escopo alem dos arquivos previstos',
-            'nao introduzir dependencias novas sem mini-spec atualizado',
-        ];
-        if ($compactSdd->mode === self::MODE_REPAIR) {
-            $base[] = 'nao reescrever feature, apenas restaurar comportamento esperado';
-        }
-        if ($compactSdd->mode === self::MODE_FRONTEND_VISUAL) {
-            $base[] = 'nao alterar contrato de API para resolver problema visual';
-        }
-        if ($compactSdd->mode === self::MODE_ESCALATE_PREVIEW) {
-            $base[] = 'nao aplicar patch no fast path';
-            $base[] = 'nao tomar decisao automatica de promotion';
-        }
-
-        return $base;
+        return SpecComposerBuildersSupport::buildAcceptanceCriteria(
+            mode: $compactSdd->mode,
+            verificationProfile: $compactSdd->verificationProfile,
+            verificationCommands: $verificationCommands,
+            expectedFiles: $expectedFiles,
+            intentVerbs: $intentVerbs,
+            e2Enabled: $e2Enabled,
+        );
     }
 
     /**
@@ -1185,54 +903,23 @@ class SpecComposer
      */
 
     /**
+     * @return list<string>
+     */
+    private function buildNonGoals(CompactSdd $compactSdd): array
+    {
+        return SpecComposerBuildersSupport::buildNonGoals($compactSdd->mode);
+    }
+
+    /**
      * @param  list<string>  $expectedFiles
      * @return list<array{description: string, observable_by: string}>
      */
     private function buildExpectedBehavior(CompactSdd $compactSdd, array $expectedFiles): array
     {
-        if ($compactSdd->mode === self::MODE_READ_ONLY) {
-            return [[
-                'description' => 'resposta humana com refs canonicas e limites de confianca',
-                'observable_by' => 'human',
-            ]];
-        }
-        if ($compactSdd->mode === self::MODE_REVIEW) {
-            return [[
-                'description' => 'review aponta riscos e refs com confidence visivel',
-                'observable_by' => 'human',
-            ]];
-        }
-        if ($compactSdd->mode === self::MODE_ESCALATE_PREVIEW) {
-            return [[
-                'description' => 'preview de Forge promotion contem reasons, signals, score e human_action_required=true',
-                'observable_by' => 'evidence',
-            ]];
-        }
-
-        // E2: derive one observable behavior per recognized intent verb from
-        // the normalized intent. This populates the previously-dark
-        // expectedBehavior[] field so the rendered `## Definition of Done`
-        // carries intent-grounded, observable behavior entries (the basis E1
-        // will probe the diff against). Falls back to a generic verifiable
-        // behavior when no verb matches so a write task always carries at
-        // least one expected behavior.
-        $verbs = $this->extractIntentVerbs($compactSdd->intentNormalized);
-        if ($verbs === []) {
-            return [[
-                'description' => 'comportamento esperado verificavel pelos comandos de verificacao da spec',
-                'observable_by' => 'test',
-            ]];
-        }
-
-        $behaviors = [];
-        foreach ($verbs as $verbLabel) {
-            $behaviors[] = [
-                'description' => "diff implementa o verbo de intenção '{$verbLabel}' de forma observável pelos comandos de verificação da spec",
-                'observable_by' => 'test',
-            ];
-        }
-
-        return $behaviors;
+        return SpecComposerBuildersSupport::buildExpectedBehavior(
+            $compactSdd->mode,
+            $this->extractIntentVerbs($compactSdd->intentNormalized),
+        );
     }
 
     /**
@@ -1276,27 +963,7 @@ class SpecComposer
      */
     private function buildAssumptions(CompactSdd $compactSdd, CodeDiscoveryManifest $discovery): array
     {
-        $assumptions = [];
-        if ($discovery->confidence === CodeDiscoveryManifest::CONFIDENCE_HYPOTHESIS
-            || $discovery->confidence === CodeDiscoveryManifest::CONFIDENCE_BLOCKING_AMBIGUITY) {
-            $assumptions[] = [
-                'text' => 'arquivos alvo dependem de confirmacao adicional (confidence='.$discovery->confidence.')',
-                'confidence' => $discovery->confidence === CodeDiscoveryManifest::CONFIDENCE_BLOCKING_AMBIGUITY ? 'blocking' : 'inference',
-            ];
-        } elseif ($discovery->confidence === CodeDiscoveryManifest::CONFIDENCE_STRONG_INFERENCE) {
-            $assumptions[] = [
-                'text' => 'arquivos provaveis inferidos por simbolos/paths reais no workspace',
-                'confidence' => 'inference',
-            ];
-        }
-        if ($compactSdd->mode === self::MODE_ESCALATE_PREVIEW) {
-            $assumptions[] = [
-                'text' => 'risco/escopo demanda decisao humana antes de qualquer patch',
-                'confidence' => 'blocking',
-            ];
-        }
-
-        return $assumptions;
+        return SpecComposerBuildersSupport::buildAssumptions($compactSdd->mode, $discovery->confidence);
     }
 
     /**
@@ -1305,24 +972,7 @@ class SpecComposer
      */
     private function buildCompletionCriteria(CompactSdd $compactSdd, array $verificationCommands): array
     {
-        if ($compactSdd->mode === self::MODE_READ_ONLY) {
-            return ['resposta entregue com refs e limites de confianca'];
-        }
-        if ($compactSdd->mode === self::MODE_REVIEW) {
-            return ['review entregue com refs verificaveis'];
-        }
-        if ($compactSdd->mode === self::MODE_ESCALATE_PREVIEW) {
-            return ['promotion_preview persistido com decision_ref'];
-        }
-
-        $criteria = [];
-        if ($verificationCommands !== []) {
-            $criteria[] = 'todos os comandos da verification_plan passam';
-        }
-        $criteria[] = 'scope_guard nao reporta forbidden_touch';
-        $criteria[] = 'nenhum gate required termina em failed';
-
-        return $criteria;
+        return SpecComposerBuildersSupport::buildCompletionCriteria($compactSdd->mode, $verificationCommands);
     }
 
     /**
@@ -1330,24 +980,12 @@ class SpecComposer
      */
     private function buildRollback(CompactSdd $compactSdd, array $expectedFiles): string
     {
-        if ($compactSdd->mode === self::MODE_READ_ONLY
-            || $compactSdd->mode === self::MODE_REVIEW
-            || $compactSdd->mode === self::MODE_ESCALATE_PREVIEW) {
-            return 'sem rollback aplicavel (no patch)';
-        }
-        if ($expectedFiles === []) {
-            return 'git checkout -- .';
-        }
-        $first = $expectedFiles[0];
-
-        return "git checkout -- {$first}";
+        return SpecComposerBuildersSupport::buildRollback($compactSdd->mode, $expectedFiles);
     }
 
     private function buildGoal(OperationEnvelope $envelope, CompactSdd $compactSdd): string
     {
-        $intent = trim($envelope->normalizedIntent);
-
-        return $intent !== '' ? $intent : 'goal nao inferivel; aguardar clarificacao do operador';
+        return SpecComposerBuildersSupport::buildGoal($envelope->normalizedIntent);
     }
 
     /**
@@ -1355,14 +993,7 @@ class SpecComposer
      */
     private function buildBlockedActions(CompactSdd $compactSdd): array
     {
-        return [
-            'production_write',
-            'migration_apply',
-            'secret_access',
-            'broad_refactor',
-            'council_invoke',
-            'forge_invoke_direct',
-        ];
+        return SpecComposerBuildersSupport::buildBlockedActions();
     }
 
     /**
@@ -1370,36 +1001,12 @@ class SpecComposer
      */
     private function buildEvidenceRequired(CompactSdd $compactSdd): array
     {
-        if ($compactSdd->mode === self::MODE_READ_ONLY) {
-            return ['context_refs'];
-        }
-        if ($compactSdd->mode === self::MODE_REVIEW) {
-            return ['review_notes', 'context_refs'];
-        }
-        if ($compactSdd->mode === self::MODE_ESCALATE_PREVIEW) {
-            return ['escalation_decision', 'reasons'];
-        }
-
-        return [
-            'diff_hash',
-            'changed_files',
-            'test_output_hash',
-            'scope_guard_receipt',
-            'verification_receipt',
-        ];
+        return SpecComposerBuildersSupport::buildEvidenceRequired($compactSdd->mode);
     }
 
     private function writeAllowed(OperationEnvelope $envelope, CompactSdd $compactSdd): bool
     {
-        if (! $envelope->preflight->writeAllowed) {
-            return false;
-        }
-
-        return ! in_array($compactSdd->mode, [
-            self::MODE_READ_ONLY,
-            self::MODE_REVIEW,
-            self::MODE_ESCALATE_PREVIEW,
-        ], true);
+        return SpecComposerBuildersSupport::writeAllowed($envelope->preflight->writeAllowed, $compactSdd->mode);
     }
 
     /**
@@ -1444,12 +1051,7 @@ class SpecComposer
 
     private function relativise(string $workspace, string $absolute): string
     {
-        $workspace = rtrim($workspace, DIRECTORY_SEPARATOR);
-        if ($workspace !== '' && str_starts_with($absolute, $workspace.DIRECTORY_SEPARATOR)) {
-            return substr($absolute, strlen($workspace) + 1);
-        }
-
-        return $absolute;
+        return SpecComposerBuildersSupport::relativise($workspace, $absolute);
     }
 
     private function deriveTaskId(OperationEnvelope $envelope, MiniProgrammingSpec $miniSpec): string
@@ -1471,21 +1073,10 @@ class SpecComposer
      */
     private function resolveIntentText(OperationEnvelope $envelope, bool $writeAllowed): string
     {
-        $normalized = trim($envelope->normalizedIntent);
-        if ($normalized !== '') {
-            return $normalized;
-        }
-
-        if (! $writeAllowed) {
-            return '';
-        }
-
-        $raw = trim($envelope->rawIntent);
-        if ($raw !== '') {
-            return $raw;
-        }
-
-        // Final floor for a write task with a blank intent: never empty.
-        return 'write_task_intent_unavailable';
+        return SpecComposerBuildersSupport::resolveIntentText(
+            $envelope->normalizedIntent,
+            $envelope->rawIntent,
+            $writeAllowed,
+        );
     }
 }
