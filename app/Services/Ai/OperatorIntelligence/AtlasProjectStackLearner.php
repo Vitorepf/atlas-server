@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\OperatorIntelligence;
 
+use App\Services\Ai\OperatorIntelligence\Support\ProjectStackLearnSupport;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -58,13 +58,9 @@ final class AtlasProjectStackLearner
 
         foreach (self::STACK_SIGNATURES as $manifest => $signatures) {
             $deps = $this->manifestDependencies($root.'/'.$manifest);
-            foreach ($signatures as $pkg => $label) {
-                if (isset($deps[$pkg])) {
-                    $version = is_string($deps[$pkg]) ? $deps[$pkg] : '';
-                    $stack[] = $label.($version !== '' ? ' '.$version : '');
-                    $facts[] = ['kind' => 'stack', 'fact' => $label.($version !== '' ? ' ('.$version.')' : ''), 'source' => $manifest];
-                }
-            }
+            [$matchedStack, $matchedFacts] = ProjectStackLearnSupport::matchStack($deps, $signatures, $manifest);
+            $stack = array_merge($stack, $matchedStack);
+            $facts = array_merge($facts, $matchedFacts);
         }
 
         $doc = $this->projectDoc($root);
@@ -104,12 +100,7 @@ final class AtlasProjectStackLearner
                 return [];
             }
 
-            return array_merge(
-                is_array($data['require'] ?? null) ? $data['require'] : [],
-                is_array($data['require-dev'] ?? null) ? $data['require-dev'] : [],
-                is_array($data['dependencies'] ?? null) ? $data['dependencies'] : [],
-                is_array($data['devDependencies'] ?? null) ? $data['devDependencies'] : [],
-            );
+            return ProjectStackLearnSupport::dependenciesFromManifest($data);
         } catch (Throwable) {
             return [];
         }
@@ -132,19 +123,9 @@ final class AtlasProjectStackLearner
             }
             // First substantive paragraph (skip headings/badges/frontmatter) — a verbatim
             // excerpt of what the project SAYS it is, never a paraphrase.
-            foreach (preg_split('/\n\s*\n/', $text) ?: [] as $para) {
-                $clean = trim(preg_replace('/\s+/', ' ', $para) ?? '');
-                $skipPrefix = ['#', '---', '![', '[!', '<!--', '<', '|', '```', '> '];
-                $skip = false;
-                foreach ($skipPrefix as $p) {
-                    if (str_starts_with($clean, $p)) {
-                        $skip = true;
-                        break;
-                    }
-                }
-                if (! $skip && mb_strlen($clean) >= 60) {
-                    return ['source' => $candidate, 'excerpt' => Str::limit($clean, 400)];
-                }
+            $excerpt = ProjectStackLearnSupport::excerptFromDocText($text, $candidate);
+            if ($excerpt['excerpt'] !== '') {
+                return $excerpt;
             }
         }
 
@@ -156,22 +137,14 @@ final class AtlasProjectStackLearner
      */
     private function detectDatabases(string $root): array
     {
-        $found = [];
         $env = $root.'/.env';
-        if (File::exists($env)) {
-            try {
-                $contents = (string) File::get($env);
-                if (preg_match('/^DB_CONNECTION=(\w+)/m', $contents, $m) === 1) {
-                    $found[ucfirst($m[1]).' (DB_CONNECTION)'] = '.env';
-                }
-                if (str_contains($contents, 'REDIS_HOST')) {
-                    $found['Redis'] = '.env';
-                }
-            } catch (Throwable) {
-                // ignore
-            }
+        if (! File::exists($env)) {
+            return [];
         }
-
-        return $found;
+        try {
+            return ProjectStackLearnSupport::databasesFromEnv((string) File::get($env));
+        } catch (Throwable) {
+            return [];
+        }
     }
 }
