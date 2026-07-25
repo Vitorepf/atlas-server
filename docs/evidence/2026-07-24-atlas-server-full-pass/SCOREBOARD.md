@@ -73,6 +73,7 @@
 | TaskFabricTemplateFarmSignalSupport | 41 tests / 98 asserts; gate 405→217 |
 | CommitGovernancePureMappers | 35 unit / 155 asserts; chain 726→567 |
 | ForgeProviderFallbackPolicySupport | 26 tests / 103 asserts |
+| OperatorProfilePolicyCompilerSupport | 8 tests / 31 asserts; compiler 84→59 |
 | Decide operationalDecision + executionGraph | 39 unit green |
 | LedgerReplay agent/decision/inbox/kernel/SI | 22 unit green per step |
 | stringOption variants + LoadsNamedJson | 3+2 unit green |

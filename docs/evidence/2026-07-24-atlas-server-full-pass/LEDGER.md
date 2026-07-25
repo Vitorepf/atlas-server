@@ -8,6 +8,7 @@ execution: in_progress
 full_pass_commits: 197+
 rescan: FINDINGS-RESCAN-3
 recent:
+  - OperatorProfilePolicyCompilerSupport
   - ForgeProviderFallbackPolicySupport
   - CommitGovernancePureMappers (726→567)
   - TaskFabricTemplateFarmSignalSupport (405→217)

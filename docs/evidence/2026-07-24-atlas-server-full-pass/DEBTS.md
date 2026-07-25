@@ -128,6 +128,7 @@
 - [x] TaskFabricTemplateFarmSignalSupport
 - [x] CommitGovernancePureMappers
 - [x] ForgeProviderFallbackPolicySupport
+- [x] OperatorProfilePolicyCompilerSupport
 
 - [x] RivalsOneShot dimension credit Support
 - [x] ForgeProviderCapacityClassifier pure FSM
