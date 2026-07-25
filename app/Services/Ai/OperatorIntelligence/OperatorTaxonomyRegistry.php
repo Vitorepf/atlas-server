@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\OperatorIntelligence;
 
+use App\Services\Ai\OperatorIntelligence\Support\OperatorTaxonomyParseSupport;
 use Illuminate\Support\Facades\File;
 
 /**
@@ -166,44 +167,12 @@ final class OperatorTaxonomyRegistry
             return [];
         }
 
-        $items = [];
-        foreach (preg_split('/\r?\n/', (string) File::get($path)) ?: [] as $line) {
-            if (preg_match('/^\|\s*((?:SYS|OP|COL)-\d{3})\s*\|\s*(\d{1,3})\s*\|\s*(.+?)\s*\|/u', $line, $m) !== 1) {
-                continue;
-            }
-            $id = strtoupper($m[1]);
-            $prefix = explode('-', $id)[0];
-            $layer = match ($prefix) {
-                'SYS' => self::LAYER_SYSTEM,
-                'OP' => self::LAYER_OPERATOR,
-                default => self::LAYER_COLLABORATION,
-            };
-
-            $items[$id] = [
-                'id' => $id,
-                'num' => (int) $m[2],
-                'layer' => $layer,
-                'description' => trim($m[3]),
-                'high_stakes' => in_array($id, self::HIGH_STAKES, true),
-                'privacy_default' => in_array($id, self::SENSITIVE_DEFAULT, true) ? 'sensitive' : 'normal',
-                'validity_default' => in_array($id, self::MOMENTARY, true) ? 'decaying' : 'permanent',
-                'inferability' => $this->inferabilityFor($id, $layer),
-                'extraction_route' => $layer === self::LAYER_SYSTEM ? 'system_runtime' : 'chat',
-            ];
-        }
-
-        return $items;
-    }
-
-    private function inferabilityFor(string $id, int $layer): string
-    {
-        if ($layer === self::LAYER_SYSTEM) {
-            return 'system_telemetry';
-        }
-        if (in_array($id, self::EXPLICIT_ONLY, true)) {
-            return 'explicit_only';
-        }
-
-        return 'inferable';
+        return OperatorTaxonomyParseSupport::parseMarkdownTable(
+            (string) File::get($path),
+            self::HIGH_STAKES,
+            self::SENSITIVE_DEFAULT,
+            self::EXPLICIT_ONLY,
+            self::MOMENTARY,
+        );
     }
 }
