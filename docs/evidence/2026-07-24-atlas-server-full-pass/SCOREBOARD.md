@@ -40,6 +40,7 @@
 | WorkspacePathScoringSupport | 17 WorkspaceIntelligence unit green |
 | MacAgentReadinessSupport | 14 MacAgent unit / 130 asserts green |
 | ForgeExecutionStageSupport | pure phase/blocking classifiers + unit-lock docs reality support |
+| OperatorLearningClassifySupport | 6 classifier unit green; classifier 215→135 |
 | Decide operationalDecision + executionGraph | 39 unit green |
 | LedgerReplay agent/decision/inbox/kernel/SI | 22 unit green per step |
 | stringOption variants + LoadsNamedJson | 3+2 unit green |
