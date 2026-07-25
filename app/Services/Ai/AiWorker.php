@@ -75,6 +75,10 @@ use App\Services\Ai\AiWorkerSupport\PermissionSteerSection;
 use App\Services\Ai\AiWorkerSupport\ProgrammingRepairSupportSection;
 use App\Services\Ai\AiWorkerSupport\ProviderFairnessBudgetSection;
 use App\Services\Ai\AiWorkerSupport\ProviderPauseFallbackSection;
+use App\Services\Ai\AiWorkerSupport\AiWorkerGitShortstatSupport;
+use App\Services\Ai\AiWorkerSupport\AiWorkerJobPredicatesSupport;
+use App\Services\Ai\AiWorkerSupport\AiWorkerPlanRevisionsSupport;
+use App\Services\Ai\AiWorkerSupport\AiWorkerTimeDiffSupport;
 use App\Services\Ai\AiWorkerSupport\ReadyPromptPrepSection;
 use App\Services\Ai\AiWorkerSupport\StaleJobRecoverySection;
 
@@ -888,18 +892,7 @@ class AiWorker
      */
     public static function parseGitShortstat(string $out): ?array
     {
-        $out = trim($out);
-        if ($out === '' || ! preg_match('/(\d+)\s+files?\s+changed/', $out, $files)) {
-            return null;
-        }
-        preg_match('/(\d+)\s+insertions?\(\+\)/', $out, $ins);
-        preg_match('/(\d+)\s+deletions?\(-\)/', $out, $del);
-
-        return [
-            'files_touched' => (int) $files[1],
-            'lines_added' => (int) ($ins[1] ?? 0),
-            'lines_removed' => (int) ($del[1] ?? 0),
-        ];
+        return AiWorkerGitShortstatSupport::parse($out);
     }
 
     private function programmingRepairWorkspace(AiJob $job): ?string
@@ -929,21 +922,7 @@ class AiWorker
         string $reason,
         string $archivedAt,
     ): array {
-        $revisions = array_values((array) ($metadata['plan_revisions'] ?? []));
-        $currentPlan = $metadata['execution_plan'] ?? null;
-        if (! is_array($currentPlan) || $currentPlan === []) {
-            return $revisions;
-        }
-
-        $revisions[] = [
-            'revision' => count($revisions) + 1,
-            'iteration' => $iteration,
-            'reason' => $reason,
-            'archived_at' => $archivedAt,
-            'execution_plan' => $currentPlan,
-        ];
-
-        return array_slice($revisions, -10);
+        return AiWorkerPlanRevisionsSupport::afterReplan($metadata, $iteration, $reason, $archivedAt);
     }
 
     private function ensureJobModelIdentity(AiJob $job, string $providerKey): AiJob
@@ -1783,27 +1762,7 @@ class AiWorker
 
     private function providerWasCalled(AiProviderResult $result): bool
     {
-        return ! in_array($result->errorCode, [
-            'decision_receipt_dry_run',
-            'decision_receipt_expired',
-            'decision_receipt_hash_mismatch',
-            'decision_receipt_invalid',
-            'decision_receipt_model_mismatch',
-            'decision_receipt_provider_mismatch',
-            'decision_receipt_v3_invalid',
-            'decision_receipt_v3_hash_mismatch',
-            'decision_receipt_v3_non_authoritative',
-            'decision_receipt_v3_authority_signature_mismatch',
-            'decision_receipt_v3_authority_context_unavailable',
-            'decision_receipt_v2_v3_shadow_contradiction',
-            'decision_receipt_transport_copy_invalid',
-            'decision_receipt_transport_copy_contradiction',
-            'decision_receipt_legacy_nested_v3_transport_refused',
-            'decision_receipt_cutover_v2_only_refused',
-            'decision_receipt_unknown_version',
-            'permission_denied',
-            'policy_violation',
-        ], true);
+        return AiWorkerJobPredicatesSupport::providerWasCalled($result->errorCode);
     }
 
     /**
@@ -1861,36 +1820,36 @@ class AiWorker
 
     private function diffMs(mixed $start, mixed $end): ?int
     {
-        if (! $start || ! $end || ! $start instanceof \DateTimeInterface || ! $end instanceof \DateTimeInterface) {
-            return null;
-        }
-
-        return max(0, $this->epochMs($end) - $this->epochMs($start));
+        return AiWorkerTimeDiffSupport::diffMs($start, $end);
     }
 
     private function epochMs(\DateTimeInterface $value): int
     {
-        return ((int) $value->format('U') * 1000) + (int) floor(((int) $value->format('u')) / 1000);
+        return AiWorkerTimeDiffSupport::epochMs($value);
     }
 
     public function isCouncilJob(AiJob $job): bool
     {
-        return $job->kind === 'council'
-            || data_get($job->payload, 'execution_policy') === 'dual_review'
-            || data_get($job->metadata, 'execution_policy') === 'dual_review';
+        return AiWorkerJobPredicatesSupport::isCouncilJob(
+            (string) $job->kind,
+            is_array($job->payload) ? $job->payload : [],
+            is_array($job->metadata) ? $job->metadata : [],
+        );
     }
 
     public function isAtlasScoutJob(AiJob $job): bool
     {
-        return data_get($job->metadata, 'atlas_decide_stage') === 'context_scout'
-            || data_get($job->payload, 'atlas_decide_execution.atlas_decide_stage') === 'context_scout';
+        return AiWorkerJobPredicatesSupport::isAtlasScoutJob(
+            is_array($job->metadata) ? $job->metadata : [],
+            is_array($job->payload) ? $job->payload : [],
+        );
     }
 
     public function isAtlasPrimaryExecutorJob(AiJob $job): bool
     {
-        return data_get($job->metadata, 'atlas_decide_stage') === 'primary_executor'
-            && data_get($job->metadata, 'dependency_state') === 'pending'
-            && is_string(data_get($job->metadata, 'dependency_job_id'));
+        return AiWorkerJobPredicatesSupport::isAtlasPrimaryExecutorJob(
+            is_array($job->metadata) ? $job->metadata : [],
+        );
     }
 
     private function applyExpiredAtlasScoutDependency(AiJob $job): AiJob
@@ -1925,9 +1884,10 @@ class AiWorker
 
     public function privacyFromJob(AiJob $job): array
     {
-        $privacy = data_get($job->payload, 'privacy', data_get($job->metadata, 'privacy'));
-
-        return is_array($privacy) ? $privacy : [];
+        return AiWorkerJobPredicatesSupport::privacyFromJob(
+            is_array($job->payload) ? $job->payload : [],
+            is_array($job->metadata) ? $job->metadata : [],
+        );
     }
 
     private function updateSessionStateForTrace(AiTrace $trace, string $response): void
