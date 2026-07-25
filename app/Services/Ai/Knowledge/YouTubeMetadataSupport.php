@@ -188,4 +188,17 @@ final class YouTubeMetadataSupport
         return [];
     }
 
+
+    public static function isRetryableDownloadError(string $reason): bool
+    {
+        $text = Str::of($reason)->lower()->value();
+
+        return str_contains($text, 'http error 429')
+            || str_contains($text, 'http error 403')
+            || str_contains($text, 'too many requests')
+            || str_contains($text, 'temporarily unavailable')
+            || str_contains($text, 'timed out')
+            || str_contains($text, 'timeout');
+    }
+
 }

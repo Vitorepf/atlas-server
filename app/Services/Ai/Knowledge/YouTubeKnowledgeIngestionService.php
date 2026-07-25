@@ -1034,7 +1034,7 @@ class YouTubeKnowledgeIngestionService
             }
 
             $lastReason = $this->processError($process, 'YouTube audio download failed.');
-            if ($attempt < $attempts && $this->isRetryableDownloadError($lastReason)) {
+            if ($attempt < $attempts && YouTubeMetadataSupport::isRetryableDownloadError($lastReason)) {
                 usleep(min(3_000_000, 400_000 * $attempt));
 
                 continue;
@@ -1047,20 +1047,8 @@ class YouTubeKnowledgeIngestionService
             'status' => 'download_failed',
             'reason' => $lastReason ?: 'YouTube audio download failed.',
             'attempts' => $attempts,
-            'retryable' => $lastReason ? $this->isRetryableDownloadError($lastReason) : null,
+            'retryable' => $lastReason ? YouTubeMetadataSupport::isRetryableDownloadError($lastReason) : null,
         ];
-    }
-
-    private function isRetryableDownloadError(string $reason): bool
-    {
-        $text = Str::of($reason)->lower()->value();
-
-        return str_contains($text, 'http error 429')
-            || str_contains($text, 'http error 403')
-            || str_contains($text, 'too many requests')
-            || str_contains($text, 'temporarily unavailable')
-            || str_contains($text, 'timed out')
-            || str_contains($text, 'timeout');
     }
 
     private function audioFallbackEnabled(): bool
