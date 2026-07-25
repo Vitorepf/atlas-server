@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming;
 
 use App\Models\AtlasProject;
+use App\Services\Ai\Programming\Support\ForgeProviderFallbackPolicySupport;
 use App\Services\Ai\Support\AiValueNormalizer;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -39,20 +41,31 @@ use Throwable;
 class AtlasForgeProviderFallbackPolicyService
 {
     public const SCHEMA_VERSION = 'atlas.forge.provider_fallback_policy.v1';
+
     public const EVENT_SCHEMA_VERSION = 'atlas.forge.provider_fallback_event.v1';
 
     public const ACTION_REROUTE = 'reroute';
+
     public const ACTION_RETRY_LATER = 'retry_later';
+
     public const ACTION_BLOCK = 'block';
 
     public const FAILURE_RATE_LIMIT = 'rate_limit';
+
     public const FAILURE_QUOTA_EXHAUSTED = 'quota_exhausted';
+
     public const FAILURE_AUTH_FAILED = 'auth_failed';
+
     public const FAILURE_TIMEOUT = 'timeout';
+
     public const FAILURE_CONTEXT_LIMIT = 'context_limit';
+
     public const FAILURE_MODEL_UNAVAILABLE = 'model_unavailable';
+
     public const FAILURE_PROVIDER_ERROR = 'provider_error';
+
     public const FAILURE_INSUFFICIENT_CAPABILITY = 'insufficient_capability';
+
     public const FAILURE_CAPACITY_EXHAUSTED = 'provider_capacity_exhausted';
 
     /** @var list<string> */
@@ -69,8 +82,11 @@ class AtlasForgeProviderFallbackPolicyService
     ];
 
     public const BLOCKER_CAPACITY_EXHAUSTED = self::FAILURE_CAPACITY_EXHAUSTED;
+
     public const BLOCKER_AUTH_FAILED = 'auth_failed_no_credential_rotation_available';
+
     public const BLOCKER_INSUFFICIENT_CAPABILITY = 'no_capable_provider_for_role';
+
     public const BLOCKER_UNKNOWN_FAILURE = 'unknown_provider_failure_type';
 
     public function __construct(
@@ -121,7 +137,7 @@ class AtlasForgeProviderFallbackPolicyService
      * Classify a provider failure against the current topology and decide the
      * governed action. Always emits an evidence event payload — never silent.
      *
-     * @param  array<string,mixed>  $failure   Provider failure context.
+     * @param  array<string,mixed>  $failure  Provider failure context.
      * @param  array<string,mixed>  $topology  Provider topology read-model (atlas.forge.provider_topology.v1).
      * @return array<string,mixed>
      */
@@ -138,8 +154,8 @@ class AtlasForgeProviderFallbackPolicyService
         $topologyId = AiValueNormalizer::trimmedStringOrNull(data_get($topology, 'provider_topology_id'));
         $obraId = AiValueNormalizer::trimmedStringOrNull(data_get($topology, 'obra_id'));
         $strategy = AiValueNormalizer::trimmedStringOrNull(data_get($topology, 'strategy'));
-        $fallbackChain = $this->normalizeFallbackChain($topology['fallback_chain'] ?? []);
-        $roles = $this->normalizeRoles($topology['roles'] ?? []);
+        $fallbackChain = ForgeProviderFallbackPolicySupport::normalizeFallbackChain($topology['fallback_chain'] ?? []);
+        $roles = ForgeProviderFallbackPolicySupport::normalizeRoles($topology['roles'] ?? []);
 
         $defaultAction = $this->policy()['failure_default_action'][$failureType] ?? self::ACTION_BLOCK;
         $action = $defaultAction;
@@ -153,7 +169,7 @@ class AtlasForgeProviderFallbackPolicyService
             $action = self::ACTION_BLOCK;
             $blocker = self::BLOCKER_CAPACITY_EXHAUSTED;
         } elseif ($action === self::ACTION_REROUTE || $action === self::ACTION_RETRY_LATER) {
-            $candidate = $this->pickFallback($failedRole, $failedProvider, $failedModel, $fallbackChain, $roles);
+            $candidate = ForgeProviderFallbackPolicySupport::pickFallback($failedRole, $failedProvider, $failedModel, $fallbackChain, $roles);
             if ($candidate !== null) {
                 $action = self::ACTION_REROUTE;
                 $selectedFallback = $candidate;
@@ -318,28 +334,19 @@ class AtlasForgeProviderFallbackPolicyService
     }
 
     /**
-     * Cooldown lookup keyed by canonical failure type. Aligned with
-     * AtlasForgeProviderFailureMemoryService::COOLDOWN_BY_FAILURE so policy
-     * and memory always agree on the suggested cooldown window.
+     * Cooldown lookup keyed by canonical failure type. Pure seconds live in
+     * ForgeProviderFallbackPolicySupport; this method formats wall-clock ISO.
      */
     private function resolveCooldownUntil(string $failureType, string $occurredAtIso): ?string
     {
-        $seconds = match ($failureType) {
-            self::FAILURE_RATE_LIMIT => 60,
-            self::FAILURE_QUOTA_EXHAUSTED => 600,
-            self::FAILURE_TIMEOUT => 30,
-            self::FAILURE_MODEL_UNAVAILABLE => 120,
-            self::FAILURE_PROVIDER_ERROR => 30,
-            self::FAILURE_CAPACITY_EXHAUSTED => 900,
-            default => 0,
-        };
+        $seconds = ForgeProviderFallbackPolicySupport::cooldownSecondsFor($failureType);
 
         if ($seconds <= 0) {
             return null;
         }
 
         try {
-            return \Illuminate\Support\Carbon::parse($occurredAtIso)
+            return Carbon::parse($occurredAtIso)
                 ->addSeconds($seconds)
                 ->toIso8601String();
         } catch (Throwable) {
@@ -410,138 +417,5 @@ class AtlasForgeProviderFallbackPolicyService
         return in_array($value, self::KNOWN_FAILURES, true) ? $value : $value;
     }
 
-    /**
-     * @param  array<int,array<string,mixed>>|mixed  $chain
-     * @return array<int,array<string,mixed>>
-     */
-    private function normalizeFallbackChain(mixed $chain): array
-    {
-        if (! is_array($chain)) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map(function (mixed $entry): ?array {
-            if (! is_array($entry)) {
-                return null;
-            }
-            $role = AiValueNormalizer::trimmedStringOrNull($entry['role'] ?? null);
-            $provider = AiValueNormalizer::trimmedStringOrNull($entry['provider'] ?? null);
-            $model = AiValueNormalizer::trimmedStringOrNull($entry['model'] ?? null);
-            $order = (int) ($entry['order'] ?? 0);
-            $capable = ! array_key_exists('capable', $entry) || (bool) $entry['capable'];
-            if ($role === null && $provider === null && $model === null) {
-                return null;
-            }
-
-            return [
-                'role' => $role,
-                'provider' => $provider,
-                'model' => $model,
-                'order' => $order,
-                'capable' => $capable,
-            ];
-        }, $chain), fn (?array $value): bool => $value !== null));
-    }
-
-    /**
-     * @param  array<int,array<string,mixed>>|mixed  $roles
-     * @return array<int,array<string,mixed>>
-     */
-    private function normalizeRoles(mixed $roles): array
-    {
-        if (! is_array($roles)) {
-            return [];
-        }
-
-        return array_values(array_filter(array_map(function (mixed $entry): ?array {
-            if (! is_array($entry)) {
-                return null;
-            }
-            $role = AiValueNormalizer::trimmedStringOrNull($entry['role'] ?? null);
-            if ($role === null) {
-                return null;
-            }
-            $provider = AiValueNormalizer::trimmedStringOrNull($entry['provider'] ?? null);
-            $model = AiValueNormalizer::trimmedStringOrNull($entry['model'] ?? null);
-            $status = AiValueNormalizer::trimmedStringOrNull($entry['status'] ?? null) ?? 'available';
-
-            return [
-                'role' => $role,
-                'provider' => $provider,
-                'model' => $model,
-                'status' => $status,
-            ];
-        }, $roles), fn (?array $value): bool => $value !== null));
-    }
-
-    /**
-     * Pick the next capable fallback excluding the failed (role+provider+model)
-     * tuple. Returns null when no capable fallback exists — caller must block.
-     *
-     * @param  array<int,array<string,mixed>>  $chain
-     * @param  array<int,array<string,mixed>>  $roles
-     * @return array<string,mixed>|null
-     */
-    private function pickFallback(
-        ?string $failedRole,
-        ?string $failedProvider,
-        ?string $failedModel,
-        array $chain,
-        array $roles,
-    ): ?array {
-        $sorted = $chain;
-        usort($sorted, static fn (array $a, array $b): int => ($a['order'] ?? 0) <=> ($b['order'] ?? 0));
-
-        foreach ($sorted as $entry) {
-            if (! ($entry['capable'] ?? true)) {
-                continue;
-            }
-            if ($failedRole !== null && $entry['role'] === $failedRole
-                && $entry['provider'] === $failedProvider
-                && $entry['model'] === $failedModel) {
-                continue;
-            }
-            if ($entry['provider'] === null && $entry['model'] === null) {
-                continue;
-            }
-
-            return [
-                'role' => $entry['role'] ?? $failedRole,
-                'provider' => $entry['provider'],
-                'model' => $entry['model'],
-                'order' => $entry['order'] ?? 0,
-                'source' => 'fallback_chain',
-            ];
-        }
-
-        // No explicit fallback chain hit. Try other roles in the topology that
-        // are available with a different provider/model from the failed tuple.
-        foreach ($roles as $candidate) {
-            if ($candidate['status'] !== 'available' && $candidate['status'] !== 'selected') {
-                continue;
-            }
-            if ($candidate['provider'] === $failedProvider && $candidate['model'] === $failedModel) {
-                continue;
-            }
-            if ($candidate['provider'] === null && $candidate['model'] === null) {
-                continue;
-            }
-            // Only consider as fallback when the role differs OR provider/model differs.
-            if ($candidate['role'] === $failedRole
-                && $candidate['provider'] === $failedProvider
-                && $candidate['model'] === $failedModel) {
-                continue;
-            }
-
-            return [
-                'role' => $candidate['role'],
-                'provider' => $candidate['provider'],
-                'model' => $candidate['model'],
-                'order' => 0,
-                'source' => 'topology_role',
-            ];
-        }
-
-        return null;
-    }
 }
+
