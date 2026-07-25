@@ -2,20 +2,14 @@
 
 namespace Tests\Unit\Ai\Router;
 
-use App\Services\Ai\Context\AiContextPackBuilder;
-use App\Services\Ai\AiPromptBuilder;
-use App\Services\Ai\Router\AiIntentRouter;
-use App\Services\Ai\Search\SessionSearchService;
-use App\Services\Ai\Skills\AiSkillStore;
-use App\Services\Ai\Skills\SkillBundleStore;
-use App\Services\Ai\Skills\SkillDiscoveryService;
+use App\Services\Ai\Support\AiPromptInstructionSupport;
 use Tests\TestCase;
 
 class AtlasAiSpecialistFlowPromptBuilderTest extends TestCase
 {
     public function test_specialist_flow_execution_projects_handler_contract_into_prompt(): void
     {
-        $section = $this->specialistFlowSection([
+        $section = AiPromptInstructionSupport::specialistFlowInstructions([
             'payload' => [
                 'specialist_flow_execution' => [
                     'schema_version' => 'atlas.ai.specialist_flow_execution.v1',
@@ -47,25 +41,5 @@ class AtlasAiSpecialistFlowPromptBuilderTest extends TestCase
         $this->assertStringContainsString('- no_workspace_action_claimed', $section);
         $this->assertStringContainsString('Modos de falha proibidos:', $section);
         $this->assertStringContainsString('- claiming_files_changed', $section);
-    }
-
-    /**
-     * @param  array<string,mixed>  $options
-     */
-    private function specialistFlowSection(array $options): string
-    {
-        $builder = new AiPromptBuilder(
-            $this->createMock(AiSkillStore::class),
-            $this->createMock(AiIntentRouter::class),
-            $this->createMock(AiContextPackBuilder::class),
-            $this->createMock(SkillDiscoveryService::class),
-            $this->createMock(SkillBundleStore::class),
-            $this->createMock(SessionSearchService::class),
-        );
-
-        $method = new \ReflectionMethod(AiPromptBuilder::class, 'specialistFlowInstructions');
-        $method->setAccessible(true);
-
-        return (string) $method->invoke($builder, $options);
     }
 }

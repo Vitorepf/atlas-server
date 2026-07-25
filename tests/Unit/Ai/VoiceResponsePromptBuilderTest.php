@@ -2,20 +2,14 @@
 
 namespace Tests\Unit\Ai;
 
-use App\Services\Ai\Context\AiContextPackBuilder;
-use App\Services\Ai\AiPromptBuilder;
-use App\Services\Ai\Router\AiIntentRouter;
-use App\Services\Ai\Search\SessionSearchService;
-use App\Services\Ai\Skills\AiSkillStore;
-use App\Services\Ai\Skills\SkillBundleStore;
-use App\Services\Ai\Skills\SkillDiscoveryService;
+use App\Services\Ai\Support\AiPromptInstructionSupport;
 use Tests\TestCase;
 
 class VoiceResponsePromptBuilderTest extends TestCase
 {
     public function test_voice_response_contract_projects_spoken_result_rules_without_reducing_scope(): void
     {
-        $section = $this->voiceSection([
+        $section = AiPromptInstructionSupport::voiceResponseInstructions([
             'payload' => [
                 'voice_response_contract' => [
                     'schema_version' => 'atlas.voice.response_contract.v1',
@@ -39,7 +33,7 @@ class VoiceResponsePromptBuilderTest extends TestCase
 
     public function test_voice_response_contract_is_ignored_outside_spoken_concise_mode(): void
     {
-        $section = $this->voiceSection([
+        $section = AiPromptInstructionSupport::voiceResponseInstructions([
             'payload' => [
                 'voice_response_contract' => [
                     'schema_version' => 'atlas.voice.response_contract.v1',
@@ -50,25 +44,5 @@ class VoiceResponsePromptBuilderTest extends TestCase
         ]);
 
         $this->assertSame('', $section);
-    }
-
-    /**
-     * @param  array<string,mixed>  $options
-     */
-    private function voiceSection(array $options): string
-    {
-        $builder = new AiPromptBuilder(
-            $this->createMock(AiSkillStore::class),
-            $this->createMock(AiIntentRouter::class),
-            $this->createMock(AiContextPackBuilder::class),
-            $this->createMock(SkillDiscoveryService::class),
-            $this->createMock(SkillBundleStore::class),
-            $this->createMock(SessionSearchService::class),
-        );
-
-        $method = new \ReflectionMethod(AiPromptBuilder::class, 'voiceResponseInstructions');
-        $method->setAccessible(true);
-
-        return (string) $method->invoke($builder, $options);
     }
 }

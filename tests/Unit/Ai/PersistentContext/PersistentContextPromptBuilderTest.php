@@ -2,13 +2,7 @@
 
 namespace Tests\Unit\Ai\PersistentContext;
 
-use App\Services\Ai\Context\AiContextPackBuilder;
-use App\Services\Ai\AiPromptBuilder;
-use App\Services\Ai\Router\AiIntentRouter;
-use App\Services\Ai\Search\SessionSearchService;
-use App\Services\Ai\Skills\AiSkillStore;
-use App\Services\Ai\Skills\SkillBundleStore;
-use App\Services\Ai\Skills\SkillDiscoveryService;
+use App\Services\Ai\Support\AiPromptInstructionSupport;
 use Tests\TestCase;
 
 class PersistentContextPromptBuilderTest extends TestCase
@@ -99,18 +93,6 @@ class PersistentContextPromptBuilderTest extends TestCase
      */
     private function persistentContextSection(array $options): string
     {
-        $builder = new AiPromptBuilder(
-            $this->createMock(AiSkillStore::class),
-            $this->createMock(AiIntentRouter::class),
-            $this->createMock(AiContextPackBuilder::class),
-            $this->createMock(SkillDiscoveryService::class),
-            $this->createMock(SkillBundleStore::class),
-            $this->createMock(SessionSearchService::class),
-        );
-
-        $method = new \ReflectionMethod(AiPromptBuilder::class, 'persistentContextPromptSection');
-        $method->setAccessible(true);
-
-        return (string) $method->invoke($builder, $options);
+        return AiPromptInstructionSupport::persistentContextPromptSection($options);
     }
 }
