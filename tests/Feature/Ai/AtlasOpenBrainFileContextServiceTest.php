@@ -311,6 +311,8 @@ final class AtlasOpenBrainFileContextServiceTest extends TestCase
 
         $migration = require database_path('migrations/2026_06_09_120000_create_atlas_aurg_graph_tables.php');
         $migration->up();
+        $temporalMigration = require database_path('migrations/2026_07_07_181500_add_temporal_truth_to_atlas_aurg_edges.php');
+        $temporalMigration->up();
     }
 
     private function seedSymbol(string $name, string $filePath, string $type, string $signature): void
