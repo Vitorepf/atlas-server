@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfImprovement;
 
+use App\Services\Ai\SelfImprovement\Support\CapabilityMaturityLevelCheckSupport as LevelCheck;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
@@ -21,6 +22,9 @@ use Illuminate\Support\Str;
  *   - NEVER promotes a Forge run;
  *   - Level cannot be claimed without evidence (file/class/method exists,
  *     audit block present, etc).
+ *
+ * Pure level decisions live in {@see LevelCheck}; this class only resolves
+ * workspace/filesystem/class-existence facts and assembles the score envelope.
  *
  * Schema: atlas.self_improvement.capability_maturity_score.v1
  */
@@ -67,55 +71,32 @@ class AtlasSelfImprovementCapabilityMaturityScoreService
      */
     public function score(array $descriptor, array $context = []): array
     {
-        $workspace = $this->stringOrNull($context['workspace'] ?? null) ?? base_path();
+        $workspace = LevelCheck::stringOrNull($context['workspace'] ?? null) ?? base_path();
         $audit = $context['after_snapshot']['completion_audit'] ?? $context['completion_audit'] ?? [];
-
-        $checks = [];
-        $checks[0] = $this->checkLevel0($descriptor, $workspace);
-        $checks[1] = $this->checkLevel1($descriptor);
-        $checks[2] = $this->checkLevel2($descriptor);
-        $checks[3] = $this->checkLevel3($descriptor, $workspace);
-        $checks[4] = $this->checkLevel4($descriptor, $workspace);
-        $checks[5] = $this->checkLevel5($descriptor, $workspace);
-        $checks[6] = $this->checkLevel6($descriptor, $workspace);
-        $checks[7] = $this->checkLevel7($descriptor, $audit);
-        $checks[8] = $this->checkLevel8($descriptor);
-        $checks[9] = $this->checkLevel9($descriptor);
-        $checks[10] = $this->checkLevel10($descriptor);
-
-        // Cumulative: highest contiguous level passed.
-        $achieved = -1;
-        foreach (range(0, self::MAX_LEVEL) as $level) {
-            if (! ($checks[$level]['passed'] ?? false)) {
-                break;
-            }
-            $achieved = $level;
+        if (! is_array($audit)) {
+            $audit = [];
         }
 
-        $expectedLevel = $this->intInRange($descriptor['expected_level'] ?? null, 0, self::MAX_LEVEL);
-        $beforeLevel = $this->intInRange($descriptor['before_level'] ?? null, -1, self::MAX_LEVEL);
-        $delta = $beforeLevel >= 0 ? ($achieved - $beforeLevel) : null;
+        $checks = $this->runLevelChecks($descriptor, $workspace, $audit);
+
+        $achieved = LevelCheck::achievedLevel($checks);
+        $expectedLevel = LevelCheck::intInRange($descriptor['expected_level'] ?? null, 0, self::MAX_LEVEL);
+        $beforeLevel = LevelCheck::intInRange($descriptor['before_level'] ?? null, -1, self::MAX_LEVEL);
+        $delta = $beforeLevel !== null && $beforeLevel >= 0 ? ($achieved - $beforeLevel) : null;
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'score_id' => 'mat_'.(string) Str::ulid(),
             'evaluated_at' => Carbon::now()->toIso8601String(),
             'capability' => (string) ($descriptor['capability'] ?? 'unspecified'),
-            'before_level' => $beforeLevel >= 0 ? $beforeLevel : null,
+            'before_level' => $beforeLevel !== null && $beforeLevel >= 0 ? $beforeLevel : null,
             'expected_level' => $expectedLevel,
             'achieved_level' => $achieved,
             'achieved_label' => $achieved >= 0 ? self::LEVELS[$achieved] : 'none',
             'delta' => $delta,
             'meets_expected' => $expectedLevel === null || $achieved >= $expectedLevel,
-            'levels' => array_map(static fn (int $i) => [
-                'level' => $i,
-                'label' => self::LEVELS[$i],
-                'passed' => $checks[$i]['passed'] ?? false,
-                'reason' => $checks[$i]['reason'] ?? null,
-            ], range(0, self::MAX_LEVEL)),
-            'next_action' => $achieved >= self::MAX_LEVEL
-                ? 'capability_production_ready'
-                : 'climb_to_level_'.($achieved + 1).':'.self::LEVELS[$achieved + 1],
+            'levels' => LevelCheck::levelsRows($checks),
+            'next_action' => LevelCheck::nextAction($achieved),
             'invariants' => [
                 'cumulative_levels' => true,
                 'evidence_required_per_level' => true,
@@ -130,201 +111,106 @@ class AtlasSelfImprovementCapabilityMaturityScoreService
     }
 
     /**
-     * @param  array<string,mixed>  $d
-     * @return array{passed: bool, reason: ?string}
+     * @param  array<string,mixed>  $descriptor
+     * @param  array<string,mixed>  $audit
+     * @return array<int, array{passed: bool, reason: ?string}>
      */
-    private function checkLevel0(array $d, string $workspace): array
+    private function runLevelChecks(array $descriptor, string $workspace, array $audit): array
     {
-        $doc = $this->stringOrNull($d['doc'] ?? null);
-        if ($doc === null) {
-            return ['passed' => false, 'reason' => 'no_doc_path_provided'];
-        }
-        if (! is_file($workspace.DIRECTORY_SEPARATOR.$doc)) {
-            return ['passed' => false, 'reason' => 'doc_file_missing'];
-        }
+        $doc = LevelCheck::stringOrNull($descriptor['doc'] ?? null);
+        $serviceClass = LevelCheck::stringOrNull($descriptor['service_class'] ?? null);
+        $signature = LevelCheck::stringOrNull($descriptor['command_signature'] ?? null);
+        $route = LevelCheck::stringOrNull($descriptor['api_route'] ?? null);
+        $test = LevelCheck::stringOrNull($descriptor['test_class'] ?? null);
+        $ui = LevelCheck::stringOrNull($descriptor['ui_path'] ?? null);
+        $field = LevelCheck::stringOrNull($descriptor['state_field'] ?? null);
+        $block = LevelCheck::stringOrNull($descriptor['audit_block'] ?? null);
 
-        return ['passed' => true, 'reason' => null];
-    }
+        $checks = [];
+        $checks[0] = LevelCheck::level0(
+            $doc,
+            $doc !== null && is_file($workspace.DIRECTORY_SEPARATOR.$doc),
+        );
+        $checks[1] = LevelCheck::level1(
+            $serviceClass,
+            $serviceClass !== null && class_exists($serviceClass),
+        );
 
-    /** @param array<string,mixed> $d */
-    private function checkLevel1(array $d): array
-    {
-        $class = $this->stringOrNull($d['service_class'] ?? null);
-        if ($class === null) {
-            return ['passed' => false, 'reason' => 'no_service_class_provided'];
-        }
+        $commandClassExists = $signature !== null
+            && str_starts_with($signature, 'App\\')
+            && class_exists($signature);
+        $checks[2] = LevelCheck::level2($signature, $commandClassExists);
 
-        return class_exists($class)
-            ? ['passed' => true, 'reason' => null]
-            : ['passed' => false, 'reason' => 'service_class_missing'];
-    }
+        // routes/api.php may only require modular routes/api/*.php files; scan both.
+        [$routesExists, $routesSource] = $this->resolveRoutesSource($workspace);
+        $checks[3] = LevelCheck::level3($route, $routesExists, $routesSource);
 
-    /** @param array<string,mixed> $d */
-    private function checkLevel2(array $d): array
-    {
-        $signature = $this->stringOrNull($d['command_signature'] ?? null);
-        if ($signature === null) {
-            return ['passed' => false, 'reason' => 'no_command_signature_provided'];
-        }
-        // We accept either explicit class or signature with `atlas:` prefix.
-        if (str_starts_with($signature, 'App\\')) {
-            return class_exists($signature)
-                ? ['passed' => true, 'reason' => null]
-                : ['passed' => false, 'reason' => 'command_class_missing'];
-        }
-        if (! str_starts_with($signature, 'atlas:')) {
-            return ['passed' => false, 'reason' => 'invalid_command_signature'];
-        }
-
-        return ['passed' => true, 'reason' => null];
-    }
-
-    /** @param array<string,mixed> $d */
-    private function checkLevel3(array $d, string $workspace): array
-    {
-        $route = $this->stringOrNull($d['api_route'] ?? null);
-        if ($route === null) {
-            return ['passed' => false, 'reason' => 'no_api_route_provided'];
-        }
-        $routesPath = $workspace.'/routes/api.php';
-        if (! is_file($routesPath)) {
-            return ['passed' => false, 'reason' => 'routes_file_missing'];
-        }
-        $source = (string) @file_get_contents($routesPath);
-
-        return str_contains($source, $route)
-            ? ['passed' => true, 'reason' => null]
-            : ['passed' => false, 'reason' => 'api_route_not_found_in_routes_file'];
-    }
-
-    /** @param array<string,mixed> $d */
-    private function checkLevel4(array $d, string $workspace): array
-    {
-        $test = $this->stringOrNull($d['test_class'] ?? null);
-        if ($test === null) {
-            return ['passed' => false, 'reason' => 'no_test_class_provided'];
-        }
-        if (str_starts_with($test, 'tests/')) {
-            return is_file($workspace.DIRECTORY_SEPARATOR.$test)
-                ? ['passed' => true, 'reason' => null]
-                : ['passed' => false, 'reason' => 'test_file_missing'];
-        }
-        if (str_starts_with($test, 'Tests\\')) {
-            return class_exists($test)
-                ? ['passed' => true, 'reason' => null]
-                : ['passed' => false, 'reason' => 'test_class_missing'];
-        }
-
-        return ['passed' => false, 'reason' => 'invalid_test_class_descriptor'];
-    }
-
-    /** @param array<string,mixed> $d */
-    private function checkLevel5(array $d, string $workspace): array
-    {
-        $ui = $this->stringOrNull($d['ui_path'] ?? null);
-        if ($ui === null) {
-            return ['passed' => false, 'reason' => 'no_ui_path_provided'];
-        }
-        $candidates = [
-            $workspace.DIRECTORY_SEPARATOR.$ui,
-            dirname($workspace).DIRECTORY_SEPARATOR.$ui,
-            dirname($workspace).'/atlas-desktop/'.$ui,
-        ];
-        foreach ($candidates as $candidate) {
-            if (is_file($candidate)) {
-                return ['passed' => true, 'reason' => null];
+        $testArtifactExists = false;
+        if ($test !== null) {
+            if (str_starts_with($test, 'tests/')) {
+                $testArtifactExists = is_file($workspace.DIRECTORY_SEPARATOR.$test);
+            } elseif (str_starts_with($test, 'Tests\\')) {
+                $testArtifactExists = class_exists($test);
             }
         }
+        $checks[4] = LevelCheck::level4($test, $testArtifactExists);
 
-        return ['passed' => false, 'reason' => 'ui_file_missing'];
-    }
-
-    /** @param array<string,mixed> $d */
-    private function checkLevel6(array $d, string $workspace): array
-    {
-        $field = $this->stringOrNull($d['state_field'] ?? null);
-        if ($field === null) {
-            return ['passed' => false, 'reason' => 'no_state_field_provided'];
+        $uiExists = false;
+        if ($ui !== null) {
+            $candidates = [
+                $workspace.DIRECTORY_SEPARATOR.$ui,
+                dirname($workspace).DIRECTORY_SEPARATOR.$ui,
+                dirname($workspace).'/atlas-desktop/'.$ui,
+            ];
+            foreach ($candidates as $candidate) {
+                if (is_file($candidate)) {
+                    $uiExists = true;
+                    break;
+                }
+            }
         }
+        $checks[5] = LevelCheck::level5($ui, $uiExists);
+
         $controllerPath = $workspace.'/app/Http/Controllers/AtlasCodeWorkController.php';
-        if (! is_file($controllerPath)) {
-            return ['passed' => false, 'reason' => 'state_controller_missing'];
-        }
-        $source = (string) @file_get_contents($controllerPath);
+        $controllerExists = is_file($controllerPath);
+        $controllerSource = $controllerExists ? (string) @file_get_contents($controllerPath) : '';
+        $checks[6] = LevelCheck::level6($field, $controllerExists, $controllerSource);
 
-        return str_contains($source, $field)
-            ? ['passed' => true, 'reason' => null]
-            : ['passed' => false, 'reason' => 'state_field_not_in_controller'];
+        $checks[7] = LevelCheck::level7($block, $audit);
+        $checks[8] = LevelCheck::level8($descriptor);
+        $checks[9] = LevelCheck::level9($descriptor);
+        $checks[10] = LevelCheck::level10($descriptor);
+
+        return $checks;
     }
 
     /**
-     * @param  array<string,mixed>  $d
-     * @param  array<string,mixed>  $audit
+     * @return array{0: bool, 1: string}  [exists, concatenated_source]
      */
-    private function checkLevel7(array $d, array $audit): array
+    private function resolveRoutesSource(string $workspace): array
     {
-        $block = $this->stringOrNull($d['audit_block'] ?? null);
-        if ($block === null) {
-            return ['passed' => false, 'reason' => 'no_audit_block_provided'];
-        }
-        if (! array_key_exists($block, $audit)) {
-            return ['passed' => false, 'reason' => 'audit_block_missing'];
-        }
-        $entry = $audit[$block];
-        if (! is_array($entry) || ! isset($entry['schema_version'])) {
-            return ['passed' => false, 'reason' => 'audit_block_invalid'];
-        }
-
-        return ['passed' => true, 'reason' => null];
-    }
-
-    /** @param array<string,mixed> $d */
-    private function checkLevel8(array $d): array
-    {
-        $evidence = $d['evidence_paths'] ?? [];
-        if (! is_array($evidence) || $evidence === []) {
-            return ['passed' => false, 'reason' => 'no_evidence_paths_provided'];
+        $chunks = [];
+        $paths = [$workspace.'/routes/api.php'];
+        $dir = $workspace.'/routes/api';
+        if (is_dir($dir)) {
+            $globbed = glob($dir.'/*.php') ?: [];
+            sort($globbed);
+            foreach ($globbed as $path) {
+                $paths[] = $path;
+            }
         }
 
-        return ['passed' => true, 'reason' => null];
-    }
-
-    /** @param array<string,mixed> $d */
-    private function checkLevel9(array $d): array
-    {
-        return (bool) ($d['rivals_or_delta_evidence'] ?? false)
-            ? ['passed' => true, 'reason' => null]
-            : ['passed' => false, 'reason' => 'no_rivals_or_delta_evidence_declared'];
-    }
-
-    /** @param array<string,mixed> $d */
-    private function checkLevel10(array $d): array
-    {
-        return (bool) ($d['production_ready'] ?? false)
-            ? ['passed' => true, 'reason' => null]
-            : ['passed' => false, 'reason' => 'production_ready_not_declared'];
-    }
-
-    private function intInRange(mixed $value, int $min, int $max): ?int
-    {
-        if (! is_numeric($value)) {
-            return null;
-        }
-        $int = (int) $value;
-        if ($int < $min || $int > $max) {
-            return null;
+        foreach ($paths as $path) {
+            if (! is_file($path)) {
+                continue;
+            }
+            $chunks[] = (string) @file_get_contents($path);
         }
 
-        return $int;
-    }
-
-    private function stringOrNull(mixed $value): ?string
-    {
-        if (! is_string($value)) {
-            return null;
+        if ($chunks === []) {
+            return [false, ''];
         }
-        $value = trim($value);
 
-        return $value === '' ? null : $value;
+        return [true, implode("\n", $chunks)];
     }
 }
