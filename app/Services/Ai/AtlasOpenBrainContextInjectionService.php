@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai;
 
+use App\Services\Ai\OpenBrainContextInjection\StableHashSupport;
+use App\Services\Ai\OpenBrainContextInjection\TextNormalizeSupport;
 use App\Models\AtlasOpenBrainAccessLog;
 use App\Services\Ai\Context\ContextPackSelfReflectionGate;
 use App\Services\Ai\Memory\AtlasHybridMemoryRetrievalService;
@@ -450,11 +452,7 @@ class AtlasOpenBrainContextInjectionService
      */
     private function stableContextPackForHash(array $pack): array
     {
-        if (is_array($pack['manifest'] ?? null)) {
-            unset($pack['manifest']['created_at'], $pack['manifest']['expires_at']);
-        }
-
-        return $pack;
+        return StableHashSupport::stableContextPackForHash($pack);
     }
 
     /**
@@ -463,9 +461,7 @@ class AtlasOpenBrainContextInjectionService
      */
     private function stableSelfReflectionForHash(array $selfReflection): array
     {
-        unset($selfReflection['assessed_at']);
-
-        return $selfReflection;
+        return StableHashSupport::stableSelfReflectionForHash($selfReflection);
     }
 
     /**
@@ -474,19 +470,7 @@ class AtlasOpenBrainContextInjectionService
      */
     private function stableOperatorContextForHash(array $operatorContext): array
     {
-        $operatorIdHash = is_string($operatorContext['operator_id'] ?? null)
-            ? hash('sha256', (string) $operatorContext['operator_id'])
-            : ($operatorContext['operator_id_hash'] ?? null);
-
-        unset($operatorContext['operator_id']);
-
-        if (is_string($operatorContext['operator_id_hash'] ?? null)) {
-            return $operatorContext;
-        }
-
-        return $operatorContext + [
-            'operator_id_hash' => $operatorIdHash,
-        ];
+        return StableHashSupport::stableOperatorContextForHash($operatorContext);
     }
 
     /**
@@ -714,19 +698,7 @@ class AtlasOpenBrainContextInjectionService
      */
     private function stableContextDeliveryPolicyForHash(array $policy): array
     {
-        return [
-            'schema_version' => (string) ($policy['schema_version'] ?? ''),
-            'source' => (string) ($policy['source'] ?? ''),
-            'delivery_mode' => (string) ($policy['delivery_mode'] ?? ''),
-            'initial_context_token_budget' => (int) ($policy['initial_context_token_budget'] ?? 0),
-            'expansion_token_reserve' => (int) ($policy['expansion_token_reserve'] ?? 0),
-            'initial_ref_limit' => (int) ($policy['initial_ref_limit'] ?? 0),
-            'initial_source_types' => $this->sortedStrings((array) ($policy['initial_source_types'] ?? [])),
-            'deferred_source_types' => $this->sortedStrings((array) ($policy['deferred_source_types'] ?? [])),
-            'guarded_required_source_types' => $this->sortedStrings((array) ($policy['guarded_required_source_types'] ?? [])),
-            'expansion_triggers' => $this->sortedStrings((array) ($policy['expansion_triggers'] ?? [])),
-            'quality_gate_hint' => (string) ($policy['quality_gate_hint'] ?? ''),
-        ];
+        return StableHashSupport::stableContextDeliveryPolicyForHash($policy);
     }
 
     /**
@@ -745,7 +717,7 @@ class AtlasOpenBrainContextInjectionService
 
     private function stringValue(mixed $value, string $default = ''): string
     {
-        return is_scalar($value) && trim((string) $value) !== '' ? trim((string) $value) : $default;
+        return TextNormalizeSupport::stringValue($value, $default);
     }
 
     /**
@@ -753,21 +725,7 @@ class AtlasOpenBrainContextInjectionService
      */
     private function stringList(mixed $value): array
     {
-        if (is_scalar($value)) {
-            $value = [$value];
-        }
-
-        if (! is_array($value)) {
-            return [];
-        }
-
-        return collect($value)
-            ->filter(fn (mixed $item): bool => is_scalar($item) && trim((string) $item) !== '')
-            ->map(fn (mixed $item): string => trim((string) $item))
-            ->unique()
-            ->values()
-            ->take(24)
-            ->all();
+        return TextNormalizeSupport::stringList($value);
     }
 
     /**
@@ -776,13 +734,7 @@ class AtlasOpenBrainContextInjectionService
      */
     private function sortedStrings(array $strings): array
     {
-        return collect($strings)
-            ->filter(fn (mixed $item): bool => is_scalar($item) && trim((string) $item) !== '')
-            ->map(fn (mixed $item): string => trim((string) $item))
-            ->unique()
-            ->sort()
-            ->values()
-            ->all();
+        return TextNormalizeSupport::sortedStrings($strings);
     }
 
     /**
