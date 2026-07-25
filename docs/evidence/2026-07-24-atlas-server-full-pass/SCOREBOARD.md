@@ -47,6 +47,10 @@
 | OperatorLearningCandidateSupport | OperatorIntelligence unit 35 green |
 | OperatorLearningGateSupport | 5 gate unit green; pure evaluate peel |
 | SkillScaffoldTextSupport | 4 skill scaffold unit green |
+| OI elevate (Gate/Runtime/Context/Profile/privacy fuse) | OI unit + feature paths 35+ green |
+| SignalDetector → DetectSupport heuristics | OI unit 51 / 692 asserts; detector →56 LOC |
+| NamingPolicyRules pure | 32 tests / 95 asserts |
+| UnattendedLivenessFactsNormalizer | 32 tests / 123 asserts (Unit suite) |
 | Decide operationalDecision + executionGraph | 39 unit green |
 | LedgerReplay agent/decision/inbox/kernel/SI | 22 unit green per step |
 | stringOption variants + LoadsNamedJson | 3+2 unit green |
@@ -54,4 +58,4 @@
 
 ## Residual
 
-PRE leave Http (R103 staged) · floors RSI/TaskQueue/AutonomousEvolutionSession · monstruo AiWorker/OpenBrain residual · HubDelegators true map+__call
+PRE leave Http (R103 staged) · floors RSI/TaskQueue · monstruos Rivals/Capacity/FastPath/AWIS scoring · OpenBrain FileContext/Expansion pure · HubDelegators true map+__call · suite filter fatal EliteExecutor mock signature (unrelated)

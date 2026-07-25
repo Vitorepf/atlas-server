@@ -5,31 +5,19 @@
 ```yaml
 branch: main
 execution: in_progress
-full_pass_commits: 61+
-rescan: FINDINGS-RESCAN-2
+full_pass_commits: 197+
+rescan: FINDINGS-RESCAN-3
 recent:
-  - ai-platform + ai-runtime routes (api.php →101)
-  - YouTube isRetryable + player-response peels (ingestion →1173)
-  - ASP memory/runtime/obra peels (ASP →73 shell)
-  - ASP Maestro/stewardship peels
-  - ASP compression/cross-domain/provider wiring peels
-  - Readiness HubDelegators compact forwarders (~8046→6044)
-  - YouTube caption/metadata collaborator peels (ingestion →1248)
-  - projects/semantic routes peels
-  - AaeosUniversalGatesObserveProjectors catalog (command →1094)
-  - AtlasPatamar4 + AtlasMission ASP peels (ASP →523)
-  - engineering routes + ProviderCatalog residual (api.php →411)
-  - routes arena/code-native/agents/memory-vault
-  - AtlasSwarmServiceProvider ASP peel
-  - routes voice/mobile/vox split
-  - AtlasOrganismServiceProvider ASP peel
-  - AtlasVoxServiceProvider ASP peel
-  - Decide/LedgerReplay/CLI/routes prior continuous peels
-  - reportSuccessWithCommit peel
-  - OneShotTickInvokerEnvelope + Catalog (62 invokers)
-  - Wave A YesNo/UtcIso/trueFalse mass
-unit_proof: continuous peels green (ASP~78; Hub 6044; YT→1140; Provider SSOT; DocsReality 1363; SI projection)
-next: continuous residual (PRE leave-Http staged | floors RSI/TaskQueue/AutonomousEvolutionSession | monstruo AiWorker residual)
+  - SignalDetector heuristics → DetectSupport + Classify privacy/risk fuse
+  - OI elevate: Gate tokens/privacy, RuntimeCapture, ContextCompose, ProfileRegistry
+  - UnattendedLivenessFactsNormalizer pure (snapshot 303→132)
+  - NamingPolicyRules pure string gates
+  - SkillScaffoldTextSupport + OperatorLearningGateSupport peels
+  - OperatorLearningCandidate/Pattern/Comprehension/Detect/Classify supports
+  - ASP shell ~73; routes api.php ~90; ProviderCatalog SSOT
+  - YouTube peels ingestion ~1140; HubDelegators ~6044
+unit_proof: OI unit 51/692; NamingPolicy 32; Liveness Unit 32; prior continuous green
+next: Rivals/Capacity/FastPath pure · OpenBrain FileContext/Expansion · AWIS scoring · PRE staged
 ```
 
 ## Progress summary

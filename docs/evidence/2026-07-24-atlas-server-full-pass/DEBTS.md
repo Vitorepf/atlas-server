@@ -9,8 +9,17 @@
 - [x] Honesty renames BriefGrounding, SuiteRedTriage
 - [x] Loop config operate-path honesty comments
 - [x] **Rescan #2 multi-agente** → `scan/FINDINGS-RESCAN-2.md`
+- [x] **Rescan #3 multi-agente** → `scan/FINDINGS-RESCAN-3.md`
 
-## Open — ranked residual (from RESCAN-2)
+## Open — ranked residual (RESCAN-2 + RESCAN-3)
+
+### Density landed (RESCAN-3 wave)
+
+- [x] OperatorComprehensionGateSupport elevate (tokens/privacy/signalKind)
+- [x] OperatorLearningRuntimeCaptureSupport + ContextCompose + ProfileRegistry supports
+- [x] SignalDetector → DetectSupport heuristics; Classify privacy/risk fuse
+- [x] NamingPolicyRules pure string gates
+- [x] UnattendedLivenessFactsNormalizer pure facts
 
 ### Wave A — cheap adoption (P0)
 
@@ -108,6 +117,22 @@
 - [ ] MiscProjections* rename by domain
 - [ ] Fable/docs loop speech retarget (CLI atlas:loop already gone)
 - [ ] AtlasAutonomosMasterSwitch alias (class advertised, verify/ship)
+
+### Residual monstruos (RESCAN-3 rank)
+
+- [ ] RivalsOneShot dimension credit Support
+- [ ] ForgeProviderCapacityClassifier pure FSM
+- [ ] ForgeFastPath lifecycle + sanitizer
+- [ ] WorkspaceOutcomeCommandMemory scoring Support
+- [ ] OpenBrain FileContext ceiling/path pure
+- [ ] OpenBrain ContextExpansion provider-safe render
+- [ ] ClosedLoop stage / ResultLedger grade
+- [ ] SkillScaffold frontmatter/body residual
+- [ ] ProjectStackLearnSupport
+- [ ] AiWorker predicates/time residual
+- [ ] HubDelegators true map+__call residual
+- [ ] PRE leave-Http (R103 staged)
+- [ ] Suite filter fatal: EliteExecutorKernel mock eventById signature (unrelated pre-existing)
 
 ### Floors (do not rush)
 
