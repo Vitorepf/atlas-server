@@ -8,6 +8,7 @@ execution: in_progress
 full_pass_commits: 197+
 rescan: FINDINGS-RESCAN-3
 recent:
+  - FileAttachmentOfficeParseSupport (host 1140→933; 7 unit/69)
   - ProductMode controls+receipt pure Supports (controls 508→46; receipt 475→191; 33 unit/291)
   - ProductModeOperationalInboxProjectionSupport (inbox 1088→309; 16 unit/163 + 12 path/80)
   - ProgrammingConsoleEnvelopeSupport (console 1442→1195; 10/60)
@@ -47,7 +48,7 @@ recent:
   - SignalDetector DetectSupport + OI elevate wave
   - UnattendedLiveness + NamingPolicyRules
 unit_proof: HubDelegators 340/1386; AiWorker pure 6/25; FileContext 5; ClosedLoop 22; OI 51
-next: PRE staged · CompletionAudit cert FS residual · HubDelegators true map+__call · remaining monstruos
+next: PRE staged · CompletionAudit cert FS residual · HubDelegators true map+__call · remaining monstruos · FileAttachment zipEntries residual
 ```
 
 ## Progress summary

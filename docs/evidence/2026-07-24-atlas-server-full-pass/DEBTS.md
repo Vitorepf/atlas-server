@@ -143,6 +143,7 @@
 - [x] ProductMode controls/receipt Supports
 - [x] OperatorTaxonomyParseSupport
 - [x] FileAttachmentPdfAnalysisSupport
+- [x] FileAttachmentOfficeParseSupport (MIME/OCR-merge/OOXML/XLSX pure; host 1140→933; 7 unit/69)
 - [x] ProductModeOperationalInboxProjectionSupport (inbox 1088→309; 16 unit + 12 path green)
 - [x] ProductModeOperationalControlsProjectionSupport (controls 508→46; pure project + sections)
 - [x] ProductModeOperationalControlReceiptSupport (receipt 475→191; pure payload/summary/AP-790 obs)

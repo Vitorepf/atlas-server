@@ -86,6 +86,7 @@
 | Combined package | see goal-wave-combined-proof.log |
 | ProductModeOperationalInboxProjectionSupport | 16 unit / 163 asserts + 12 inbox path / 80 asserts; service 1088→309 |
 | ProductMode controls+receipt pure Supports | 33 unit / 291 asserts; controls 508→46; receipt 475→191; DateTimeZone import fix on StewardshipEvolutionClock |
+| FileAttachmentOfficeParseSupport | 7 unit / 69 asserts; host 1140→933; MIME/OCR-merge/OOXML/XLSX pure |
 
 ## Residual
 

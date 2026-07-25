@@ -2,8 +2,8 @@
 
 namespace App\Services\Ai\Cli;
 
+use App\Services\Ai\Cli\Support\FileAttachmentOfficeParseSupport;
 use App\Services\Ai\Cli\Support\FileAttachmentPdfAnalysisSupport;
-
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
 use RuntimeException;
@@ -182,7 +182,7 @@ class AtlasFileAttachmentService
     public function enhancePdfForQuery(array $attachment, string $query, int $maxAdditionalPages = 8): array
     {
         $path = is_string($attachment['path'] ?? null) ? $attachment['path'] : '';
-        if ($path === '' || ! File::isFile($path) || ! $this->isPdf(
+        if ($path === '' || ! File::isFile($path) || ! FileAttachmentOfficeParseSupport::isPdf(
             is_string($attachment['mime_type'] ?? null) ? $attachment['mime_type'] : '',
             strtolower(pathinfo(is_string($attachment['original_name'] ?? null) ? $attachment['original_name'] : $path, PATHINFO_EXTENSION)),
         )) {
@@ -266,11 +266,11 @@ class AtlasFileAttachmentService
         $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
 
         $metadata = [];
-        if ($this->isPdf($mime, $extension)) {
+        if (FileAttachmentOfficeParseSupport::isPdf($mime, $extension)) {
             $pdf = $this->analyzePdf($path);
             $text = $pdf['text'];
             $metadata = $pdf['metadata'];
-        } elseif ($this->isOfficeDocument($extension)) {
+        } elseif (FileAttachmentOfficeParseSupport::isOfficeDocument($extension)) {
             $text = match ($extension) {
                 'docx' => $this->readDocx($path),
                 'xlsx' => $this->readXlsx($path),
@@ -283,7 +283,7 @@ class AtlasFileAttachmentService
             ];
         } else {
             $text = match (true) {
-                $this->isPlainTextLike($mime, $extension) => $this->readTextFile($path),
+                FileAttachmentOfficeParseSupport::isPlainTextLike($mime, $extension) => $this->readTextFile($path),
                 default => '',
             };
         }
@@ -296,38 +296,6 @@ class AtlasFileAttachmentService
             'truncated' => $truncated,
             'metadata' => $metadata,
         ];
-    }
-
-    private function isPlainTextLike(string $mime, string $extension): bool
-    {
-        if (str_starts_with($mime, 'text/')) {
-            return true;
-        }
-
-        return in_array($extension, [
-            'txt',
-            'md',
-            'markdown',
-            'csv',
-            'json',
-            'xml',
-            'html',
-            'htm',
-            'rtf',
-            'log',
-            'yaml',
-            'yml',
-        ], true);
-    }
-
-    private function isPdf(string $mime, string $extension): bool
-    {
-        return $extension === 'pdf' || $mime === 'application/pdf';
-    }
-
-    private function isOfficeDocument(string $extension): bool
-    {
-        return in_array($extension, ['docx', 'xlsx', 'pptx'], true);
     }
 
     private function readTextFile(string $path): string
@@ -363,7 +331,7 @@ class AtlasFileAttachmentService
                     continue;
                 }
 
-                $text = $this->textFromOoxml($xml);
+                $text = FileAttachmentOfficeParseSupport::textFromOoxml($xml);
                 if ($text !== '') {
                     $parts[] = $text;
                 }
@@ -477,7 +445,7 @@ class AtlasFileAttachmentService
         $metadata['pdf_ocr_status'] = $ocr['status'];
         if ($ocr['pages'] !== []) {
             $metadata['pdf_ocr_pages'] = $ocr['pages'];
-            $pageBlocks = $this->mergeOcrPageBlocks($pageBlocks, $ocr['pages']);
+            $pageBlocks = FileAttachmentOfficeParseSupport::mergeOcrPageBlocks($pageBlocks, $ocr['pages']);
         }
 
         $metadata['pdf_pages'] = FileAttachmentPdfAnalysisSupport::enrichPdfPageVisuals($metadata['pdf_pages'], $metadata['pdf_rendered_pages'], $ocr['pages']);
@@ -814,26 +782,6 @@ class AtlasFileAttachmentService
         ];
     }
 
-    /**
-     * @param  array<int,string>  $pageBlocks
-     * @param  array<int,array<string,mixed>>  $ocrPages
-     * @return array<int,string>
-     */
-    private function mergeOcrPageBlocks(array $pageBlocks, array $ocrPages): array
-    {
-        foreach ($ocrPages as $page) {
-            $pageNumber = is_numeric($page['page'] ?? null) ? (int) $page['page'] : null;
-            $text = is_string($page['text_excerpt'] ?? null) ? trim($page['text_excerpt']) : '';
-            if (! $pageNumber || $text === '') {
-                continue;
-            }
-
-            $pageBlocks[] = "[OCR p. {$pageNumber}]\n{$text}";
-        }
-
-        return $pageBlocks;
-    }
-
     private function readPdf(string $path): string
     {
         try {
@@ -864,7 +812,7 @@ class AtlasFileAttachmentService
                     continue;
                 }
 
-                $rows = $this->xlsxRows($xml, $sharedStrings);
+                $rows = FileAttachmentOfficeParseSupport::xlsxRows($xml, $sharedStrings);
                 if ($rows === []) {
                     continue;
                 }
@@ -897,7 +845,7 @@ class AtlasFileAttachmentService
                     continue;
                 }
 
-                $text = $this->textNodesFromXml($xml);
+                $text = FileAttachmentOfficeParseSupport::textNodesFromXml($xml);
                 if ($text !== '') {
                     $parts[] = 'Slide '.($index + 1).":\n".$text;
                 }
@@ -910,7 +858,7 @@ class AtlasFileAttachmentService
                     continue;
                 }
 
-                $text = $this->textNodesFromXml($xml);
+                $text = FileAttachmentOfficeParseSupport::textNodesFromXml($xml);
                 if ($text !== '') {
                     $notes[] = 'Notas '.($index + 1).":\n".$text;
                 }
@@ -941,7 +889,7 @@ class AtlasFileAttachmentService
     }
 
     /**
-     * @return array<int,string>
+     * @return list<string>
      */
     private function xlsxSharedStrings(ZipArchive $zip): array
     {
@@ -950,27 +898,11 @@ class AtlasFileAttachmentService
             return [];
         }
 
-        $dom = $this->loadXml($xml);
-        if (! $dom) {
-            return [];
-        }
-
-        $xpath = new \DOMXPath($dom);
-        $strings = [];
-        foreach ($xpath->query('//*[local-name()="si"]') ?: [] as $node) {
-            $chunks = [];
-            foreach ($xpath->query('.//*[local-name()="t"]', $node) ?: [] as $textNode) {
-                $chunks[] = $textNode->textContent;
-            }
-
-            $strings[] = implode('', $chunks);
-        }
-
-        return $strings;
+        return FileAttachmentOfficeParseSupport::parseXlsxSharedStringsXml($xml);
     }
 
     /**
-     * @return array<string,string>
+     * @return array<string, string>
      */
     private function xlsxSheetEntries(ZipArchive $zip): array
     {
@@ -985,151 +917,12 @@ class AtlasFileAttachmentService
             return $fallback;
         }
 
-        $workbookDom = $this->loadXml($workbook);
-        $relsDom = $this->loadXml($rels);
-        if (! $workbookDom || ! $relsDom) {
-            return $fallback;
-        }
-
-        $relsXpath = new \DOMXPath($relsDom);
-        $targetsById = [];
-        foreach ($relsXpath->query('//*[local-name()="Relationship"]') ?: [] as $relationship) {
-            if (! $relationship instanceof \DOMElement) {
-                continue;
-            }
-
-            $id = $relationship->getAttribute('Id');
-            $target = ltrim($relationship->getAttribute('Target'), '/');
-            if ($id !== '' && $target !== '') {
-                $targetsById[$id] = str_starts_with($target, 'xl/')
-                    ? $target
-                    : 'xl/'.$target;
-            }
-        }
-
-        $workbookXpath = new \DOMXPath($workbookDom);
-        $sheets = [];
-        foreach ($workbookXpath->query('//*[local-name()="sheet"]') ?: [] as $sheet) {
-            if (! $sheet instanceof \DOMElement) {
-                continue;
-            }
-
-            $name = trim($sheet->getAttribute('name')) ?: 'Sheet '.(count($sheets) + 1);
-            $relationshipId = $sheet->getAttribute('r:id');
-            $entry = $targetsById[$relationshipId] ?? null;
-            if (is_string($entry) && $zip->locateName($entry) !== false) {
-                $sheets[$name] = $entry;
-            }
-        }
-
-        return $sheets !== [] ? $sheets : $fallback;
-    }
-
-    /**
-     * @param  array<int,string>  $sharedStrings
-     * @return array<int,string>
-     */
-    private function xlsxRows(string $xml, array $sharedStrings): array
-    {
-        $dom = $this->loadXml($xml);
-        if (! $dom) {
-            return [];
-        }
-
-        $xpath = new \DOMXPath($dom);
-        $rows = [];
-        foreach ($xpath->query('//*[local-name()="row"]') ?: [] as $rowNode) {
-            $cells = [];
-            foreach ($xpath->query('./*[local-name()="c"]', $rowNode) ?: [] as $cellNode) {
-                if (! $cellNode instanceof \DOMElement) {
-                    continue;
-                }
-
-                $value = $this->xlsxCellValue($xpath, $cellNode, $sharedStrings);
-                if ($value !== '') {
-                    $cells[] = $value;
-                }
-            }
-
-            if ($cells !== []) {
-                $rows[] = implode("\t", $cells);
-            }
-        }
-
-        return $rows;
-    }
-
-    /**
-     * @param  array<int,string>  $sharedStrings
-     */
-    private function xlsxCellValue(\DOMXPath $xpath, \DOMElement $cell, array $sharedStrings): string
-    {
-        $type = $cell->getAttribute('t');
-        if ($type === 's') {
-            $indexNodes = $xpath->query('./*[local-name()="v"]', $cell);
-            $indexNode = $indexNodes instanceof \DOMNodeList ? $indexNodes->item(0) : null;
-            $index = $indexNode ? (int) trim($indexNode->textContent) : null;
-
-            return $index !== null ? trim($sharedStrings[$index] ?? '') : '';
-        }
-
-        if ($type === 'inlineStr') {
-            $chunks = [];
-            foreach ($xpath->query('.//*[local-name()="t"]', $cell) ?: [] as $textNode) {
-                $chunks[] = $textNode->textContent;
-            }
-
-            return trim(implode('', $chunks));
-        }
-
-        $valueNodes = $xpath->query('./*[local-name()="v"]', $cell);
-        $valueNode = $valueNodes instanceof \DOMNodeList ? $valueNodes->item(0) : null;
-
-        return $valueNode ? trim($valueNode->textContent) : '';
-    }
-
-    private function textFromOoxml(string $xml): string
-    {
-        $xml = preg_replace('/<\/(?:w|a):(?:p|tr)>/', "\n", $xml) ?? $xml;
-        $xml = preg_replace('/<\/(?:w|a):tc>/', "\t", $xml) ?? $xml;
-        $xml = preg_replace('/<(?:w|a):(?:br|tab)\b[^>]*\/>/', "\n", $xml) ?? $xml;
-
-        return html_entity_decode(trim(strip_tags($xml)), ENT_QUOTES | ENT_XML1, 'UTF-8');
-    }
-
-    private function textNodesFromXml(string $xml): string
-    {
-        $dom = $this->loadXml($xml);
-        if (! $dom) {
-            return $this->textFromOoxml($xml);
-        }
-
-        $xpath = new \DOMXPath($dom);
-        $chunks = [];
-        foreach ($xpath->query('//*[local-name()="t"]') ?: [] as $node) {
-            $text = trim($node->textContent);
-            if ($text !== '') {
-                $chunks[] = $text;
-            }
-        }
-
-        return implode("\n", $chunks);
-    }
-
-    private function loadXml(string $xml): ?\DOMDocument
-    {
-        $previous = libxml_use_internal_errors(true);
-        try {
-            $dom = new \DOMDocument();
-            if (! $dom->loadXML($xml, LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING)) {
-                return null;
-            }
-
-            return $dom;
-        } finally {
-            libxml_clear_errors();
-            libxml_use_internal_errors($previous);
-        }
+        return FileAttachmentOfficeParseSupport::parseXlsxSheetEntriesFromXml(
+            $workbook,
+            $rels,
+            $fallback,
+            fn (string $entry): bool => $zip->locateName($entry) !== false,
+        );
     }
 
     private function safeOriginalName(UploadedFile $file): string
