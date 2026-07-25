@@ -8,6 +8,7 @@ use App\Models\AtlasMaintenanceWindow;
 use App\Models\AtlasPowerEvent;
 use App\Models\AtlasPowerSession;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\MacAgent\Support\MacAgentReadinessSupport;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -690,54 +691,12 @@ class MacAgentService
      */
     private function readinessPrimaryAction(array $blockers, array $warnings, bool $readyForBackgroundJobs, bool $readyForRemote): array
     {
-        if ($readyForBackgroundJobs) {
-            return [
-                'code' => 'none',
-                'severity' => 'info',
-                'message' => 'Nenhuma acao pendente.',
-                'command' => null,
-                'kind' => 'ready',
-            ];
-        }
-
-        $priority = [
-            'mac_agent_not_migrated' => 10,
-            'mac_agent_offline_or_sleeping' => 20,
-            'mac_agent_launch_agent_not_ready' => 30,
-            'caffeinate_unavailable' => 40,
-            'power_helper_not_ready' => 50,
-            'atlas_wake_not_confirmed' => 60,
-            'battery_too_low_for_background_jobs' => 70,
-        ];
-
-        $items = collect($blockers)
-            ->sortBy(fn (array $item): int => $priority[(string) ($item['code'] ?? '')] ?? 100)
-            ->values();
-
-        $primary = $items->first();
-        if (! is_array($primary) && ! empty($warnings)) {
-            $primary = $warnings[0];
-        }
-
-        if (! is_array($primary)) {
-            return [
-                'code' => 'refresh_status',
-                'severity' => 'info',
-                'message' => 'Atualize o status do Mac Agent para confirmar prontidao.',
-                'command' => '/opt/homebrew/bin/php artisan atlas:host doctor --json',
-                'kind' => 'refresh',
-            ];
-        }
-
-        $code = (string) ($primary['code'] ?? 'unknown');
-
-        return [
-            'code' => $code,
-            'severity' => (string) ($primary['severity'] ?? 'warning'),
-            'message' => (string) ($primary['message'] ?? ''),
-            'command' => $primary['action'] ?? null,
-            'kind' => $readyForRemote ? 'background_setup' : 'remote_setup',
-        ];
+        return MacAgentReadinessSupport::readinessPrimaryAction(
+            $blockers,
+            $warnings,
+            $readyForBackgroundJobs,
+            $readyForRemote,
+        );
     }
 
     /**
