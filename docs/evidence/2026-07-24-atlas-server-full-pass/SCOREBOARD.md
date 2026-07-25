@@ -37,6 +37,7 @@
 | YouTube audio/process helper peels | 14 unit green; ingestion →1140 |
 | DocumentationRealityClassifySupport | 10 feature tests / 1363 asserts green |
 | SelfImprovementProjectionSupport | ledger projection feature test 14 asserts green |
+| WorkspacePathScoringSupport | 17 WorkspaceIntelligence unit green |
 | Decide operationalDecision + executionGraph | 39 unit green |
 | LedgerReplay agent/decision/inbox/kernel/SI | 22 unit green per step |
 | stringOption variants + LoadsNamedJson | 3+2 unit green |
