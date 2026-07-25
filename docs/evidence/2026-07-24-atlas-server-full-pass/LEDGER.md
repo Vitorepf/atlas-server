@@ -8,6 +8,7 @@ execution: in_progress
 full_pass_commits: 197+
 rescan: FINDINGS-RESCAN-3
 recent:
+  - CapabilityMaturityLevelCheckSupport
   - AiWorkerSupport residual pure peels
   - ExecutionOptimizationPolicySupport
   - TaskFabricGiveBackLearningSupport

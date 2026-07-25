@@ -132,6 +132,7 @@
 - [x] TaskFabricGiveBackLearningSupport
 - [x] ExecutionOptimizationPolicySupport
 - [x] AiWorkerSupport residual pure (scout/steer/repair/mac)
+- [x] CapabilityMaturityLevelCheckSupport
 
 - [x] RivalsOneShot dimension credit Support
 - [x] ForgeProviderCapacityClassifier pure FSM

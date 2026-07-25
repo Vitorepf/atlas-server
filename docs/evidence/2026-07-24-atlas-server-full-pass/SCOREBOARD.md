@@ -77,6 +77,7 @@
 | TaskFabricGiveBackLearningSupport | 53 unit / 121 asserts; integrator 486→413 |
 | ExecutionOptimizationPolicySupport | 10 unit / 56 asserts; section 1010→772 |
 | AiWorkerSupport residual pure peels (scout/steer/repair/mac) | 10 unit / 84 asserts |
+| CapabilityMaturityLevelCheckSupport | 5 unit / 65 asserts; service 330→216 |
 | Decide operationalDecision + executionGraph | 39 unit green |
 | LedgerReplay agent/decision/inbox/kernel/SI | 22 unit green per step |
 | stringOption variants + LoadsNamedJson | 3+2 unit green |
