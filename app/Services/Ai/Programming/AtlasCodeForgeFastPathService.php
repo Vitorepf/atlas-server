@@ -14,6 +14,7 @@ use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;
 use App\Services\Ai\Programming\Governance\ProgrammingSpecCompiler;
 use App\Services\Ai\Programming\Sdd\Compilers\PlanCompiler;
 use App\Services\Ai\Programming\Sdd\Compilers\TaskCompiler;
+use App\Services\Ai\Programming\Support\ForgeFastPathReportSanitizer;
 use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
@@ -36,10 +37,13 @@ use Throwable;
 class AtlasCodeForgeFastPathService
 {
     public const SCHEMA_VERSION = 'atlas.code.forge_fast_path.v1';
+
     public const RUN_SCHEMA_VERSION = 'atlas.code.forge_fast_path_run.v1';
 
     public const MODE_PREPARE_ONLY = 'prepare_only';
+
     public const MODE_EXECUTE_ASYNC = 'execute_async';
+
     public const MODE_EXECUTE_SYNC = 'execute_sync';
 
     /** @var array<int,string> Stages canonicas (8). */
@@ -307,7 +311,7 @@ class AtlasCodeForgeFastPathService
             }
         }
 
-        $nextAction = $this->resolveNextAction($mode, $dispatchStage, $blockers);
+        $nextAction = ForgeFastPathReportSanitizer::resolveNextAction($mode, $dispatchStage, $blockers);
 
         $operatorStage = [
             'name' => 'operator_next_action',
@@ -743,29 +747,6 @@ class AtlasCodeForgeFastPathService
     }
 
     /**
-     * @param  array<string,mixed>  $dispatchStage
-     * @param  array<int,string>  $blockers
-     */
-    private function resolveNextAction(string $mode, array $dispatchStage, array $blockers): string
-    {
-        if ($blockers !== []) {
-            return 'resolve_remaining_blockers';
-        }
-
-        if ($mode === self::MODE_PREPARE_ONLY) {
-            return 'review_spec_plan_then_dispatch_forge';
-        }
-
-        if ($mode === self::MODE_EXECUTE_SYNC) {
-            return (string) ($dispatchStage['execution_status'] ?? '') === 'passed'
-                ? 'open_atlas_code_review'
-                : 'inspect_remaining_blockers';
-        }
-
-        return 'poll_async_execution_and_open_review_when_passed';
-    }
-
-    /**
      * @param  array<int,array<string,mixed>>  $stages
      * @param  array<int,string>  $blockers
      * @param  array<int,string>  $evidenceRefs
@@ -793,7 +774,7 @@ class AtlasCodeForgeFastPathService
         ?string $fastPathRunId = null,
         ?string $startedAt = null,
     ): array {
-        $reportStages = $this->sanitizeStagesForReport($stages);
+        $reportStages = ForgeFastPathReportSanitizer::sanitizeStagesForReport($stages);
         $statuses = array_map(static fn (array $s): string => (string) ($s['status'] ?? 'blocked'), $reportStages);
 
         $status = match (true) {
@@ -809,8 +790,8 @@ class AtlasCodeForgeFastPathService
 
         $runId = $fastPathRunId ?? (string) Str::ulid();
         $startedAt ??= now()->toIso8601String();
-        $progressPercent = $this->computeProgress($reportStages);
-        $currentStage = $this->resolveCurrentStage($reportStages, $status);
+        $progressPercent = ForgeFastPathReportSanitizer::computeProgress($reportStages);
+        $currentStage = ForgeFastPathReportSanitizer::resolveCurrentStage($reportStages, $status);
 
         $report = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -849,53 +830,16 @@ class AtlasCodeForgeFastPathService
     }
 
     /**
-     * @param  array<int,array<string,mixed>>  $stages
-     */
-    private function computeProgress(array $stages): int
-    {
-        if ($stages === []) {
-            return 0;
-        }
-
-        $passed = collect($stages)
-            ->filter(static fn (array $s): bool => in_array((string) ($s['status'] ?? ''), ['passed', 'degraded'], true))
-            ->count();
-
-        return (int) round(($passed / count(self::CANONICAL_STAGES)) * 100);
-    }
-
-    /**
-     * @param  array<int,array<string,mixed>>  $stages
-     */
-    private function resolveCurrentStage(array $stages, string $status): string
-    {
-        if ($status === 'blocked') {
-            foreach ($stages as $stage) {
-                if ((string) ($stage['status'] ?? '') === 'blocked') {
-                    return (string) ($stage['name'] ?? 'unknown');
-                }
-            }
-        }
-
-        $last = end($stages);
-        if (is_array($last) && isset($last['name'])) {
-            return (string) $last['name'];
-        }
-
-        return 'obra_binding';
-    }
-
-    /**
      * @param  array<string,mixed>  $report
      */
     private function rememberFastPath(AtlasProject $project, array $report): void
     {
         $metadata = is_array($project->metadata) ? $project->metadata : [];
-        $report = $this->sanitizeReportForStorage($report);
+        $report = ForgeFastPathReportSanitizer::sanitizeReportForStorage($report);
 
         $history = collect((array) ($metadata['atlas_code_forge_fast_path_history'] ?? []))
             ->filter(fn (mixed $entry): bool => is_array($entry))
-            ->map(fn (array $entry): array => $this->sanitizeReportForStorage($entry))
+            ->map(fn (array $entry): array => ForgeFastPathReportSanitizer::sanitizeReportForStorage($entry))
             ->values()
             ->all();
 
@@ -903,7 +847,11 @@ class AtlasCodeForgeFastPathService
         $metadata['latest_atlas_code_forge_fast_path'] = $report;
         $metadata['atlas_code_forge_fast_path_history'] = array_slice($history, 0, 10);
 
-        $run = $this->runProjection($report);
+        $run = ForgeFastPathReportSanitizer::runProjection(
+            $report,
+            now()->toIso8601String(),
+            (string) Str::ulid(),
+        );
         $runHistory = collect((array) ($metadata['atlas_code_forge_fast_path_run_history'] ?? []))
             ->filter(fn (mixed $entry): bool => is_array($entry))
             ->reject(fn (array $entry): bool => (string) ($entry['fast_path_run_id'] ?? '') === (string) ($run['fast_path_run_id'] ?? ''))
@@ -917,41 +865,6 @@ class AtlasCodeForgeFastPathService
             'metadata' => $metadata,
             'last_touched_at' => now(),
         ])->save();
-    }
-
-    /**
-     * @param  array<string,mixed>  $report
-     * @return array<string,mixed>
-     */
-    private function runProjection(array $report): array
-    {
-        return [
-            'schema_version' => self::RUN_SCHEMA_VERSION,
-            'fast_path_run_id' => (string) ($report['fast_path_run_id'] ?? Str::ulid()),
-            'obra_id' => $report['obra_id'] ?? null,
-            'work_item_id' => $report['work_item_id'] ?? null,
-            'work_item_code' => $report['work_item_code'] ?? null,
-            'execution_id' => $report['execution_id'] ?? null,
-            'history_id' => $report['history_id'] ?? null,
-            'checkpoint_id' => $report['checkpoint_id'] ?? null,
-            'mode' => (string) ($report['mode'] ?? 'execute_async'),
-            'status' => (string) ($report['status'] ?? 'unknown'),
-            'current_stage' => (string) ($report['current_stage'] ?? 'unknown'),
-            'progress_percent' => (int) ($report['progress_percent'] ?? 0),
-            'spec_hash' => $report['spec_hash'] ?? null,
-            'plan_hash' => $report['plan_hash'] ?? null,
-            'task_count' => (int) ($report['task_count'] ?? 0),
-            'started_at' => $report['started_at'] ?? null,
-            'updated_at' => $report['updated_at'] ?? now()->toIso8601String(),
-            'completed_at' => in_array((string) ($report['status'] ?? ''), ['passed', 'completed'], true)
-                ? ($report['updated_at'] ?? now()->toIso8601String())
-                : null,
-            'blockers' => array_values((array) ($report['blockers'] ?? [])),
-            'evidence_refs' => array_values((array) ($report['evidence_refs'] ?? [])),
-            'next_action' => (string) ($report['next_action'] ?? 'unknown'),
-            'commands' => (array) ($report['commands'] ?? []),
-            'external_provider_call' => false,
-        ];
     }
 
     /**
@@ -1046,136 +959,6 @@ class AtlasCodeForgeFastPathService
             'php artisan atlas:forge:provider-capacity --json --strict',
             'php artisan atlas:engineering:knowledge docs-health --json',
         ];
-    }
-
-    /**
-     * @param  array<int,array<string,mixed>>  $stages
-     * @return array<int,array<string,mixed>>
-     */
-    private function sanitizeStagesForReport(array $stages): array
-    {
-        return array_map(fn (array $stage): array => $this->sanitizeStageForReport($stage), $stages);
-    }
-
-    /**
-     * @param  array<string,mixed>  $stage
-     * @return array<string,mixed>
-     */
-    private function sanitizeStageForReport(array $stage): array
-    {
-        $sanitized = [];
-        foreach ($stage as $key => $value) {
-            if ($key === 'project' && $value instanceof AtlasProject) {
-                $sanitized['project_id'] = (string) $value->getKey();
-                $sanitized['project_title'] = $this->truncateString((string) ($value->title ?? ''), 160);
-                continue;
-            }
-            if ($key === 'project' && is_array($value)) {
-                $sanitized['project_id'] = AiValueNormalizer::trimmedStringOrNull(data_get($value, 'id'));
-                $sanitized['project_title'] = $this->truncateString((string) data_get($value, 'title', ''), 160);
-                continue;
-            }
-
-            if ($key === 'work_item' && $value instanceof AtlasProgrammingWorkItem) {
-                $sanitized['work_item'] = $this->workItemSummary($value);
-                continue;
-            }
-            if ($key === 'work_item' && is_array($value)) {
-                $sanitized['work_item'] = [
-                    'id' => AiValueNormalizer::trimmedStringOrNull(data_get($value, 'id')),
-                    'code' => AiValueNormalizer::trimmedStringOrNull(data_get($value, 'code')),
-                    'status' => AiValueNormalizer::trimmedStringOrNull(data_get($value, 'status')),
-                    'current_stage' => AiValueNormalizer::trimmedStringOrNull(data_get($value, 'current_stage')),
-                    'risk_level' => AiValueNormalizer::trimmedStringOrNull(data_get($value, 'risk_level')),
-                    'spec_hash' => data_get($value, 'spec_hash'),
-                    'plan_hash' => data_get($value, 'plan_hash'),
-                    'task_count' => count((array) data_get($value, 'tasks_json', [])),
-                ];
-                continue;
-            }
-
-            $sanitized[$key] = $this->sanitizeValueForReport($value);
-        }
-
-        return $sanitized;
-    }
-
-    /**
-     * @param  array<string,mixed>  $report
-     * @return array<string,mixed>
-     */
-    private function sanitizeReportForStorage(array $report): array
-    {
-        if (isset($report['stages']) && is_array($report['stages'])) {
-            $report['stages'] = $this->sanitizeStagesForReport((array) $report['stages']);
-        }
-
-        return $this->sanitizeValueForReport($report, 0);
-    }
-
-    /**
-     * @return array<string,mixed>
-     */
-    private function workItemSummary(AtlasProgrammingWorkItem $workItem): array
-    {
-        return [
-            'id' => (string) $workItem->id,
-            'code' => (string) $workItem->code,
-            'status' => (string) $workItem->status,
-            'current_stage' => (string) $workItem->current_stage,
-            'risk_level' => (string) $workItem->risk_level,
-            'spec_hash' => $workItem->spec_hash,
-            'plan_hash' => $workItem->plan_hash,
-            'task_count' => count((array) $workItem->tasks_json),
-        ];
-    }
-
-    private function sanitizeValueForReport(mixed $value, int $depth = 0): mixed
-    {
-        if ($value instanceof AtlasProject) {
-            return [
-                'project_id' => (string) $value->getKey(),
-                'title' => $this->truncateString((string) ($value->title ?? ''), 160),
-            ];
-        }
-
-        if ($value instanceof AtlasProgrammingWorkItem) {
-            return $this->workItemSummary($value);
-        }
-
-        if (is_string($value)) {
-            return $this->truncateString($value, 2000);
-        }
-
-        if (! is_array($value)) {
-            return $value;
-        }
-
-        if ($depth >= 6) {
-            return ['truncated' => true, 'reason' => 'max_depth'];
-        }
-
-        $out = [];
-        $count = 0;
-        foreach ($value as $key => $nested) {
-            if ($count >= 120) {
-                $out['truncated'] = true;
-                $out['truncated_reason'] = 'max_items';
-                break;
-            }
-
-            $out[$key] = $this->sanitizeValueForReport($nested, $depth + 1);
-            $count++;
-        }
-
-        return $out;
-    }
-
-    private function truncateString(string $value, int $maxLength): string
-    {
-        return strlen($value) > $maxLength
-            ? substr($value, 0, $maxLength).'...'
-            : $value;
     }
 
     private function intentFromProject(AtlasProject $project): ?string
