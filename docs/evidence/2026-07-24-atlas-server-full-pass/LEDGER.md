@@ -8,6 +8,7 @@ execution: in_progress
 full_pass_commits: 197+
 rescan: FINDINGS-RESCAN-3
 recent:
+  - TaskFabricTemplateFarmSignalSupport (405→217)
   - CodeAttentionClassifier (957→772)
   - data_getYesNo mass fix (129 sites)
   - GraphPathFilterSupport

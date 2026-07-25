@@ -125,6 +125,7 @@
 - [x] GraphPathFilterSupport
 - [x] data_getYesNo mass compile bug
 - [x] CodeAttentionClassifier
+- [x] TaskFabricTemplateFarmSignalSupport
 
 - [x] RivalsOneShot dimension credit Support
 - [x] ForgeProviderCapacityClassifier pure FSM
