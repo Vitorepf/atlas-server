@@ -8,6 +8,7 @@ execution: in_progress
 full_pass_commits: 197+
 rescan: FINDINGS-RESCAN-3
 recent:
+  - ContextExpansionRenderSupport (465→253)
   - FileContextBudgetSupport (service 834→530; 5/5 targeted green)
   - ResultLedgerGradeSupport + ClosedLoopStageProjector
   - SkillScaffold frontmatter/body/safety elevate
@@ -15,7 +16,7 @@ recent:
   - SignalDetector DetectSupport + OI elevate wave
   - UnattendedLiveness + NamingPolicyRules
 unit_proof: FileContext 5; ClosedLoop 22; OI 51; Capacity 19; Rivals 15; SkillScaffold 7
-next: AWIS scoring · OpenBrain Expansion · FastPath sanitizer · PRE staged
+next: AWIS scoring · FastPath sanitizer · AiWorker predicates · PRE staged
 ```
 
 ## Progress summary

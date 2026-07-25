@@ -127,7 +127,7 @@
 - [x] ProjectStackLearnSupport
 - [ ] WorkspaceOutcomeCommandMemory scoring Support
 - [x] OpenBrain FileContext ceiling/path pure
-- [ ] OpenBrain ContextExpansion provider-safe render
+- [x] OpenBrain ContextExpansion provider-safe render
 - [ ] FileContext AURG target assertion residual (1 test)
 - [x] ClosedLoop stage / ResultLedger grade
 - [x] SkillScaffold frontmatter/body residual
