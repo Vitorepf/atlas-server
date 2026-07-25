@@ -151,6 +151,7 @@
 - [x] ProgrammingConsoleEnvelopeSupport (status/blocker/action/evidence/intent pure; console 1442→1195)
 
 - [x] StewardshipPriorityScoringSupport (scoreItem cluster pure; engine 1432→860; 26 unit/241)
+- [x] StewardshipPriorityBacklogMaterializationSupport (terminal rebalance/unlock/replenish/report pure; engine 860→467; 10 Support unit + 17 host path; 27/241)
 - [x] FrontendDesignRuntimeContractSupport (signals/gates/evidence/scorecard/variant/live pure; host 1434→1108; 7 unit Support + 3 host path green)
 - [x] RivalsOneShot dimension credit Support
 - [x] ForgeProviderCapacityClassifier pure FSM
