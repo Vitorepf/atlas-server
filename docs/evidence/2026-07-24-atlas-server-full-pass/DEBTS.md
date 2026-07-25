@@ -123,7 +123,7 @@
 - [x] RivalsOneShot dimension credit Support
 - [x] ForgeProviderCapacityClassifier pure FSM
 - [x] ForgeFastPath lifecycle Support
-- [ ] ForgeFastPath report sanitizer residual
+- [x] ForgeFastPath report sanitizer residual
 - [x] ProjectStackLearnSupport
 - [x] WorkspaceOutcomeCommandMemory scoring Support
 - [x] OpenBrain FileContext ceiling/path pure
