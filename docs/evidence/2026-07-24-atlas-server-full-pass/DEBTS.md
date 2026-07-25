@@ -184,6 +184,7 @@
 - [x] HubDelegators same-name one-line compact (method_exists preserved; __call reserved for workbench)
 - [ ] PRE leave-Http (R103 staged)
 - [x] Suite filter fatal: EliteExecutorKernel mock eventById/latestForCorrelation tenant signatures
+- [x] RetrievalFeedbackLoopSupport pure cluster (miss/noise/ROI/attribution/policy/ref-normalize; host 1372→313; Support 1100; 12 Support unit / 222 + 13 host feature path / 116; capture+persist+ledger+resolvePriorMisses residual)
 
 ### Floors (do not rush)
 
