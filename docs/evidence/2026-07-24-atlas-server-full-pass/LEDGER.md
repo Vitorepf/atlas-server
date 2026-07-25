@@ -29,7 +29,7 @@ recent:
   - OneShotTickInvokerEnvelope + Catalog (62 invokers)
   - Wave A YesNo/UtcIso/trueFalse mass
 unit_proof: continuous peels green (ASP~78; Hub 6044; YT→1140; Provider SSOT; DocsReality 1363; SI projection)
-next: continuous residual (PRE leave-Http staged | floors RSI/TaskQueue/AutonomousEvolutionSession | monstruo AiWorker/OpenBrain)
+next: continuous residual (PRE leave-Http staged | floors RSI/TaskQueue/AutonomousEvolutionSession | monstruo AiWorker residual)
 ```
 
 ## Progress summary
