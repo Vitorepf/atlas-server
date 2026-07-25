@@ -414,15 +414,6 @@ class InboxActionRegistry
             : 'Inbox operacional';
     }
 
-    private function humanLabel(string $value): string
-    {
-        return Str::of($value)
-            ->replace(['_', '-'], ' ')
-            ->squish()
-            ->title()
-            ->toString();
-    }
-
     /**
      * @param  array<string,mixed>  $input
      * @return array{item:AiInboxItem,approval_action:string,approval_grant:?array<string,mixed>}
@@ -1630,57 +1621,6 @@ class InboxActionRegistry
             ->reject(fn (mixed $value): bool => $value instanceof AiInboxItem)
             ->all();
     }
-
-    private function string(mixed $value): ?string
-    {
-        return is_string($value) && trim($value) !== '' ? trim($value) : null;
-    }
-
-    private function positiveInt(mixed $value): ?int
-    {
-        if (! is_numeric($value)) {
-            return null;
-        }
-
-        $value = (int) $value;
-
-        return $value > 0 ? $value : null;
-    }
-
-    private function nonNegativeInt(mixed $value): ?int
-    {
-        if (is_int($value)) {
-            return $value >= 0 ? $value : null;
-        }
-
-        if (! is_string($value)) {
-            return null;
-        }
-
-        $value = trim($value);
-        if ($value === '' || ! preg_match('/^\d+$/', $value)) {
-            return null;
-        }
-
-        return (int) $value;
-    }
-
-    private function booleanValue(mixed $value): bool
-    {
-        if (is_bool($value)) {
-            return $value;
-        }
-
-        if (is_string($value)) {
-            return in_array(strtolower(trim($value)), ['1', 'true', 'yes', 'on'], true);
-        }
-
-        return is_numeric($value) && (int) $value === 1;
-    }
-
-    /**
-     * @return array<int|string,mixed>
-     */
 
     /**
      * Safely parse a snooze-until timestamp. Defaults to now + 1 hour on invalid/missing.
