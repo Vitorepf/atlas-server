@@ -28,7 +28,7 @@ recent:
   - reportSuccessWithCommit peel
   - OneShotTickInvokerEnvelope + Catalog (62 invokers)
   - Wave A YesNo/UtcIso/trueFalse mass
-unit_proof: continuous peels green (ASP shell 73; Hub 6044; YouTube→1173; Provider 68; Aaeos 4545; PromptText)
+unit_proof: continuous peels green (ASP~78; Hub 6044; YT→1140; Provider SSOT; DocsReality 1363; SI projection)
 next: continuous residual (PRE leave-Http staged | floors RSI/TaskQueue/AutonomousEvolutionSession | monstruo AiWorker/OpenBrain)
 ```
 
