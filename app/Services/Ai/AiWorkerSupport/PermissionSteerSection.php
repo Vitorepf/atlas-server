@@ -86,7 +86,7 @@ class PermissionSteerSection
         ];
 
         $job->update([
-            'prompt' => $this->promptWithPendingSteer($job->prompt, $steerPayload['content']),
+            'prompt' => AiWorkerPendingSteerPromptSupport::promptWithPendingSteer($job->prompt, $steerPayload['content']),
             'payload' => array_merge($payload, [
                 'pending_steer' => $steerPayload,
             ]),
@@ -106,11 +106,6 @@ class PermissionSteerSection
         ]);
 
         return $job->refresh()->load('trace');
-    }
-
-    private function promptWithPendingSteer(string $prompt, string $steer): string
-    {
-        return rtrim($prompt)."\n\n# Pedido adicional do operador\n\n[STEER] {$steer}\n";
     }
 
     public function withPermissionMetadata(AiProviderResult $result, AiPermissionDecision $permission): AiProviderResult

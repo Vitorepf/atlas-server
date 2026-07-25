@@ -9,6 +9,7 @@ use App\Services\Ai\Kernel\Failure\FailureDomain;
 /**
  * Pure programming-repair contract/data helper family extracted VERBATIM from AiWorker (GOD-DEBULK D3 split).
  *
+ * Pure scalar/array contract helpers live in {@see AiWorkerProgrammingRepairContractsSupport}.
  * Facade AiWorker keeps same-signature delegators; call-site/signature/ctor scanner
  * pins stay on the facade. No scanner pin token moved with this family.
  */
@@ -19,7 +20,7 @@ class ProgrammingRepairSupportSection
      */
     public function programmingProviderGateContract(AiJob $job): array
     {
-        return $this->firstArray([
+        return AiWorkerProgrammingRepairContractsSupport::firstNonEmptyArray([
             data_get($job->payload, 'programming_policy_contracts.gates'),
             data_get($job->metadata, 'programming_policy_contracts.gates'),
             data_get($job->payload, 'programming_message_plan.policy_contracts.gates'),
@@ -36,7 +37,7 @@ class ProgrammingRepairSupportSection
      */
     public function programmingProviderToolContract(AiJob $job): array
     {
-        return $this->firstArray([
+        return AiWorkerProgrammingRepairContractsSupport::firstNonEmptyArray([
             data_get($job->payload, 'programming_policy_contracts.tools'),
             data_get($job->metadata, 'programming_policy_contracts.tools'),
             data_get($job->payload, 'programming_message_plan.policy_contracts.tools'),
@@ -55,7 +56,7 @@ class ProgrammingRepairSupportSection
      */
     public function programmingRepairGateContract(AiJob $job, array $repair, array $messagePlan): array
     {
-        return $this->firstArray([
+        return AiWorkerProgrammingRepairContractsSupport::firstNonEmptyArray([
             data_get($repair, 'gate_contract'),
             data_get($messagePlan, 'execution_profile.gate_contract'),
             data_get($messagePlan, 'policy_contracts.gates'),
@@ -72,7 +73,7 @@ class ProgrammingRepairSupportSection
      */
     public function programmingRepairToolContract(AiJob $job, array $repair, array $messagePlan): array
     {
-        return $this->firstArray([
+        return AiWorkerProgrammingRepairContractsSupport::firstNonEmptyArray([
             data_get($repair, 'tool_contract'),
             data_get($messagePlan, 'execution_profile.tool_contract'),
             data_get($messagePlan, 'policy_contracts.tools'),
@@ -87,10 +88,7 @@ class ProgrammingRepairSupportSection
      */
     public function programmingRepairGateRequiresEvidence(array $gateContract): bool
     {
-        $minimum = strtolower(trim((string) ($gateContract['minimum_gate'] ?? '')));
-
-        return (bool) ($gateContract['evidence_required'] ?? false)
-            || in_array($minimum, ['strict', 'release'], true);
+        return AiWorkerProgrammingRepairContractsSupport::gateRequiresEvidence($gateContract);
     }
 
     /**
@@ -98,31 +96,7 @@ class ProgrammingRepairSupportSection
      */
     public function programmingRepairAllowsWorkspaceWrite(array $toolContract): bool
     {
-        if ($toolContract === []) {
-            return true;
-        }
-
-        $mode = strtolower(trim((string) ($toolContract['mode'] ?? '')));
-        if ($mode === 'read_only') {
-            return false;
-        }
-
-        return (bool) ($toolContract['workspace_write'] ?? in_array($mode, ['workspace_write', 'harness'], true));
-    }
-
-    /**
-     * @param  array<int,mixed>  $candidates
-     * @return array<string,mixed>
-     */
-    private function firstArray(array $candidates): array
-    {
-        foreach ($candidates as $candidate) {
-            if (is_array($candidate) && $candidate !== []) {
-                return $candidate;
-            }
-        }
-
-        return [];
+        return AiWorkerProgrammingRepairContractsSupport::allowsWorkspaceWrite($toolContract);
     }
 
     public function programmingRepairWorkspace(AiJob $job): ?string
@@ -147,22 +121,7 @@ class ProgrammingRepairSupportSection
 
     public function programmingRepairQualityWorsened(string $currentStatus, mixed $previousStatus): bool
     {
-        if (! is_string($previousStatus) || trim($previousStatus) === '') {
-            return false;
-        }
-
-        return $this->programmingRepairStatusRank($currentStatus) < $this->programmingRepairStatusRank($previousStatus);
-    }
-
-    private function programmingRepairStatusRank(string $status): int
-    {
-        return match ($status) {
-            'passed' => 4,
-            'needs_review' => 3,
-            'failed' => 2,
-            'blocked' => 1,
-            default => 0,
-        };
+        return AiWorkerProgrammingRepairContractsSupport::qualityWorsened($currentStatus, $previousStatus);
     }
 
     /**
@@ -172,41 +131,12 @@ class ProgrammingRepairSupportSection
      */
     public function programmingRepairLedgerPayload(array $quality, array $extra = []): array
     {
-        return array_merge([
-            'quality_status' => $quality['status'] ?? null,
-            'quality_score' => $quality['score'] ?? null,
-            'quality_decision' => $quality['decision'] ?? null,
-            'diff_hash' => $quality['diff_hash'] ?? null,
-            'test_command_hash' => is_string($quality['test_command'] ?? null) && $quality['test_command'] !== ''
-                ? hash('sha256', $quality['test_command'])
-                : null,
-            'evidence_hash' => hash('sha256', json_encode($this->programmingRepairEvidenceProjection($quality), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?: '{}'),
-        ], $extra);
-    }
-
-    /**
-     * @param  array<string,mixed>  $quality
-     * @return array<string,mixed>
-     */
-    private function programmingRepairEvidenceProjection(array $quality): array
-    {
-        return [
-            'status' => $quality['status'] ?? null,
-            'score' => $quality['score'] ?? null,
-            'decision' => $quality['decision'] ?? null,
-            'diff_hash' => $quality['diff_hash'] ?? null,
-            'test_status' => data_get($quality, 'tests.status'),
-            'lint_status' => data_get($quality, 'lint.status'),
-            'typecheck_status' => data_get($quality, 'typecheck.status'),
-        ];
+        return AiWorkerProgrammingRepairContractsSupport::ledgerPayload($quality, $extra);
     }
 
     public function nativeProgrammingRepairFailureDomain(string $qualityStatus): FailureDomain
     {
-        return match ($qualityStatus) {
-            'failed', 'needs_review', 'blocked' => FailureDomain::GateFailed,
-            default => FailureDomain::OutputInvalid,
-        };
+        return AiWorkerProgrammingRepairContractsSupport::failureDomain($qualityStatus);
     }
 
     /**
@@ -215,14 +145,12 @@ class ProgrammingRepairSupportSection
      */
     public function nativeProgrammingRepairEvidenceRefs(AiJob $job, AiJobAttempt $attempt, array $quality): array
     {
-        return array_values(array_filter([
-            $job->trace_id ? 'trace://'.$job->trace_id : null,
-            'ai-job://'.$job->id,
-            'ai-attempt://'.$attempt->id,
-            is_string($quality['diff_hash'] ?? null) && $quality['diff_hash'] !== ''
-                ? 'diff-hash://'.$quality['diff_hash']
-                : null,
-        ]));
+        return AiWorkerProgrammingRepairContractsSupport::evidenceRefs(
+            $job->trace_id ? (string) $job->trace_id : null,
+            (string) $job->id,
+            (string) $attempt->id,
+            $quality,
+        );
     }
 
     /**

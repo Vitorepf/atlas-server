@@ -60,46 +60,19 @@ class MacBackgroundReadinessSection
      */
     private function macBackgroundReadinessDefer(AiJob $job): ?array
     {
-        if (! $this->requiresMacBackgroundReadiness($job)) {
+        $traceSource = (string) ($job->trace?->source_type ?? '');
+        $payload = is_array($job->payload) ? $job->payload : [];
+        if (! AiWorkerMacBackgroundReadinessSupport::requiresReadiness($traceSource, $payload)) {
             return null;
         }
 
         $status = $this->macAgent->status(refresh: true);
         $readiness = (array) ($status['readiness'] ?? []);
 
-        if (($readiness['ready_for_background_jobs'] ?? false) === true) {
-            return null;
-        }
-
-        return [
-            'schema_version' => 1,
-            'status' => 'deferred',
-            'reason' => 'mac_background_not_ready',
-            'retry_after_seconds' => self::MAC_BACKGROUND_RETRY_DELAY_SECONDS,
-            'checked_at' => now()->toJSON(),
-            'readiness' => [
-                'overall' => $readiness['overall'] ?? 'unknown',
-                'ready_for_remote' => (bool) ($readiness['ready_for_remote'] ?? false),
-                'ready_for_scheduled_wake' => (bool) ($readiness['ready_for_scheduled_wake'] ?? false),
-                'ready_for_background_jobs' => (bool) ($readiness['ready_for_background_jobs'] ?? false),
-                'power_ready_for_background_jobs' => (bool) ($readiness['power_ready_for_background_jobs'] ?? false),
-                'blockers' => $readiness['blockers'] ?? [],
-                'warnings' => $readiness['warnings'] ?? [],
-            ],
-        ];
-    }
-
-    private function requiresMacBackgroundReadiness(AiJob $job): bool
-    {
-        $traceSource = (string) ($job->trace?->source_type ?? '');
-        $payload = $job->payload ?? [];
-
-        if ($traceSource === 'scheduled') {
-            return true;
-        }
-
-        return in_array((string) data_get($payload, 'atlas_workflow_mode'), ['scheduled', 'background'], true)
-            || in_array((string) data_get($payload, 'app_surface'), ['atlas_cli_schedule', 'scheduled', 'background'], true)
-            || (bool) data_get($payload, 'scheduled_task.id');
+        return AiWorkerMacBackgroundReadinessSupport::deferProjection(
+            $readiness,
+            now()->toJSON(),
+            self::MAC_BACKGROUND_RETRY_DELAY_SECONDS,
+        );
     }
 }

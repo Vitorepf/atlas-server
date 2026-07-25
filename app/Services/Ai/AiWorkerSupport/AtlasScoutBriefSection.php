@@ -3,13 +3,13 @@
 namespace App\Services\Ai\AiWorkerSupport;
 
 use App\Models\AiJob;
-use Illuminate\Support\Str;
 
 /**
  * Atlas Decide context-scout brief building/application family (pure brief
  * text + executor prompt injection) extracted VERBATIM from AiWorker
  * (GOD-DEBULK D3 split).
  *
+ * Pure string builders live in {@see AiWorkerAtlasScoutBriefSupport}.
  * Facade AiWorker keeps same-signature delegators; call-site/signature/ctor
  * scanner pins stay on the facade. No scanner pin token moved with this family.
  */
@@ -52,40 +52,27 @@ class AtlasScoutBriefSection
 
     public function atlasScoutBrief(AiJob $scoutJob, string $output): string
     {
-        return trim(<<<TEXT
-Atlas Decide context scout concluido.
-provider: {$scoutJob->provider}
-model: {$scoutJob->model}
-job_id: {$scoutJob->id}
-
-{$output}
-TEXT);
+        return AiWorkerAtlasScoutBriefSupport::successBrief(
+            $scoutJob->provider,
+            $scoutJob->model,
+            $scoutJob->id,
+            $output,
+        );
     }
 
     public function atlasScoutFailureBrief(?AiJob $scoutJob, ?string $errorCode, ?string $errorMessage): string
     {
-        $provider = $scoutJob?->provider ?: 'unknown';
-        $model = $scoutJob?->model ?: 'unknown';
-        $jobId = $scoutJob?->id ?: 'unknown';
-        $errorCode = $errorCode ?: 'scout_unavailable';
-        $errorMessage = $errorMessage ?: 'Scout de contexto indisponivel; siga com o contexto original e marque incertezas.';
-
-        return trim(<<<TEXT
-Atlas Decide context scout degradado.
-provider: {$provider}
-model: {$model}
-job_id: {$jobId}
-error_code: {$errorCode}
-error_message: {$errorMessage}
-
-Siga com o contexto original. Se a tarefa depender de arquivos, logs ou decisões nao carregadas, explicite a lacuna antes de concluir.
-TEXT);
+        return AiWorkerAtlasScoutBriefSupport::failureBrief(
+            $scoutJob?->provider,
+            $scoutJob?->model,
+            $scoutJob?->id,
+            $errorCode,
+            $errorMessage,
+        );
     }
 
     public function promptWithAtlasScoutBrief(string $prompt, string $brief): string
     {
-        $brief = Str::limit(trim($brief), 20000, '...');
-
-        return rtrim($prompt)."\n\n# Atlas Decide Context Scout\n\n{$brief}\n";
+        return AiWorkerAtlasScoutBriefSupport::promptWithBrief($prompt, $brief);
     }
 }
