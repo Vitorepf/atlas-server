@@ -6,6 +6,7 @@ namespace App\Services\Ai\OperatorIntelligence;
 
 use App\Models\OperatorLearningSignal;
 use App\Models\OperatorPatternDetection;
+use App\Services\Ai\OperatorIntelligence\Support\OperatorPatternDetectSupport;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -205,17 +206,12 @@ final class OperatorPatternDetector
 
     private function shingle(string $claim): string
     {
-        $norm = Str::ascii(mb_strtolower($claim));
-        $norm = preg_replace('/[^a-z0-9 ]+/', ' ', $norm) ?? '';
-        $tokens = array_values(array_filter(explode(' ', (string) preg_replace('/\s+/', ' ', $norm))));
-        sort($tokens);
-
-        return implode(' ', array_slice($tokens, 0, 6));
+        return OperatorPatternDetectSupport::shingle($claim);
     }
 
     private function patternId(string $kind, string $signature): string
     {
-        return substr(hash('sha256', $kind.'|'.$signature), 0, 48);
+        return OperatorPatternDetectSupport::patternId($kind, $signature);
     }
 
     /**
@@ -243,38 +239,15 @@ final class OperatorPatternDetector
      */
     private function confidence(Collection $group, float $extraBonus): float
     {
-        $confs = $group->map(fn (OperatorLearningSignal $s): float => (float) $s->confidence)->filter(fn (float $c): bool => $c > 0.0);
-        $base = $confs->isEmpty() ? 0.5 : (float) $confs->avg();
-        $n = max(1, $group->count());
-        $occBonus = min(0.25, 0.08 * log($n)); // saturates with diminishing returns
+        $confs = $group->map(fn (OperatorLearningSignal $s): float => (float) $s->confidence)->all();
 
-        return max(0.0, min(0.98, $base + $occBonus + max(0.0, $extraBonus)));
+        return OperatorPatternDetectSupport::confidenceFromValues($confs, $group->count(), $extraBonus);
     }
 
     /** Regularity in [0,1] from the coefficient of variation of inter-occurrence day gaps. */
     private function regularity(array $dates): float
     {
-        $ts = array_values(array_filter(array_map(static fn (string $d): int => (int) strtotime($d), $dates)));
-        sort($ts);
-        if (count($ts) < 2) {
-            return 0.0;
-        }
-        $gaps = [];
-        for ($i = 1; $i < count($ts); $i++) {
-            $gaps[] = ($ts[$i] - $ts[$i - 1]) / 86400.0;
-        }
-        $mean = array_sum($gaps) / count($gaps);
-        if ($mean <= 0.0) {
-            return 0.0;
-        }
-        $var = 0.0;
-        foreach ($gaps as $g) {
-            $var += ($g - $mean) ** 2;
-        }
-        $var /= count($gaps);
-        $cov = sqrt($var) / $mean;
-
-        return max(0.0, min(1.0, 1.0 - $cov)); // low variation → high regularity
+        return OperatorPatternDetectSupport::regularity($dates);
     }
 
     /**
@@ -306,6 +279,6 @@ final class OperatorPatternDetector
 
     private function dowName(int $dowIso): string
     {
-        return ['', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado', 'domingo'][$dowIso] ?? (string) $dowIso;
+        return OperatorPatternDetectSupport::dowName($dowIso);
     }
 }
