@@ -138,6 +138,7 @@
 - [x] OpenBrain PromptAssemblySupport (injection 1874→1171; provider-safe/filter/fusion/memory-quality/programming/prompt pure; 8 Support unit + 60 host path; 68/419)
 - [x] OpenBrain ContextInjectionProjectionSupport (policy/surface/summary residual; host 1171→687; Support 550; 10 Support unit + 60 host path; 70/478)
 - [x] CompletionAuditPowerScorecardSupport
+- [x] CompletionAuditPowerScorecardSupport residual pure (auditProtocol/checklist/item/externalRivalsCertification; host 1140→852; Support 315→628; 12 unit / 106 + host bridge equal + evidence-pack report path / 16; golden externalRivals matched baseline; unrelated cert golden drift pre-existing WIP)
 - [x] AiPromptInstructionSupport
 - [x] AiPromptAttachmentSupport
 - [x] ProductModeCockpitProjectionSupport

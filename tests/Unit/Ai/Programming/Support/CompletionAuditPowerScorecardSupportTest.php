@@ -248,6 +248,212 @@ final class CompletionAuditPowerScorecardSupportTest extends TestCase
         );
     }
 
+    public function test_audit_protocol_is_stable_static_map(): void
+    {
+        $protocol = CompletionAuditPowerScorecardSupport::auditProtocol();
+
+        $this->assertSame('atlas.programming.professional_completion_audit_protocol.v1', $protocol['schema_version']);
+        $this->assertCount(16, $protocol['success_criteria']);
+        $this->assertContains('uncertainty_blocks_completion', array_keys($protocol['proxy_signal_policy']));
+        $this->assertTrue($protocol['proxy_signal_policy']['tests_alone_are_insufficient']);
+        $this->assertCount(6, $protocol['prompt_to_artifact_map']);
+        $this->assertSame(
+            'documentacao profissional de programacao',
+            $protocol['prompt_to_artifact_map'][0]['prompt_requirement'],
+        );
+        $this->assertSame(
+            'php artisan atlas:programming:completion-audit --json',
+            $protocol['prompt_to_artifact_map'][5]['verification'],
+        );
+        $this->assertSame($protocol, CompletionAuditPowerScorecardSupport::auditProtocol());
+    }
+
+    public function test_item_omits_null_blocker(): void
+    {
+        $passed = CompletionAuditPowerScorecardSupport::item(
+            'demo',
+            'Demo requirement',
+            'evidence.path',
+            'passed',
+        );
+        $this->assertSame(['id', 'requirement', 'evidence', 'status'], array_keys($passed));
+        $this->assertArrayNotHasKey('blocker', $passed);
+
+        $blocked = CompletionAuditPowerScorecardSupport::item(
+            'demo',
+            'Demo requirement',
+            'evidence.path',
+            'blocked',
+            'missing_artifact',
+        );
+        $this->assertSame('missing_artifact', $blocked['blocker']);
+    }
+
+    public function test_checklist_passes_when_local_claim_and_docs_ready(): void
+    {
+        $coverage = [
+            'professional_operating_standard' => ['covered' => true],
+            'professional_spec' => ['covered' => true],
+            'enterprise_plan' => ['covered' => true],
+            'completion_audit_doc' => ['covered' => true],
+            'agentic_rag_context_pack' => ['covered' => true],
+            'hybrid_retrieval_and_gap_critic' => ['covered' => true],
+            'semantic_code_graph' => ['covered' => true],
+            'stage_receipts_resume' => ['covered' => true],
+            'tool_runtime_manifests' => ['covered' => true],
+            'patch_verifier' => ['covered' => true],
+            'test_impact' => ['covered' => true],
+            'sandbox_repair_learning' => ['covered' => true],
+            'python_runtime' => ['covered' => true],
+            'local_benchmarks' => ['covered' => true],
+            'programming_cli_commands' => ['covered' => true],
+            'structure_mother_safe_rivals_commands' => ['covered' => true],
+            'api_rivals_battery_guard' => ['covered' => true],
+            'rivals_invalid_battery_quarantine' => ['covered' => true],
+            'rivals_history_timeline' => ['covered' => true],
+            'rivals_experiment_validity_contract' => ['covered' => true],
+            'rivals_provider_runtime_preflight' => ['covered' => true],
+        ];
+
+        $checklist = CompletionAuditPowerScorecardSupport::checklist(
+            artifactCoverage: $coverage,
+            localReady: true,
+            claimReady: true,
+            operatorPacketReady: true,
+            integrityAssuranceReady: true,
+            rerunPreconditionsReady: true,
+            rivalsRealBlocker: 'external_battery_required',
+        );
+
+        $this->assertCount(25, $checklist);
+        $statuses = array_column($checklist, 'status');
+        $this->assertSame(['passed'], array_values(array_unique($statuses)));
+        $this->assertSame('rivals_programming_real', $checklist[24]['id']);
+        $this->assertArrayNotHasKey('blocker', $checklist[24]);
+    }
+
+    public function test_checklist_blocks_local_and_claim_with_specific_blockers(): void
+    {
+        $checklist = CompletionAuditPowerScorecardSupport::checklist(
+            artifactCoverage: [],
+            localReady: false,
+            claimReady: false,
+            operatorPacketReady: false,
+            integrityAssuranceReady: false,
+            rerunPreconditionsReady: false,
+            rivalsRealBlocker: 'external_battery_required',
+        );
+
+        $byId = [];
+        foreach ($checklist as $item) {
+            $byId[$item['id']] = $item;
+        }
+
+        $this->assertSame('blocked', $byId['professional_operating_standard']['status']);
+        $this->assertSame('professional_operating_standard_missing', $byId['professional_operating_standard']['blocker']);
+        $this->assertSame('blocked', $byId['agentic_rag_context_pack']['status']);
+        $this->assertSame('agentic_rag_context_pack_missing_or_unverified', $byId['agentic_rag_context_pack']['blocker']);
+        $this->assertSame('operator_execution_packet_missing_or_unsafe', $byId['operator_execution_packet']['blocker']);
+        $this->assertSame('rivals_integrity_assurance_missing_or_unsafe', $byId['rivals_integrity_assurance']['blocker']);
+        $this->assertSame('rivals_rerun_preconditions_missing_or_unsafe', $byId['rivals_rerun_preconditions']['blocker']);
+        $this->assertSame('external_battery_required', $byId['rivals_programming_real']['blocker']);
+    }
+
+    public function test_external_rivals_certification_status_and_operational_state_matrix(): void
+    {
+        $passed = CompletionAuditPowerScorecardSupport::externalRivalsCertification([
+            'rivals_external_claim' => [
+                'status' => 'claim_ready',
+                'claim_ready' => true,
+                'comparable_case_count' => 4,
+                'blocking_reasons' => [],
+            ],
+        ]);
+        $this->assertSame('atlas.programming.rivals_readiness.v1', $passed['schema_version']);
+        $this->assertSame('passed', $passed['status']);
+        $this->assertSame('claim_ready', $passed['operational_state']);
+        $this->assertFalse($passed['requires_operator_approval']);
+        $this->assertSame(4, $passed['comparable_case_count']);
+        $this->assertSame('forge_runtime_certification', $passed['separated_from']);
+
+        $invalid = CompletionAuditPowerScorecardSupport::externalRivalsCertification([
+            'rivals_external_claim' => [
+                'status' => 'external_battery_invalid',
+                'claim_ready' => false,
+                'blocking_reasons' => ['dirty_worktree', 12, ''],
+                'invalid_battery_requires_triage_before_rerun' => true,
+            ],
+            'invalid_battery_triage_packet' => [
+                'status' => 'triage_required_before_rerun',
+                'next_action' => 'Triage first.',
+                'historical_failure_policy' => [
+                    'historical_failed_gates_are_diagnostic' => true,
+                    'triaged_invalid_batteries_do_not_enter_score_or_block_forever' => true,
+                ],
+                'provider_budget_policy' => [
+                    'spend_more_provider_tokens_now' => false,
+                    'reason' => 'invalid_battery',
+                ],
+                'current_rerun_preconditions' => [
+                    'provider_dispatch_allowed_now' => false,
+                    'why_provider_dispatch_is_blocked' => ['needs_triage'],
+                    'diagnostic_commands_without_provider_spend' => ['atlas:programming:rivals-readiness --triage'],
+                ],
+            ],
+            'current_workspace_preflight' => [
+                'status' => 'blocked',
+                'ready_for_provider_battery' => false,
+                'blocking_reasons' => ['dirty'],
+                'git' => ['dirty_count' => 3],
+            ],
+            'current_local_recheck_evidence' => [
+                'status' => 'passed',
+                'all_known_rechecks_passed' => true,
+            ],
+            'operator_safety' => [
+                'rerun_provider_battery_allowed_now' => false,
+            ],
+        ]);
+
+        $this->assertSame('blocked_requires_operator_approval', $invalid['status']);
+        $this->assertSame('blocked_until_invalid_battery_triaged', $invalid['operational_state']);
+        $this->assertTrue($invalid['requires_operator_approval']);
+        $this->assertSame(['dirty_worktree'], $invalid['blocking_reasons']);
+        $this->assertTrue($invalid['invalid_battery_triage']['requires_triage_before_rerun']);
+        $this->assertTrue($invalid['invalid_battery_triage']['historical_failures_are_diagnostic']);
+        $this->assertSame(3, $invalid['current_workspace_preflight']['dirty_count']);
+        $this->assertFalse($invalid['provider_budget_policy']['spend_more_provider_tokens_now']);
+        $this->assertSame(['needs_triage'], $invalid['fresh_provider_rerun_preconditions']['blocking_reasons']);
+        $this->assertSame('Triage first.', $invalid['next_action']);
+
+        $readyRerun = CompletionAuditPowerScorecardSupport::externalRivalsCertification([
+            'rivals_external_claim' => [
+                'status' => 'external_battery_required',
+                'claim_ready' => false,
+            ],
+            'invalid_battery_triage_packet' => ['status' => 'ok'],
+            'current_workspace_preflight' => ['status' => 'ready'],
+            'operator_safety' => ['rerun_provider_battery_allowed_now' => true],
+        ]);
+        $this->assertSame('blocked', $readyRerun['status']);
+        $this->assertSame('ready_for_operator_paid_rerun', $readyRerun['operational_state']);
+
+        $cleanBlocked = CompletionAuditPowerScorecardSupport::externalRivalsCertification([
+            'rivals_external_claim' => [
+                'status' => 'external_battery_required',
+                'claim_ready' => false,
+            ],
+            'current_workspace_preflight' => ['status' => 'blocked'],
+        ]);
+        $this->assertSame('blocked_until_clean_worktree', $cleanBlocked['operational_state']);
+
+        $defaultBlocked = CompletionAuditPowerScorecardSupport::externalRivalsCertification([]);
+        $this->assertSame('blocked', $defaultBlocked['status']);
+        $this->assertSame('blocked_until_valid_comparable_battery', $defaultBlocked['operational_state']);
+        $this->assertSame('unknown', $defaultBlocked['raw_status']);
+        $this->assertStringContainsString('clean worktrees', (string) $defaultBlocked['next_action']);
+    }
+
     /**
      * @return array<string,mixed>
      */

@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming\Support;
 
 /**
- * Pure power-scorecard + adjacent report assembly for professional completion audit.
+ * Pure power-scorecard + protocol/checklist/rivals-cert projection for professional completion audit.
  *
  * Extracted from ProgrammingProfessionalCompletionAuditService private pure methods.
  * No I/O, no DI, no provider calls, no time side effects.
+ * Residual FS artifactCoverage + DI certification owners stay on the host.
  */
 final class CompletionAuditPowerScorecardSupport
 {
@@ -310,6 +311,318 @@ final class CompletionAuditPowerScorecardSupport
                 'operator_approval_required' => data_get($verificationEvidence, 'operator_safety.operator_approval_required', true),
                 'synthetic_scores_allowed' => data_get($verificationEvidence, 'rivals_external_claim.synthetic_scores_allowed', true),
             ],
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public static function auditProtocol(): array
+    {
+        return [
+            'schema_version' => 'atlas.programming.professional_completion_audit_protocol.v1',
+            'restated_objective' => 'Deliver the professional programming foundation with governed RAG/Agentic RAG, quality gates, receipts, local runtime, benchmarks, and honest Rivals-Programming integrity.',
+            'success_criteria' => [
+                'professional_docs_exist_and_reject_weak_mvp',
+                'professional_operating_standard_exists_and_blocks_weak_rag_mvp',
+                'agentic_rag_generates_replayable_context_pack',
+                'required_sources_are_checked_by_fail_closed_gap_critic',
+                'programming_actions_have_receipts_manifests_rollback_and_review_gates',
+                'local_retrieval_test_impact_patch_verifier_and_repair_loop_benchmarks_pass',
+                'programming_cli_commands_are_registered_for_operator_execution',
+                'rivals_readiness_separates_local_evidence_from_external_provider_claims',
+                'rivals_integrity_blocks_unfair_or_synthetic_ab_test_scores',
+                'structure_mother_blocks_paid_rivals_commands_from_dirty_workspace',
+                'rivals_rerun_preconditions_prevent_token_spend_on_invalid_battery',
+                'mobile_api_battery_plan_blocks_dirty_non_git_and_invalid_historical_runs',
+                'operator_triage_command_explains_invalid_battery_without_provider_dispatch',
+                'invalid_rivals_battery_can_be_quarantined_without_admitting_score',
+                'rivals_report_exposes_enterprise_history_timeline',
+                'real_provider_claim_requires_comparable_cases_and_verified_export_bundle',
+            ],
+            'prompt_to_artifact_map' => [
+                [
+                    'prompt_requirement' => 'documentacao profissional de programacao',
+                    'primary_artifacts' => [
+                        'docs/engineering-knowledge-base/domains/programming-professional-rag-operating-standard.md',
+                        'docs/engineering-knowledge-base/domains/programming-agentic-rag-professional-spec.md',
+                        'docs/engineering-knowledge-base/domains/programming-enterprise-implementation-plan.md',
+                        'docs/engineering-knowledge-base/domains/programming-professional-completion-audit.md',
+                    ],
+                    'verification' => 'php artisan atlas:engineering:knowledge docs-health --json',
+                ],
+                [
+                    'prompt_requirement' => 'RAG e Agentic RAG enterprise',
+                    'primary_artifacts' => [
+                        'ProgrammingRetrievalPlanner',
+                        'ProgrammingRetrievalExecutor',
+                        'ProgrammingProfessionalReranker',
+                        'ProgrammingGapCritic',
+                        'ProgrammingContextPackStore',
+                    ],
+                    'verification' => 'php artisan atlas:programming:retrieval-benchmark --json',
+                ],
+                [
+                    'prompt_requirement' => 'desempenho, repair e qualidade de programacao',
+                    'primary_artifacts' => [
+                        'ProgrammingTestImpactAnalyzer',
+                        'ProgrammingPatchVerifier',
+                        'ProgrammingRepairLoopBenchmarkService',
+                        'ProgrammingSemanticCodeGraphService',
+                    ],
+                    'verification' => 'php artisan atlas:programming:test-impact-benchmark --json && php artisan atlas:programming:patch-verifier-benchmark --json && php artisan atlas:programming:repair-loop-benchmark --json',
+                ],
+                [
+                    'prompt_requirement' => 'receipts, retomada e runtime local governado',
+                    'primary_artifacts' => [
+                        'ProgrammingStageReceiptStore',
+                        'ProgrammingResumeService',
+                        'ProgrammingPythonRuntimeContract',
+                        'ProgrammingPythonRuntimeExecutor',
+                    ],
+                    'verification' => 'php artisan test tests/Unit/Ai/Programming/ProgrammingEnterpriseRuntimeTest.php',
+                ],
+                [
+                    'prompt_requirement' => 'integridade profissional do Rivals',
+                    'primary_artifacts' => [
+                        'ProgrammingRivalsReadinessService',
+                        'AtlasStructureMotherAuditReadModel',
+                        'atlas.programming.rivals_operator_execution_packet.v1',
+                        'atlas.programming.rivals_integrity_assurance.v1',
+                        'atlas.programming.current_rivals_rerun_preconditions.v1',
+                        'EngineeringBenchmarkController::rivalsBatteryPlan',
+                        'atlas:programming:rivals-readiness --triage',
+                    ],
+                    'verification' => 'php artisan atlas:programming:rivals-readiness --json',
+                ],
+                [
+                    'prompt_requirement' => 'conclusao total sem fingir score externo',
+                    'primary_artifacts' => [
+                        'ProgrammingProfessionalCompletionAuditService',
+                        'atlas:engineering:benchmark:rivals verified export bundle',
+                    ],
+                    'verification' => 'php artisan atlas:programming:completion-audit --json',
+                ],
+            ],
+            'proxy_signal_policy' => [
+                'tests_alone_are_insufficient' => true,
+                'readiness_is_not_external_score' => true,
+                'local_benchmarks_do_not_replace_provider_battery' => true,
+                'uncertainty_blocks_completion' => true,
+            ],
+        ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $artifactCoverage
+     * @return array<int,array<string,mixed>>
+     */
+    public static function checklist(
+        array $artifactCoverage,
+        bool $localReady,
+        bool $claimReady,
+        bool $operatorPacketReady,
+        bool $integrityAssuranceReady,
+        bool $rerunPreconditionsReady,
+        string $rivalsRealBlocker,
+    ): array {
+        $localStatus = static fn (string $key): string => $localReady && (bool) data_get($artifactCoverage, $key.'.covered', false) ? 'passed' : 'blocked';
+        $docStatus = static fn (string $key): string => (bool) data_get($artifactCoverage, $key.'.covered', false) ? 'passed' : 'blocked';
+
+        return [
+            self::item('professional_operating_standard', 'Professional RAG operating standard exists and rejects weak MVP as a completion path.', 'docs/engineering-knowledge-base/domains/programming-professional-rag-operating-standard.md', $docStatus('professional_operating_standard'), $docStatus('professional_operating_standard') === 'passed' ? null : 'professional_operating_standard_missing'),
+            self::item('professional_spec', 'Professional Agentic RAG spec exists and rejects weak MVP.', 'docs/engineering-knowledge-base/domains/programming-agentic-rag-professional-spec.md', $docStatus('professional_spec'), $docStatus('professional_spec') === 'passed' ? null : 'professional_spec_missing'),
+            self::item('enterprise_plan', 'Enterprise programming plan maps the professional implementation blocks.', 'docs/engineering-knowledge-base/domains/programming-enterprise-implementation-plan.md', $docStatus('enterprise_plan'), $docStatus('enterprise_plan') === 'passed' ? null : 'enterprise_plan_missing'),
+            self::item('completion_audit_doc', 'Completion audit document records requirement-to-artifact coverage.', 'docs/engineering-knowledge-base/domains/programming-professional-completion-audit.md', $docStatus('completion_audit_doc'), $docStatus('completion_audit_doc') === 'passed' ? null : 'completion_audit_doc_missing'),
+            self::item('agentic_rag_context_pack', 'Professional plan and context pack are generated, hashed and replayable.', 'ProgrammingRetrievalPlanner + ProgrammingContextPackStore', $localStatus('agentic_rag_context_pack'), $localStatus('agentic_rag_context_pack') === 'passed' ? null : 'agentic_rag_context_pack_missing_or_unverified'),
+            self::item('hybrid_retrieval_and_gap_critic', 'Hybrid graph/vector retrieval, reranking and gap critic are covered by local benchmarks.', 'ProgrammingRetrievalExecutor + ProgrammingGapCritic', $localStatus('hybrid_retrieval_and_gap_critic'), $localStatus('hybrid_retrieval_and_gap_critic') === 'passed' ? null : 'hybrid_retrieval_or_gap_critic_missing_or_unverified'),
+            self::item('semantic_code_graph', 'Semantic Code Graph feeds programming retrieval and test impact.', 'ProgrammingSemanticCodeGraphService', $localStatus('semantic_code_graph'), $localStatus('semantic_code_graph') === 'passed' ? null : 'semantic_code_graph_missing_or_unverified'),
+            self::item('stage_receipts_resume', 'Stage receipts and resume reconstruct prior work without session memory.', 'ProgrammingStageReceiptStore + ProgrammingResumeService', $localStatus('stage_receipts_resume'), $localStatus('stage_receipts_resume') === 'passed' ? null : 'stage_receipts_resume_missing_or_unverified'),
+            self::item('tool_runtime_manifests', 'Programming actions produce manifests with dry-run, rollback and gate effect.', 'ProgrammingActionManifestFactory + AiToolRuntime', $localStatus('tool_runtime_manifests'), $localStatus('tool_runtime_manifests') === 'passed' ? null : 'tool_runtime_manifests_missing_or_unverified'),
+            self::item('patch_verifier', 'Patch Verifier blocks ungrounded or weakly tested patches.', 'ProgrammingPatchVerifier + patch-verifier benchmark', $localStatus('patch_verifier'), $localStatus('patch_verifier') === 'passed' ? null : 'patch_verifier_missing_or_unverified'),
+            self::item('test_impact', 'Test Impact Analysis selects proportional tests with evidence.', 'ProgrammingTestImpactAnalyzer + test-impact benchmark', $localStatus('test_impact'), $localStatus('test_impact') === 'passed' ? null : 'test_impact_missing_or_unverified'),
+            self::item('sandbox_repair_learning', 'Sandbox, repair attempts and learning candidates are receipt-backed and review-gated.', 'ProgrammingSandboxManager + ProgrammingRepairAttemptStore + ProgrammingLearningCandidateStore', $localStatus('sandbox_repair_learning'), $localStatus('sandbox_repair_learning') === 'passed' ? null : 'sandbox_repair_learning_missing_or_unverified'),
+            self::item('python_runtime', 'Python runtime is governed, provider-safe and approval-gated.', 'runtimes/python/programming_intelligence + ProgrammingPythonRuntimeExecutor', $localStatus('python_runtime'), $localStatus('python_runtime') === 'passed' ? null : 'python_runtime_missing_or_unverified'),
+            self::item('local_benchmarks', 'Retrieval, Test Impact, Patch Verifier and Repair Loop golden sets pass locally.', 'atlas:programming:*benchmark', $localStatus('local_benchmarks'), $localStatus('local_benchmarks') === 'passed' ? null : 'local_benchmarks_missing_or_failed'),
+            self::item('programming_cli_commands', 'Programming professional commands are registered for operator execution.', 'bootstrap/app.php + AtlasProgramming*Command', $docStatus('programming_cli_commands'), $docStatus('programming_cli_commands') === 'passed' ? null : 'programming_cli_commands_missing_or_unregistered'),
+            self::item(
+                'operator_execution_packet',
+                'Rivals operator packet exposes cost/runbook confirmations and does not dispatch providers from readiness.',
+                'atlas.programming.rivals_operator_execution_packet.v1',
+                $operatorPacketReady ? 'passed' : 'blocked',
+                $operatorPacketReady ? null : 'operator_execution_packet_missing_or_unsafe',
+            ),
+            self::item(
+                'rivals_integrity_assurance',
+                'Rivals integrity assurance enforces A/B-style validity, external variable controls and score admission gates.',
+                'atlas.programming.rivals_integrity_assurance.v1',
+                $integrityAssuranceReady ? 'passed' : 'blocked',
+                $integrityAssuranceReady ? null : 'rivals_integrity_assurance_missing_or_unsafe',
+            ),
+            self::item(
+                'structure_mother_safe_rivals_commands',
+                'Structure mother exposes paid Rivals commands only through clean worktree placeholders and operator approval.',
+                'AtlasStructureMotherAuditReadModel clean worktree command contract',
+                $docStatus('structure_mother_safe_rivals_commands'),
+                $docStatus('structure_mother_safe_rivals_commands') === 'passed' ? null : 'structure_mother_safe_rivals_commands_missing_or_unsafe',
+            ),
+            self::item(
+                'rivals_rerun_preconditions',
+                'Invalid Rivals battery triage separates historical failures from current rerun preconditions and blocks provider dispatch.',
+                'atlas.programming.current_rivals_rerun_preconditions.v1',
+                $rerunPreconditionsReady ? 'passed' : 'blocked',
+                $rerunPreconditionsReady ? null : 'rivals_rerun_preconditions_missing_or_unsafe',
+            ),
+            self::item(
+                'api_rivals_battery_guard',
+                'Mobile/API battery-plan blocks dirty, non-Git or historically invalid Rivals batteries before provider execution.',
+                'EngineeringBenchmarkController battery-plan preflight',
+                $docStatus('api_rivals_battery_guard'),
+                $docStatus('api_rivals_battery_guard') === 'passed' ? null : 'api_rivals_battery_guard_missing_or_unsafe',
+            ),
+            self::item(
+                'rivals_invalid_battery_quarantine',
+                'Invalid Rivals battery can be quarantined without deleting history, admitting score or declaring a winner.',
+                'atlas:engineering:benchmark:rivals triage-invalid-battery',
+                $docStatus('rivals_invalid_battery_quarantine'),
+                $docStatus('rivals_invalid_battery_quarantine') === 'passed' ? null : 'rivals_invalid_battery_quarantine_missing_or_unsafe',
+            ),
+            self::item(
+                'rivals_history_timeline',
+                'Rivals report exposes run history as a structured timeline with integrity, score admission and blocker fields.',
+                'atlas.fair_claude.history_timeline.v1',
+                $docStatus('rivals_history_timeline'),
+                $docStatus('rivals_history_timeline') === 'passed' ? null : 'rivals_history_timeline_missing_or_unsafe',
+            ),
+            self::item(
+                'rivals_experiment_validity_contract',
+                'Rivals report/export carries A/B-style experiment validity controls so external variables can block comparability but never decide the winner.',
+                'atlas.fair_claude.experiment_validity.v1',
+                $docStatus('rivals_experiment_validity_contract'),
+                $docStatus('rivals_experiment_validity_contract') === 'passed' ? null : 'rivals_experiment_validity_contract_missing_or_unsafe',
+            ),
+            self::item(
+                'rivals_provider_runtime_preflight',
+                'Fair Claude provider execution preflights runnable Laravel workspaces, high-memory Pint and provider timeout before spending tokens.',
+                'atlas.fair_claude.provider_execution_guard.v1',
+                $docStatus('rivals_provider_runtime_preflight'),
+                $docStatus('rivals_provider_runtime_preflight') === 'passed' ? null : 'rivals_provider_runtime_preflight_missing_or_unsafe',
+            ),
+            self::item(
+                'rivals_programming_real',
+                'Real paired provider battery has comparable cases and verified export bundle.',
+                'atlas:engineering:benchmark:rivals + atlas:programming:rivals-readiness',
+                $claimReady ? 'passed' : 'blocked',
+                $claimReady ? null : $rivalsRealBlocker,
+            ),
+        ];
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public static function item(string $id, string $requirement, string $evidence, string $status, ?string $blocker = null): array
+    {
+        return array_filter([
+            'id' => $id,
+            'requirement' => $requirement,
+            'evidence' => $evidence,
+            'status' => $status,
+            'blocker' => $blocker,
+        ], static fn (mixed $value): bool => $value !== null);
+    }
+
+    /**
+     * Pure projection of external Rivals certification from verification evidence.
+     *
+     * @param  array<string,mixed>  $verificationEvidence
+     * @return array<string,mixed>
+     */
+    public static function externalRivalsCertification(array $verificationEvidence): array
+    {
+        $claim = is_array($verificationEvidence['rivals_external_claim'] ?? null)
+            ? $verificationEvidence['rivals_external_claim']
+            : [];
+        $triage = is_array($verificationEvidence['invalid_battery_triage_packet'] ?? null)
+            ? $verificationEvidence['invalid_battery_triage_packet']
+            : [];
+        $currentWorkspace = is_array($verificationEvidence['current_workspace_preflight'] ?? null)
+            ? $verificationEvidence['current_workspace_preflight']
+            : [];
+        $currentLocalRechecks = is_array($verificationEvidence['current_local_recheck_evidence'] ?? null)
+            ? $verificationEvidence['current_local_recheck_evidence']
+            : [];
+        $operatorSafety = is_array($verificationEvidence['operator_safety'] ?? null)
+            ? $verificationEvidence['operator_safety']
+            : [];
+        $rerunPreconditions = data_get($triage, 'current_rerun_preconditions', []);
+        $rerunPreconditions = is_array($rerunPreconditions) ? $rerunPreconditions : [];
+
+        $rawStatus = (string) ($claim['status'] ?? 'unknown');
+        $claimReady = (bool) ($claim['claim_ready'] ?? false);
+        $needsOperatorApproval = ! $claimReady;
+        $triageStatus = (string) data_get($triage, 'status', 'unknown');
+        $workspaceStatus = (string) data_get($currentWorkspace, 'status', 'unknown');
+        $providerBudgetPolicy = data_get($triage, 'provider_budget_policy', []);
+        $providerBudgetPolicy = is_array($providerBudgetPolicy) ? $providerBudgetPolicy : [];
+
+        $blockingReasons = is_array($claim['blocking_reasons'] ?? null)
+            ? array_values(array_filter(array_map(static fn (mixed $v): string => is_string($v) ? $v : '', $claim['blocking_reasons']), static fn (string $v): bool => $v !== ''))
+            : [];
+        $rerunBlockingReasons = is_array($rerunPreconditions['why_provider_dispatch_is_blocked'] ?? null)
+            ? array_values($rerunPreconditions['why_provider_dispatch_is_blocked'])
+            : [];
+
+        $status = match (true) {
+            $claimReady => 'passed',
+            in_array($rawStatus, ['external_battery_invalid', 'invalid_battery_no_comparable_score', 'no_valid_comparable_score'], true) => 'blocked_requires_operator_approval',
+            default => 'blocked',
+        };
+        $operationalState = match (true) {
+            $claimReady => 'claim_ready',
+            $triageStatus === 'triage_required_before_rerun' => 'blocked_until_invalid_battery_triaged',
+            $workspaceStatus === 'blocked' => 'blocked_until_clean_worktree',
+            (bool) ($operatorSafety['rerun_provider_battery_allowed_now'] ?? false) => 'ready_for_operator_paid_rerun',
+            default => 'blocked_until_valid_comparable_battery',
+        };
+
+        return [
+            'schema_version' => 'atlas.programming.rivals_readiness.v1',
+            'status' => $status,
+            'operational_state' => $operationalState,
+            'requires_operator_approval' => $needsOperatorApproval,
+            'raw_status' => $rawStatus,
+            'claim_ready' => $claimReady,
+            'comparable_case_count' => (int) ($claim['comparable_case_count'] ?? 0),
+            'blocking_reasons' => $blockingReasons,
+            'invalid_battery_triage' => [
+                'status' => $triageStatus,
+                'requires_triage_before_rerun' => (bool) ($claim['invalid_battery_requires_triage_before_rerun'] ?? false),
+                'historical_failures_are_diagnostic' => (bool) data_get($triage, 'historical_failure_policy.historical_failed_gates_are_diagnostic', false),
+                'quarantined_invalid_batteries_excluded_from_score' => (bool) data_get($triage, 'historical_failure_policy.triaged_invalid_batteries_do_not_enter_score_or_block_forever', false),
+            ],
+            'current_workspace_preflight' => [
+                'status' => $workspaceStatus,
+                'ready_for_provider_battery' => (bool) data_get($currentWorkspace, 'ready_for_provider_battery', false),
+                'blocking_reasons' => data_get($currentWorkspace, 'blocking_reasons', []),
+                'dirty_count' => (int) data_get($currentWorkspace, 'git.dirty_count', 0),
+            ],
+            'current_local_rechecks' => [
+                'status' => data_get($currentLocalRechecks, 'status', 'unknown'),
+                'all_known_rechecks_passed' => (bool) data_get($currentLocalRechecks, 'all_known_rechecks_passed', false),
+            ],
+            'provider_budget_policy' => [
+                'spend_more_provider_tokens_now' => (bool) ($providerBudgetPolicy['spend_more_provider_tokens_now'] ?? false),
+                'reason' => (string) ($providerBudgetPolicy['reason'] ?? 'unknown'),
+            ],
+            'fresh_provider_rerun_preconditions' => [
+                'provider_dispatch_allowed_now' => (bool) ($rerunPreconditions['provider_dispatch_allowed_now'] ?? false),
+                'blocking_reasons' => $rerunBlockingReasons,
+                'diagnostic_commands_without_provider_spend' => data_get($rerunPreconditions, 'diagnostic_commands_without_provider_spend', []),
+            ],
+            'next_action' => data_get($triage, 'next_action', 'Run a fresh external provider battery only after clean worktrees, runbook review and explicit cost approval.'),
+            'note' => 'Bateria Rivals externo exige custo provider + autorizacao operador; mantida isolada do Forge core.',
+            'separated_from' => 'forge_runtime_certification',
         ];
     }
 }
