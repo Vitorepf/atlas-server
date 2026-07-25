@@ -13,6 +13,7 @@ use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceListNormalizer;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceRuntimeService;
+use App\Services\Ai\WorkspaceIntelligence\Support\CommandOutcomeScoringSupport;
 use Illuminate\Support\Carbon;
 
 /**
@@ -23,14 +24,12 @@ use Illuminate\Support\Carbon;
  * Method bodies are moved VERBATIM. Shared private helpers that stay on the façade
  * (providerSafeStringList, limitedProviderSafeStringList, appendUniqueLimited, areaKey)
  * are reached through __call, which rebinds into the façade scope.
+ *
+ * Pure scoring/stats helpers live in CommandOutcomeScoringSupport; this section
+ * keeps I/O and section assembly, with thin wrappers for call-site stability.
  */
 final class WorkspaceOutcomeCommandMemorySection
 {
-    /**
-     * @var array<int,string>
-     */
-    private const EFFECTIVENESS_COUNTER_KEYS = ['success_count', 'failure_count', 'neutral_count', 'total_count', 'score'];
-
     private ?AtlasWorkspaceIntelligenceRuntimeService $mother = null;
 
     public function __construct(
@@ -692,13 +691,7 @@ final class WorkspaceOutcomeCommandMemorySection
      */
     private function cappedDurationSamples(array $samples, int $durationMs, int $limit = 24): array
     {
-        $samples = array_values(array_filter(array_map(
-            static fn (mixed $sample): int => is_numeric($sample) ? max(1, (int) $sample) : 0,
-            $samples,
-        ), static fn (int $sample): bool => $sample > 0));
-        $samples[] = max(1, $durationMs);
-
-        return array_slice($samples, max(0, count($samples) - $limit));
+        return CommandOutcomeScoringSupport::cappedDurationSamples($samples, $durationMs, $limit);
     }
 
     /**
@@ -706,29 +699,12 @@ final class WorkspaceOutcomeCommandMemorySection
      */
     private function durationPercentile(array $samples, float $percentile): ?int
     {
-        $samples = array_values(array_filter(array_map(
-            static fn (mixed $sample): int => is_numeric($sample) ? max(1, (int) $sample) : 0,
-            $samples,
-        ), static fn (int $sample): bool => $sample > 0));
-        if ($samples === []) {
-            return null;
-        }
-
-        sort($samples);
-        $index = (int) ceil(max(0.0, min(1.0, $percentile)) * count($samples)) - 1;
-
-        return $samples[max(0, min(count($samples) - 1, $index))];
+        return CommandOutcomeScoringSupport::durationPercentile($samples, $percentile);
     }
 
     private function durationBucket(int $durationMs): string
     {
-        return match (true) {
-            $durationMs <= 10_000 => 'under_10s',
-            $durationMs <= 60_000 => '10s_to_60s',
-            $durationMs <= 300_000 => '1m_to_5m',
-            $durationMs <= 900_000 => '5m_to_15m',
-            default => 'over_15m',
-        };
+        return CommandOutcomeScoringSupport::durationBucket($durationMs);
     }
 
     /**
@@ -736,59 +712,7 @@ final class WorkspaceOutcomeCommandMemorySection
      */
     private function recordPerformanceProfile(array &$profiles, string $key, int $durationMs): void
     {
-        $key = trim($key);
-        if ($key === '' || $durationMs <= 0) {
-            return;
-        }
-
-        $profiles[$key] ??= $this->emptyPerformanceProfile($key);
-        $profiles[$key]['observed_count'] = (int) $profiles[$key]['observed_count'] + 1;
-        $profiles[$key]['duration_ms_total'] = (int) $profiles[$key]['duration_ms_total'] + $durationMs;
-        $profiles[$key]['duration_ms_samples'] = $this->cappedDurationSamples(
-            (array) ($profiles[$key]['duration_ms_samples'] ?? []),
-            $durationMs,
-        );
-        $profiles[$key]['duration_ms_avg'] = (int) round(
-            (int) $profiles[$key]['duration_ms_total'] / max((int) $profiles[$key]['observed_count'], 1),
-        );
-        $profiles[$key]['duration_ms_min'] = $profiles[$key]['duration_ms_min'] === null
-            ? $durationMs
-            : min((int) $profiles[$key]['duration_ms_min'], $durationMs);
-        $profiles[$key]['duration_ms_max'] = $profiles[$key]['duration_ms_max'] === null
-            ? $durationMs
-            : max((int) $profiles[$key]['duration_ms_max'], $durationMs);
-        $profiles[$key]['duration_ms_p95'] = $this->durationPercentile((array) $profiles[$key]['duration_ms_samples'], 0.95);
-        $bucket = $this->durationBucket($durationMs);
-        $profiles[$key]['duration_bucket_counts'][$bucket] = (int) ($profiles[$key]['duration_bucket_counts'][$bucket] ?? 0) + 1;
-        $profiles[$key]['performance_grade'] = $this->commandPerformanceGrade([
-            'duration_ms_p95' => $profiles[$key]['duration_ms_p95'],
-            'duration_ms_avg' => $profiles[$key]['duration_ms_avg'],
-        ]);
-    }
-
-    /**
-     * @return array<string,mixed>
-     */
-    private function emptyPerformanceProfile(string $key): array
-    {
-        return [
-            'key' => $key,
-            'observed_count' => 0,
-            'duration_ms_total' => 0,
-            'duration_ms_samples' => [],
-            'duration_ms_avg' => null,
-            'duration_ms_min' => null,
-            'duration_ms_max' => null,
-            'duration_ms_p95' => null,
-            'duration_bucket_counts' => [
-                'under_10s' => 0,
-                '10s_to_60s' => 0,
-                '1m_to_5m' => 0,
-                '5m_to_15m' => 0,
-                'over_15m' => 0,
-            ],
-            'performance_grade' => 'unknown',
-        ];
+        CommandOutcomeScoringSupport::recordPerformanceProfile($profiles, $key, $durationMs);
     }
 
     /**
@@ -1208,24 +1132,9 @@ final class WorkspaceOutcomeCommandMemorySection
      */
     private function cacheBackedHashRefs(array $refs, string $canonicalPrefix): array
     {
-        $cachePrefix = 'awis_cache:'.$canonicalPrefix.':';
-        $canonicalPattern = '/^'.preg_quote($canonicalPrefix, '/').':[a-f0-9]{64}$/';
-
         return $this->listNormalizer->uniqueMappedStrings(
             $refs,
-            static function (mixed $ref) use ($cachePrefix, $canonicalPattern, $canonicalPrefix): string {
-                $ref = trim((string) $ref);
-                if (preg_match($canonicalPattern, $ref) === 1) {
-                    return $ref;
-                }
-                if (! str_starts_with($ref, $cachePrefix)) {
-                    return '';
-                }
-
-                $hash = substr($ref, strlen($cachePrefix));
-
-                return preg_match('/^[a-f0-9]{64}$/', $hash) === 1 ? $canonicalPrefix.':'.$hash : '';
-            },
+            static fn (mixed $ref): string => CommandOutcomeScoringSupport::normalizeCacheBackedHashRef($ref, $canonicalPrefix),
         );
     }
 
@@ -1234,20 +1143,7 @@ final class WorkspaceOutcomeCommandMemorySection
      */
     private function commandPerformanceScore(array $stats): int
     {
-        $duration = $stats['duration_ms_p95'] ?? $stats['duration_ms_avg'] ?? null;
-        if (! is_numeric($duration) || (int) $duration <= 0) {
-            return 0;
-        }
-
-        $duration = (int) $duration;
-
-        return match (true) {
-            $duration <= 10_000 => 2,
-            $duration <= 60_000 => 1,
-            $duration <= 300_000 => 0,
-            $duration <= 900_000 => -1,
-            default => -3,
-        };
+        return CommandOutcomeScoringSupport::commandPerformanceScore($stats);
     }
 
     /**
@@ -1255,39 +1151,12 @@ final class WorkspaceOutcomeCommandMemorySection
      */
     private function commandPerformanceGrade(array $stats): string
     {
-        $duration = $stats['duration_ms_p95'] ?? $stats['duration_ms_avg'] ?? null;
-        if (! is_numeric($duration) || (int) $duration <= 0) {
-            return 'unknown';
-        }
-
-        $duration = (int) $duration;
-
-        return match (true) {
-            $duration <= 10_000 => 'fast',
-            $duration <= 60_000 => 'normal',
-            $duration <= 300_000 => 'heavy',
-            default => 'slow',
-        };
+        return CommandOutcomeScoringSupport::commandPerformanceGrade($stats);
     }
 
     private function commandRecencyScore(string $observedAt): int
     {
-        if ($observedAt === '') {
-            return 0;
-        }
-
-        try {
-            $days = Carbon::parse($observedAt)->diffInDays(Carbon::now());
-        } catch (\Throwable) {
-            return 0;
-        }
-
-        return match (true) {
-            $days <= 2 => 2,
-            $days <= 14 => 1,
-            $days >= 90 => -1,
-            default => 0,
-        };
+        return CommandOutcomeScoringSupport::commandRecencyScore($observedAt);
     }
 
     private function latestIsoTimestamp(string $current, ?string $candidate): ?string
@@ -1311,15 +1180,7 @@ final class WorkspaceOutcomeCommandMemorySection
 
     private function outcomePolarity(string $status): int
     {
-        $status = mb_strtolower(trim($status));
-        if (in_array($status, ['success', 'succeeded', 'passed', 'completed', 'approved', 'healthy', 'ready'], true)) {
-            return 1;
-        }
-        if (in_array($status, ['failed', 'failure', 'blocked', 'error', 'rejected', 'cancelled', 'canceled'], true)) {
-            return -1;
-        }
-
-        return 0;
+        return CommandOutcomeScoringSupport::outcomePolarity($status);
     }
 
     /**
@@ -1328,16 +1189,7 @@ final class WorkspaceOutcomeCommandMemorySection
      */
     private function emptyEffectivenessStats(string $refKey, string $ref, array $extra = []): array
     {
-        return [
-            $refKey => $ref,
-            ...$extra,
-            'success_count' => 0,
-            'failure_count' => 0,
-            'neutral_count' => 0,
-            'total_count' => 0,
-            'score' => 0,
-            'commands' => [],
-        ];
+        return CommandOutcomeScoringSupport::emptyEffectivenessStats($refKey, $ref, $extra);
     }
 
     /**
@@ -1346,9 +1198,7 @@ final class WorkspaceOutcomeCommandMemorySection
      */
     private function accumulateEffectivenessStats(array &$bucket, array $stats): void
     {
-        foreach (self::EFFECTIVENESS_COUNTER_KEYS as $key) {
-            $bucket[$key] = (int) $bucket[$key] + (int) ($stats[$key] ?? 0);
-        }
+        CommandOutcomeScoringSupport::accumulateEffectivenessStats($bucket, $stats);
     }
 
     /**
@@ -1357,17 +1207,6 @@ final class WorkspaceOutcomeCommandMemorySection
      */
     private function finalizeEffectivenessStats(array $items): array
     {
-        foreach ($items as $key => $item) {
-            $total = max((int) ($item['total_count'] ?? 0), 1);
-            $items[$key]['success_rate'] = round((int) ($item['success_count'] ?? 0) / $total, 2);
-            $items[$key]['effectiveness'] = match (true) {
-                (int) ($item['failure_count'] ?? 0) > 0 && (int) ($item['success_count'] ?? 0) > 0 => 'mixed',
-                (int) ($item['failure_count'] ?? 0) > 0 => 'failing',
-                (int) ($item['success_count'] ?? 0) > 0 => 'effective',
-                default => 'unknown',
-            };
-        }
-
-        return $items;
+        return CommandOutcomeScoringSupport::finalizeEffectivenessStats($items);
     }
 }
