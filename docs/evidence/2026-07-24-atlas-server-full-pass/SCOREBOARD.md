@@ -99,3 +99,6 @@
 ## Residual
 
 PRE leave Http (R103 staged) · floors RSI/TaskQueue · CompletionAudit cert FS residual · HubDelegators true map+__call · DesignRuntime certify FS residual (routes/api.php + rival harness needles pre-existing) · app()-backed DesignRuntime nested contracts residual · PriorityEngine canonicalSeedCandidates FS-bound residual · AgenticWorkcell role-contract pure residual (depthProfile/topologyAssignments/roleContextScope/output/tool/deps/artifacts) · suite filter pre-existing EliteExecutor mock (unrelated when filter broad)
+
+| AgenticWorkcellRoleContractSupport | 9 unit / 116 asserts |
+| AgenticWorkcellTopologyPolicySupport | 12 unit / 150 asserts |

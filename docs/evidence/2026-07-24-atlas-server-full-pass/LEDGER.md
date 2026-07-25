@@ -8,6 +8,7 @@ execution: in_progress
 full_pass_commits: 197+
 rescan: FINDINGS-RESCAN-3
 recent:
+  - AgenticWorkcellRoleContractSupport
   - AgenticWorkcellTopologyPolicySupport pure residual (host 1247→1008; Support 314; 12 Support unit / 150 + 16 host path / 124 asserts; claimPolicy/objective/normalizeDomain/classifyDomain/flowForDomain/complexityScore/riskScore/chooseTopology/status/executionOrderTopologyMap/riskBand/scoreTopology/sanitizePayload/circuitBreakerReceipt; TOPOLOGIES SSOT on Support)
   - StewardshipPriorityContextQualitySupport pure residual (engine 467→309; Support ~175; 9 Support unit + 17 host path / 194 asserts; validateScoreInput/score/candidateFindingKind/applyPriorityBoost/identity/candidatesFromInput; dead blocked() clock helper dropped)
   - OpenBrain ContextInjectionProjectionSupport pure residual (host 1171→687; Support 550; 10 Support unit + 60 host path / 478 asserts; policy/surface/delivery/operator refs+summary/injection summary/next-actions/skip-fail envelopes)
