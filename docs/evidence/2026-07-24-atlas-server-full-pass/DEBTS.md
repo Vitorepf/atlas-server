@@ -121,6 +121,7 @@
 ### Residual monstruos (RESCAN-3 rank)
 
 - [x] ActivationCockpitPresentationSupport
+- [x] SelfImprovementScheduleMath
 
 - [x] RivalsOneShot dimension credit Support
 - [x] ForgeProviderCapacityClassifier pure FSM

@@ -8,6 +8,7 @@ execution: in_progress
 full_pass_commits: 197+
 rescan: FINDINGS-RESCAN-3
 recent:
+  - SelfImprovementScheduleMath (430→303)
   - ActivationCockpitPresentationSupport (830→703)
   - EliteExecutor ledger mock tenant fix (suite filter)
   - HubDelegators compact (~6044→3427)
