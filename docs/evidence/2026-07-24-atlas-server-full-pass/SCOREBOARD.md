@@ -39,6 +39,7 @@
 | SelfImprovementProjectionSupport | ledger projection feature test 14 asserts green |
 | WorkspacePathScoringSupport | 17 WorkspaceIntelligence unit green |
 | MacAgentReadinessSupport | 14 MacAgent unit / 130 asserts green |
+| ForgeExecutionStageSupport | pure phase/blocking classifiers + unit-lock docs reality support |
 | Decide operationalDecision + executionGraph | 39 unit green |
 | LedgerReplay agent/decision/inbox/kernel/SI | 22 unit green per step |
 | stringOption variants + LoadsNamedJson | 3+2 unit green |
