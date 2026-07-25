@@ -523,7 +523,7 @@ trait BranchGovernanceSection
             $this->components->twoColumnDetail('Branch', (string) data_get($p, 'repo.branch_ref', ''));
             $this->components->twoColumnDetail('Base', (string) data_get($p, 'repo.base_ref', ''));
             $this->components->twoColumnDetail('Changed files', (string) data_get($p, 'classification.changed_file_count', 0));
-            $this->components->twoColumnDetail('Auto-merge eligible', data_getYesNo::format($p, 'auto_merge_policy.eligible'));
+            $this->components->twoColumnDetail('Auto-merge eligible', YesNo::format(data_get($p, 'auto_merge_policy.eligible')));
             $this->components->twoColumnDetail('Graph shape', (string) data_get($p, 'gitkraken_review_surface.graph_shape', ''));
             foreach ((array) ($p['blockers'] ?? []) as $blocker) {
                 $this->warn('  blocker: '.(string) $blocker);

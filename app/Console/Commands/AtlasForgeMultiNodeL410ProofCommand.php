@@ -68,7 +68,7 @@ final class AtlasForgeMultiNodeL410ProofCommand extends Command
         $this->components->twoColumnDetail('Planned nodes', (string) data_get($report, 'planned_obra.work_node_count', 0));
         $this->components->twoColumnDetail('Recommended agents', (string) data_get($report, 'planned_obra.schedule.recommended_agent_count', 0));
         $this->components->twoColumnDetail('Digest command', data_get($report, 'delivered_item.local_digest_command_available') ? 'available' : 'missing');
-        $this->components->twoColumnDetail('Provider dispatch now', data_getYesNo::format($report, 'claim_policy.provider_dispatches_now'));
+        $this->components->twoColumnDetail('Provider dispatch now', YesNo::format(data_get($report, 'claim_policy.provider_dispatches_now')));
 
         $blockers = array_values((array) ($report['blockers'] ?? []));
         if ($blockers !== []) {

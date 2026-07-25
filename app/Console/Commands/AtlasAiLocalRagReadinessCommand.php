@@ -28,7 +28,7 @@ final class AtlasAiLocalRagReadinessCommand extends Command
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas Local RAG Readiness</>', $payload['status']);
         $this->components->twoColumnDetail('Embedding', data_get($payload, 'embedding.provider'));
         $this->components->twoColumnDetail('Semantic notes', data_get($payload, 'stores.semantic_notes.table_exists') ? 'ready' : 'missing');
-        $this->components->twoColumnDetail('Vector native', data_getYesNo::format($payload, 'stores.semantic_notes.vector_search_native'));
+        $this->components->twoColumnDetail('Vector native', YesNo::format(data_get($payload, 'stores.semantic_notes.vector_search_native')));
         $this->components->twoColumnDetail('Next action', $payload['next_action']);
 
         if (($payload['blocking_gates'] ?? []) !== []) {

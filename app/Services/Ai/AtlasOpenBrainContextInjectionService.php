@@ -1472,7 +1472,7 @@ class AtlasOpenBrainContextInjectionService
             $lines[] = '## Programming Context';
             $lines[] = '- schema: '.($programming['schema_version'] ?? 'unknown');
             $lines[] = '- flow: '.($programming['flow'] ?: 'n/a').'; profile='.($programming['profile'] ?: 'n/a').'; intent='.($programming['intent'] ?: 'n/a');
-            $lines[] = '- resume: '.(data_getYesNo::trueFalse($programming, 'resume.resumed'))
+            $lines[] = '- resume: '.(YesNo::trueFalse(data_get($programming, 'resume.resumed')))
                 .'; plan_id='.(data_get($programming, 'resume.plan_id') ?: 'n/a')
                 .'; parent_plan_id='.(data_get($programming, 'resume.parent_plan_id') ?: 'n/a');
             $stage = (array) ($programming['stage_contract'] ?? []);

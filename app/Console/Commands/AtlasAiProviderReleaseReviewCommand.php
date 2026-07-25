@@ -50,7 +50,7 @@ class AtlasAiProviderReleaseReviewCommand extends Command
         $this->components->twoColumnDetail('Release type', data_get($payload, 'release_envelope.release_type'));
         $this->components->twoColumnDetail('Action', $payload['recommended_action']);
         $this->components->twoColumnDetail('Rivals required', YesNo::format($payload['rivals_required']));
-        $this->components->twoColumnDetail('Decide routing change', data_getYesNo::format($payload, 'decide_signal.changes_routing'));
+        $this->components->twoColumnDetail('Decide routing change', YesNo::format(data_get($payload, 'decide_signal.changes_routing')));
 
         $this->newLine();
         $this->table(

@@ -268,7 +268,7 @@ TXT;
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas Long-Running Baseline</>', (string) ($payload['status'] ?? 'unknown'));
         $this->components->twoColumnDetail('Writes', YesNo::format($payload['writes'] ?? false));
         $this->components->twoColumnDetail('Dispatches jobs', YesNo::format($payload['dispatches_jobs'] ?? false));
-        $this->components->twoColumnDetail('Enabled', data_getYesNo::format($payload, 'baseline_schedule.enabled'));
+        $this->components->twoColumnDetail('Enabled', YesNo::format(data_get($payload, 'baseline_schedule.enabled')));
         $this->components->twoColumnDetail('Schedule', (string) data_get($payload, 'baseline_schedule.schedule', self::SCHEDULE));
 
         return $exitCode;

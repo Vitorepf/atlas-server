@@ -128,7 +128,7 @@ class AtlasMemoryPrivacyCommand extends Command
                 $row['memory_entry_id'] ?? '-',
                 YesNo::format((bool) ($row['changed'] ?? false)),
                 data_get($row, 'after.privacy_class', '-'),
-                data_getYesNo::format($row, 'after.external_ai_allowed'),
+                YesNo::format(data_get($row, 'after.external_ai_allowed')),
                 data_get($row, 'after.redaction_status', '-'),
             ])->all(),
         );

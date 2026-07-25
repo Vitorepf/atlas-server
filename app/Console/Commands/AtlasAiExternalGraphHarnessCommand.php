@@ -59,8 +59,8 @@ class AtlasAiExternalGraphHarnessCommand extends Command
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas External Graph Harness</>', $report['status']);
         $this->components->twoColumnDetail('Mode', $report['mode']);
         $this->components->twoColumnDetail('Authority', data_get($report, 'contract.authority'));
-        $this->components->twoColumnDetail('Writes memory', data_getYesNo::format($report, 'contract.guardrails.writes_memory_registry'));
-        $this->components->twoColumnDetail('Provider calls', data_getYesNo::format($report, 'contract.guardrails.provider_calls_enabled'));
+        $this->components->twoColumnDetail('Writes memory', YesNo::format(data_get($report, 'contract.guardrails.writes_memory_registry')));
+        $this->components->twoColumnDetail('Provider calls', YesNo::format(data_get($report, 'contract.guardrails.provider_calls_enabled')));
 
         if (is_array($validation)) {
             $this->components->twoColumnDetail('Candidate', $validation['status']);

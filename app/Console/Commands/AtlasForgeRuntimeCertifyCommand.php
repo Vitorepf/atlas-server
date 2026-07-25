@@ -53,7 +53,7 @@ class AtlasForgeRuntimeCertifyCommand extends Command
         $this->components->twoColumnDetail('Forge core', (string) $report['forge_core_status']);
         $this->components->twoColumnDetail('External Rivals', (string) $report['external_rivals_status']);
         $this->components->twoColumnDetail('E2E command', (string) $report['e2e_command']);
-        $this->components->twoColumnDetail('Obra provided', data_getYesNo::format($report, 'inputs.obra_provided'));
+        $this->components->twoColumnDetail('Obra provided', YesNo::format(data_get($report, 'inputs.obra_provided')));
 
         $stages = is_array($report['stages'] ?? null) ? $report['stages'] : [];
         foreach ($stages as $stage) {

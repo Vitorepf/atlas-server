@@ -185,7 +185,7 @@ TXT,
             '- Context pack hash: '.(string) ($runtime['context_pack_hash'] ?? 'missing'),
             '- Must-know ledger hash: '.(string) ($runtime['must_know_ledger_hash'] ?? 'missing'),
             '- Provider handoff hash: '.(string) data_get($handoff, 'context_pack_hash', 'missing'),
-            '- Execution allowed: '.((bool) data_getYesNo::format($handoff, 'execution_allowed', false)),
+            '- Execution allowed: '.((bool) YesNo::format(data_get($handoff, 'execution_allowed', false))),
         ];
 
         if ($readFirst !== []) {

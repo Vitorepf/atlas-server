@@ -748,8 +748,8 @@ final class AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService
         $lines[] = '- **current_blocker_count**: `'.((string) data_get($bundle, 'operator_handoff_packet.current_blocker_count', 0)).'`';
         $lines[] = '- **handoff_packet_hash**: `'.((string) data_get($bundle, 'operator_handoff_packet.handoff_packet_hash', '')).'`';
         $lines[] = '- **resumption_checkpoint_hash**: `'.((string) data_get($bundle, 'operator_handoff_packet.resumption_checkpoint_hash', '')).'`';
-        $lines[] = '- **can_resume_without_chat_history**: `'.((bool) data_getYesNo::trueFalse($bundle, 'operator_handoff_packet.can_resume_without_chat_history', false)).'`';
-        $lines[] = '- **requires_fresh_preflight_before_persist**: `'.((bool) data_getYesNo::trueFalse($bundle, 'operator_handoff_packet.requires_fresh_preflight_before_persist', false)).'`';
+        $lines[] = '- **can_resume_without_chat_history**: `'.((bool) YesNo::trueFalse(data_get($bundle, 'operator_handoff_packet.can_resume_without_chat_history', false))).'`';
+        $lines[] = '- **requires_fresh_preflight_before_persist**: `'.((bool) YesNo::trueFalse(data_get($bundle, 'operator_handoff_packet.requires_fresh_preflight_before_persist', false))).'`';
         $lines[] = '';
         $lines[] = '**Required operator inputs for current step**';
         foreach ((array) data_get($bundle, 'operator_handoff_packet.required_operator_inputs', []) as $input) {

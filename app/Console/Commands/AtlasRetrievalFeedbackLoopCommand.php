@@ -79,7 +79,7 @@ final class AtlasRetrievalFeedbackLoopCommand extends Command
         $this->components->twoColumnDetail('ROI', (string) data_get($payload, 'context_roi.roi_score', 'unknown'));
         $this->components->twoColumnDetail('Context policy', (string) data_get($payload, 'next_context_policy.recommended_action', 'unknown'));
         $this->components->twoColumnDetail('Learning candidate', (string) data_get($payload, 'learning_candidate.status', 'unknown'));
-        $this->components->twoColumnDetail('Persisted', data_getYesNo::format($payload, 'persistence.persisted'));
+        $this->components->twoColumnDetail('Persisted', YesNo::format(data_get($payload, 'persistence.persisted')));
 
         return self::SUCCESS;
     }

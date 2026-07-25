@@ -357,7 +357,7 @@ final class RenderMarkdownSection
             $lines[] = sprintf(
                 '- operator_policy: %s (separate_from_evidence=%s)',
                 (string) data_get($epistemicEvidence, 'operator_policy.mode', 'report_only'),
-                data_getYesNo::trueFalse($epistemicEvidence, 'operator_policy.separate_from_evidence', true),
+                YesNo::trueFalse(data_get($epistemicEvidence, 'operator_policy.separate_from_evidence', true)),
             );
             $lines[] = sprintf(
                 '- CONTRAEVIDÊNCIA: %s',

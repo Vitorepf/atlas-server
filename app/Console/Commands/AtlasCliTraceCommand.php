@@ -117,7 +117,7 @@ class AtlasCliTraceCommand extends Command
                 $event['tool'],
                 $event['risk'],
                 $event['permission_status'],
-                (bool) data_getYesNo::format($event, 'output_summary.ok'),
+                (bool) YesNo::format(data_get($event, 'output_summary.ok')),
                 $event['duration_ms'],
                 implode(', ', (array) ($event['changed_files'] ?? [])),
             ])->all());

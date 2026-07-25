@@ -49,6 +49,6 @@ final class AtlasAobgSemanticRetrievalLiftCommand extends Command
         $this->components->twoColumnDetail('Average lift', (string) data_get($report, 'measurement.average_lift', 0));
         $this->components->twoColumnDetail('Positive cases', (string) data_get($report, 'measurement.positive_lift_case_count', 0));
         $this->components->twoColumnDetail('Decision', (string) data_get($report, 'decision.decision', 'unknown'));
-        $this->components->twoColumnDetail('Provider calls', data_getYesNo::format($report, 'claim_policy.provider_calls_made'));
+        $this->components->twoColumnDetail('Provider calls', YesNo::format(data_get($report, 'claim_policy.provider_calls_made')));
     }
 }

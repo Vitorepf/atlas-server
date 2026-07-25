@@ -310,8 +310,8 @@ trait AreaFocusSection
             $this->components->twoColumnDetail('AP-756 cleanup', (string) ($p['status'] ?? 'unknown'));
             $this->components->twoColumnDetail('Sandbox', (string) ($p['sandbox_id'] ?? ''));
             $this->components->twoColumnDetail('Mode', (string) ($p['mode'] ?? ''));
-            $this->components->twoColumnDetail('Worktree removed', data_getYesNo::format($p, 'actions.worktree_removed'));
-            $this->components->twoColumnDetail('Branch deleted', data_getYesNo::format($p, 'actions.branch_deleted'));
+            $this->components->twoColumnDetail('Worktree removed', YesNo::format(data_get($p, 'actions.worktree_removed')));
+            $this->components->twoColumnDetail('Branch deleted', YesNo::format(data_get($p, 'actions.branch_deleted')));
             $this->components->twoColumnDetail('Recorded', (string) ($p['cleanup_storage_status'] ?? 'projected'));
             foreach ((array) ($p['blockers'] ?? []) as $blocker) {
                 $this->warn('  blocker: '.(string) $blocker);

@@ -37,8 +37,8 @@ class AtlasAiProviderReleaseSourcesCommand extends Command
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas Provider Release Sources</>', $payload['status']);
         $this->components->twoColumnDetail('Mode', $payload['mode']);
         $this->components->twoColumnDetail('Authority', $payload['authority']);
-        $this->components->twoColumnDetail('Network fetching', data_getYesNo::format($payload, 'guardrails.network_fetching_enabled'));
-        $this->components->twoColumnDetail('Routing changes', data_getYesNo::format($payload, 'guardrails.changes_routing'));
+        $this->components->twoColumnDetail('Network fetching', YesNo::format(data_get($payload, 'guardrails.network_fetching_enabled')));
+        $this->components->twoColumnDetail('Routing changes', YesNo::format(data_get($payload, 'guardrails.changes_routing')));
 
         if (isset($payload['candidate'])) {
             $this->components->twoColumnDetail('Candidate', data_get($payload, 'candidate.status'));

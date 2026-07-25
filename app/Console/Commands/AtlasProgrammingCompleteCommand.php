@@ -61,7 +61,7 @@ class AtlasProgrammingCompleteCommand extends Command
         $this->components->twoColumnDetail('Status', $payload['status']);
         $this->components->twoColumnDetail('Closed at', (string) ($payload['closed_at'] ?? '-'));
         $this->components->twoColumnDetail('Review', (string) ($this->option('review') ?: 'approved'));
-        $this->components->twoColumnDetail('All green', data_getYesNo::format($payload, 'gate_summary.all_green'));
+        $this->components->twoColumnDetail('All green', YesNo::format(data_get($payload, 'gate_summary.all_green')));
 
         return $this->resolveExit($payload, (bool) $this->option('strict'));
     }

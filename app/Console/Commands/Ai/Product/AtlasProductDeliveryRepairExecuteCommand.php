@@ -123,7 +123,7 @@ class AtlasProductDeliveryRepairExecuteCommand extends Command
         }
 
         $this->components->twoColumnDetail('Patch gate', (string) ($payload['status'] ?? data_get($payload, 'patch_proposal_gate.status', 'unknown')));
-        $this->components->twoColumnDetail('writes', data_getYesNo::format($payload, 'writes'));
+        $this->components->twoColumnDetail('writes', YesNo::format(data_get($payload, 'writes')));
         $hash = $payload['execution_receipt_hash'] ?? $payload['patch_gate_hash'] ?? null;
         if (is_scalar($hash)) {
             $this->components->twoColumnDetail('receipt', (string) $hash);

@@ -52,7 +52,7 @@ final class AtlasAutonomousChangeOrchestratorCommand extends Command
 
         $this->components->twoColumnDetail('Autonomous Change Orchestrator', (string) $payload['status']);
         $this->components->twoColumnDetail('Target', (string) ($payload['target'] ?? ''));
-        $this->components->twoColumnDetail('Mutation Authorized', data_getYesNo::format($payload, 'orchestrator.mutation_authorized'));
+        $this->components->twoColumnDetail('Mutation Authorized', YesNo::format(data_get($payload, 'orchestrator.mutation_authorized')));
         $this->components->twoColumnDetail('Hash', (string) ($payload['orchestration_hash'] ?? ''));
 
         return $this->exitCode($payload);

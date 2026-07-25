@@ -33,7 +33,7 @@ class AtlasAiArchitectureReadinessCommand extends Command
 
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Atlas AI Architecture Readiness</>', (string) $payload['status']);
         $this->components->twoColumnDetail('Workspace', (string) $payload['workspace']);
-        $this->components->twoColumnDetail('Ready for implementation', data_getYesNo::format($payload, 'summary.ready_for_implementation'));
+        $this->components->twoColumnDetail('Ready for implementation', YesNo::format(data_get($payload, 'summary.ready_for_implementation')));
         $this->components->twoColumnDetail('Architecture', (string) data_get($payload, 'checks.architecture_validate.status', 'unknown'));
         $this->components->twoColumnDetail('Documentation', (string) data_get($payload, 'checks.documentation_health.status', 'unknown'));
         $this->components->twoColumnDetail('Provider projection', (string) data_get($payload, 'checks.provider_projection.status', 'unknown'));

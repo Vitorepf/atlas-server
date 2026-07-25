@@ -58,7 +58,7 @@ final class AtlasDevBeatTestReportCommand extends Command
         $this->components->twoColumnDetail('Comparable cases', (string) data_get($report, 'summary.comparable_external_count', 0));
         $this->components->twoColumnDetail('Receipt candidates', (string) data_get($report, 'receipt_autopsy.summary.candidate_repo_receipt_count', 0));
         $this->components->twoColumnDetail('External superiority claim', data_get($report, 'claim_policy.external_superiority_claim_allowed') ? 'allowed' : 'blocked');
-        $this->components->twoColumnDetail('Provider dispatch', data_getYesNo::format($report, 'claim_policy.provider_dispatches_now'));
+        $this->components->twoColumnDetail('Provider dispatch', YesNo::format(data_get($report, 'claim_policy.provider_dispatches_now')));
         foreach ((array) ($report['tasks'] ?? []) as $task) {
             if (! is_array($task)) {
                 continue;
