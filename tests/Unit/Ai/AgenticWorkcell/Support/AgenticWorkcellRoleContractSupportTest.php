@@ -60,17 +60,28 @@ final class AgenticWorkcellRoleContractSupportTest extends TestCase
         $this->assertFileExists($hostAbs, 'Host must remain at '.self::HOST_PATH);
 
         $hostSrc = (string) file_get_contents($hostAbs);
+        $designAbs = $root.'/app/Services/Ai/AgenticWorkcell/Support/AgenticWorkcellDesignArtifactsSupport.php';
+        $designSrc = (string) file_get_contents($designAbs);
         $this->assertStringContainsString(
             'use App\Services\Ai\AgenticWorkcell\Support\AgenticWorkcellRoleContractSupport;',
             $hostSrc,
             'Host must import AgenticWorkcellRoleContractSupport',
         );
-        foreach ([
+        // Host consumes roleRoster; DesignArtifactsSupport consumes task graph helpers.
+        $this->assertStringContainsString(
             'AgenticWorkcellRoleContractSupport::roleRoster',
+            $hostSrc,
+            'Host must call AgenticWorkcellRoleContractSupport::roleRoster',
+        );
+        foreach ([
             'AgenticWorkcellRoleContractSupport::taskDependencies',
             'AgenticWorkcellRoleContractSupport::expectedArtifacts',
         ] as $needle) {
-            $this->assertStringContainsString($needle, $hostSrc, "Host must call {$needle}");
+            $this->assertStringContainsString(
+                $needle,
+                $designSrc,
+                "DesignArtifactsSupport must call {$needle}",
+            );
         }
 
         foreach (self::PEELED_HOST_PRIVATES as $method) {

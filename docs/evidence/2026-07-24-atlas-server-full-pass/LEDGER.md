@@ -8,6 +8,7 @@ execution: in_progress
 full_pass_commits: 197+
 rescan: FINDINGS-RESCAN-3
 recent:
+  - AgenticWorkcellDesignArtifactsSupport pure residual (host 883→400; Support 526; 9 Support unit / 160 + 16 host path + sibling Support path updates / 551 package asserts; orgDesign/pressureLayerAdvisoryRoster/taskGraph/contextPacks/executionSchedule/verificationPlan/evidenceLedger/memoryPacket/counterfactualReplay/learningPolicy/controlPlaneSummary/workcellAdmission/learningCandidates/blocked/average/countsBy/numericOrNull)
   - AgenticWorkcellRoleContractSupport
   - AgenticWorkcellTopologyPolicySupport pure residual (host 1247→1008; Support 314; 12 Support unit / 150 + 16 host path / 124 asserts; claimPolicy/objective/normalizeDomain/classifyDomain/flowForDomain/complexityScore/riskScore/chooseTopology/status/executionOrderTopologyMap/riskBand/scoreTopology/sanitizePayload/circuitBreakerReceipt; TOPOLOGIES SSOT on Support)
   - StewardshipPriorityContextQualitySupport pure residual (engine 467→309; Support ~175; 9 Support unit + 17 host path / 194 asserts; validateScoreInput/score/candidateFindingKind/applyPriorityBoost/identity/candidatesFromInput; dead blocked() clock helper dropped)
@@ -57,7 +58,7 @@ recent:
   - SignalDetector DetectSupport + OI elevate wave
   - UnattendedLiveness + NamingPolicyRules
 unit_proof: HubDelegators 340/1386; AiWorker pure 6/25; FileContext 5; ClosedLoop 22; OI 51
-next: PRE staged · CompletionAudit cert FS residual · HubDelegators true map+__call · FileAttachment zipEntries residual · DesignRuntime certify FS residual (routes/api.php + rival harness needles) · DesignRuntime app()-backed nested contracts residual · OpenBrain injection residual (workspace/operatorContext/memoryQuality/recordAudit host IO cluster; thin stable* wrappers) · PriorityEngine canonicalSeedCandidates FS-bound residual · AgenticWorkcell role-contract pure residual (depth/topologyAssignments/role scopes)
+next: PRE staged · CompletionAudit cert FS residual · HubDelegators true map+__call · FileAttachment zipEntries residual · DesignRuntime certify FS residual (routes/api.php + rival harness needles) · DesignRuntime app()-backed nested contracts residual · OpenBrain injection residual (workspace/operatorContext/memoryQuality/recordAudit host IO cluster; thin stable* wrappers) · PriorityEngine canonicalSeedCandidates FS-bound residual · AgenticWorkcell host residual (aregDecision DI + compileOrgPattern DB + workcell lookup only)
 ```
 
 ## Progress summary

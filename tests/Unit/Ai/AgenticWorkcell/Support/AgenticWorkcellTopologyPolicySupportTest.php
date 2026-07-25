@@ -71,11 +71,16 @@ final class AgenticWorkcellTopologyPolicySupportTest extends TestCase
         $this->assertFileExists($hostAbs, 'Host must remain at '.self::HOST_PATH);
 
         $hostSrc = (string) file_get_contents($hostAbs);
+        $designAbs = $root.'/app/Services/Ai/AgenticWorkcell/Support/AgenticWorkcellDesignArtifactsSupport.php';
+        $designSrc = (string) file_get_contents($designAbs);
+        $roleAbs = $root.'/app/Services/Ai/AgenticWorkcell/Support/AgenticWorkcellRoleContractSupport.php';
+        $roleSrc = (string) file_get_contents($roleAbs);
         $this->assertStringContainsString(
             'use App\Services\Ai\AgenticWorkcell\Support\AgenticWorkcellTopologyPolicySupport;',
             $hostSrc,
             'Host must import AgenticWorkcellTopologyPolicySupport',
         );
+        // Host keeps design-time topology/domain policy calls.
         foreach ([
             'AgenticWorkcellTopologyPolicySupport::objective',
             'AgenticWorkcellTopologyPolicySupport::normalizeDomain',
@@ -85,16 +90,26 @@ final class AgenticWorkcellTopologyPolicySupportTest extends TestCase
             'AgenticWorkcellTopologyPolicySupport::riskScore',
             'AgenticWorkcellTopologyPolicySupport::chooseTopology',
             'AgenticWorkcellTopologyPolicySupport::status',
-            'AgenticWorkcellTopologyPolicySupport::executionOrderTopologyMap',
-            'AgenticWorkcellTopologyPolicySupport::riskBand',
-            'AgenticWorkcellTopologyPolicySupport::scoreTopology',
             'AgenticWorkcellTopologyPolicySupport::sanitizePayload',
             'AgenticWorkcellTopologyPolicySupport::circuitBreakerReceipt',
             'AgenticWorkcellTopologyPolicySupport::claimPolicy',
-            'AgenticWorkcellTopologyPolicySupport::TOPOLOGIES',
         ] as $needle) {
             $this->assertStringContainsString($needle, $hostSrc, "Host must call {$needle}");
         }
+        // Artifact/admission peel + role roster consume the remaining topology helpers.
+        foreach ([
+            'AgenticWorkcellTopologyPolicySupport::executionOrderTopologyMap',
+            'AgenticWorkcellTopologyPolicySupport::scoreTopology',
+            'AgenticWorkcellTopologyPolicySupport::TOPOLOGIES',
+            'AgenticWorkcellTopologyPolicySupport::claimPolicy',
+        ] as $needle) {
+            $this->assertStringContainsString($needle, $designSrc, "DesignArtifactsSupport must call {$needle}");
+        }
+        $this->assertStringContainsString(
+            'AgenticWorkcellTopologyPolicySupport::riskBand',
+            $roleSrc,
+            'RoleContractSupport must call AgenticWorkcellTopologyPolicySupport::riskBand',
+        );
 
         foreach (self::PEELED_HOST_PRIVATES as $method) {
             $this->assertStringNotContainsString(
