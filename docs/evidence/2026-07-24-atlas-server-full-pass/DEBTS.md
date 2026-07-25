@@ -131,8 +131,8 @@
 - [ ] FileContext AURG target assertion residual (1 test)
 - [x] ClosedLoop stage / ResultLedger grade
 - [x] SkillScaffold frontmatter/body residual
-- [ ] AiWorker predicates/time residual
-- [ ] HubDelegators true map+__call residual
+- [x] AiWorker predicates/time residual
+- [x] HubDelegators same-name one-line compact (method_exists preserved; __call reserved for workbench)
 - [ ] PRE leave-Http (R103 staged)
 - [ ] Suite filter fatal: EliteExecutorKernel mock eventById signature (unrelated pre-existing)
 

@@ -62,6 +62,8 @@
 | ContextExpansionRenderSupport | 5 unit / 41 asserts; service 465→253 |
 | CommandOutcomeScoringSupport | 7 unit green; AWIS section 1373→1212 |
 | ForgeFastPathReportSanitizer | 17 unit / 60 asserts; service 1220→996 |
+| AiWorkerJobPredicates/Time/Git/Plan pure | 6 unit / 25 asserts; AiWorker 1983→1943 |
+| HubDelegators one-line compact | 340 tests / 1386 asserts; hub traits ~6044→3427 |
 | Decide operationalDecision + executionGraph | 39 unit green |
 | LedgerReplay agent/decision/inbox/kernel/SI | 22 unit green per step |
 | stringOption variants + LoadsNamedJson | 3+2 unit green |

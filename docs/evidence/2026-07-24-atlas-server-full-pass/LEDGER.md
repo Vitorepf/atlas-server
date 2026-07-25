@@ -8,6 +8,8 @@ execution: in_progress
 full_pass_commits: 197+
 rescan: FINDINGS-RESCAN-3
 recent:
+  - HubDelegators compact (~6044→3427)
+  - AiWorkerJobPredicates/Time/Git/Plan pure
   - ForgeFastPathReportSanitizer (1220→996)
   - CommandOutcomeScoringSupport (AWIS 1373→1212)
   - ContextExpansionRenderSupport (465→253)
@@ -17,8 +19,8 @@ recent:
   - ProjectStack + Forge Capacity/FastPath + Rivals dimension credits
   - SignalDetector DetectSupport + OI elevate wave
   - UnattendedLiveness + NamingPolicyRules
-unit_proof: FileContext 5; ClosedLoop 22; OI 51; Capacity 19; Rivals 15; SkillScaffold 7
-next: AiWorker predicates · HubDelegators map+__call · PRE staged
+unit_proof: HubDelegators 340/1386; AiWorker pure 6/25; FileContext 5; ClosedLoop 22; OI 51
+next: PRE staged · OpenBrain scalar fuse · remaining monstruos
 ```
 
 ## Progress summary
