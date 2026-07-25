@@ -9,6 +9,8 @@ full_pass_commits: 197+
 rescan: FINDINGS-RESCAN-3
 recent:
   - ProgrammingConsoleEnvelopeSupport (console 1442→1195; 10/60)
+  - SpecComposerBuildersSupport (1491→1082)
+  - ProgrammingConsoleEnvelopeSupport
   - CapabilityMaturityLevelCheckSupport
   - AiWorkerSupport residual pure peels
   - ExecutionOptimizationPolicySupport

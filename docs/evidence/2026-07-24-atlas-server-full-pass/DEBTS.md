@@ -133,6 +133,8 @@
 - [x] ExecutionOptimizationPolicySupport
 - [x] AiWorkerSupport residual pure (scout/steer/repair/mac)
 - [x] CapabilityMaturityLevelCheckSupport
+- [x] SpecComposerBuildersSupport
+- [x] ProgrammingConsoleEnvelopeSupport
 - [x] ProgrammingConsoleEnvelopeSupport (status/blocker/action/evidence/intent pure; console 1442→1195)
 
 - [x] RivalsOneShot dimension credit Support
