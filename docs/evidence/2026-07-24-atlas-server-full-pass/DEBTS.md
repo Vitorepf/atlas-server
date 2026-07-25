@@ -127,6 +127,7 @@
 - [x] CodeAttentionClassifier
 - [x] TaskFabricTemplateFarmSignalSupport
 - [x] CommitGovernancePureMappers
+- [x] ForgeProviderFallbackPolicySupport
 
 - [x] RivalsOneShot dimension credit Support
 - [x] ForgeProviderCapacityClassifier pure FSM
