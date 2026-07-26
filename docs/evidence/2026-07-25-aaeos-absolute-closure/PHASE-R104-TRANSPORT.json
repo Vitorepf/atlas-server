@@ -1,0 +1,57 @@
+{
+  "schema": "atlas.aaeos.absolute.phase_receipt.v1",
+  "phase": "R104-TRANSPORT",
+  "status": "LIVE_L2",
+  "residual_honest": true,
+  "real_provider_native_fc_transport_proven": true,
+  "path_core": {
+    "hermes_native_fc_attestor": true,
+    "atlas_apply_patch_declaration": true,
+    "tool_calls_lift_from_text": true,
+    "hermes_cli_provider_metadata_lift": true,
+    "port_passes_response_contract_to_job": true,
+    "decide_dev_capability_wire": true,
+    "config_gate": "atlas.ai.providers.hermes_cli.native_fc.enabled",
+    "unit_proof": "tests/Unit/Ai/Hermes/HermesNativeFunctionCallSupportTest.php + HermesNativeFcPortPackagingIntegrationTest.php + ProviderFabric in AsddSpineContractsTest"
+  },
+  "live_proofs": [
+    "SCRATCH-attempt/r104_live_proof.json",
+    "SCRATCH-attempt/hermes_z_raw.txt",
+    "SCRATCH-attempt/hermes_z_meta.json"
+  ],
+  "live_l2": {
+    "claim": "R104_LIVE_L2_PROVEN",
+    "hermes_binary": "/Users/vitorepf/.local/bin/hermes",
+    "hermes_returncode": 0,
+    "native_fc_enabled_for_run": true,
+    "response_contract_channel": "native_function_call",
+    "live_hermes_tool_calls_lifted": 1,
+    "first_tool": "atlas_apply_patch",
+    "packaging_status": "ok",
+    "response_channel": "native_function_call",
+    "patch_path": "SCRATCH_ONLY_PROBE.txt",
+    "contract_salvaged": false,
+    "note": "Real hermes -z produced tool_calls JSON; HermesNativeFunctionCallSupport + AgentExecutionProviderPortAdapter packaged patch_plan without salvage"
+  },
+  "residuals_closed": [
+    "capability attestor (config-gated, never model suffix)",
+    "declare atlas_apply_patch schema + prompt block",
+    "HermesCliProvider lift tool_calls into metadata",
+    "AgentExecutionProviderPortAdapter job hermes.lift_native_function_calls",
+    "Decide + EliteExecutorKernelDevAdapter capability forward",
+    "LIVE L2 hermes binary native_function_call packaging proven"
+  ],
+  "residuals_still_open": [],
+  "scoreboard_alignment": {
+    "absolute_scoreboard": "LIVE_L2 for R104-TRANSPORT",
+    "asdd_absolute_link": "same",
+    "live_green_forbidden_until_l2": false
+  },
+  "anti_liar": {
+    "model_suffix_fc_not_capability": true,
+    "acp_shell_edit_not_atlas_fc": true,
+    "default_channel_free_form_when_disabled": true,
+    "live_required_real_hermes_output": true
+  },
+  "notes": "R104 path-core + LIVE L2 proven with real Hermes binary tool_calls lift and port packaging."
+}

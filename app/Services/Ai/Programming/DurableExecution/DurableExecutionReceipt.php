@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\DurableExecution;
 
-
 /**
  * Programming Harness — Durable Execution Receipt (AP-285).
  *
@@ -44,7 +43,7 @@ final class DurableExecutionReceipt
 
     /**
      * @param  array<string,mixed>  $decision  The AP-284 decision envelope this receipt closes.
-     * @param  array<string,mixed>  $metrics   Runtime metrics (duration_ms, repair_attempts, etc).
+     * @param  array<string,mixed>  $metrics  Runtime metrics (duration_ms, repair_attempts, etc).
      * @return array{
      *   schema_version: string,
      *   ap_reference: string,

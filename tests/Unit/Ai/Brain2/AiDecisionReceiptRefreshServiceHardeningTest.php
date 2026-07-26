@@ -221,6 +221,35 @@ final class AiDecisionReceiptRefreshServiceHardeningTest extends TestCase
         });
     }
 
+    public function test_refresh_cannot_overwrite_a_v3_trace_promoted_after_the_job_was_loaded(): void
+    {
+        $this->withRefreshPersistence(function (): void {
+            $expiredTransport = ['receipt_v2' => $this->issuedV2('rcpt_refresh_closed_trace_race', CarbonImmutable::now()->subMinute())];
+            $trace = $this->persistedTrace($expiredTransport);
+            $job = $this->persistedJob($expiredTransport, $expiredTransport, $trace);
+            self::assertSame($expiredTransport, data_get($job->trace, 'metadata.decision_receipt'));
+
+            // Deterministic interleaving for the former refresh race: another
+            // writer promotes the trace after this job has its stale relation.
+            $promotedTraceTransport = [
+                'receipt_v3' => [
+                    'schema_version' => 'atlas.decide.v3',
+                    'receipt_id' => 'trace-v3-promoted-concurrently',
+                    'authority_revision' => 2,
+                ],
+            ];
+            $trace->forceFill([
+                'metadata' => ['decision_receipt' => $promotedTraceTransport],
+            ])->save();
+
+            self::assertFalse($this->service->canRefreshExpiredBeforeProviderCall($job));
+            self::assertNull($this->service->refreshExpiredBeforeProviderCall($job));
+            self::assertSame($promotedTraceTransport, data_get($trace->fresh(), 'metadata.decision_receipt'));
+            self::assertSame($expiredTransport, data_get($job->fresh(), 'metadata.decision_receipt'));
+            self::assertSame($expiredTransport, data_get($job->fresh(), 'payload.decision_receipt'));
+        });
+    }
+
     public function test_refresh_preserves_an_unknown_trace_transport_instead_of_overwriting_it(): void
     {
         $this->withRefreshPersistence(function (): void {

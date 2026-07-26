@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming;
 
-
 /**
  * Atlas Forge Provider Invocation Driver contract.
  *
@@ -35,7 +34,7 @@ interface AtlasForgeProviderInvocationDriver
     /**
      * Report runtime configuration status. NEVER calls an external provider.
      *
-     * @return array<string,mixed>  atlas.forge.provider_driver_config_status.v1
+     * @return array<string,mixed> atlas.forge.provider_driver_config_status.v1
      */
     public function configured(): array;
 
@@ -43,7 +42,7 @@ interface AtlasForgeProviderInvocationDriver
      * Plan a provider invocation. NEVER calls an external provider.
      *
      * @param  array<string,mixed>  $request
-     * @return array<string,mixed>  atlas.forge.provider_driver_plan.v1
+     * @return array<string,mixed> atlas.forge.provider_driver_plan.v1
      */
     public function plan(array $request): array;
 
@@ -53,7 +52,7 @@ interface AtlasForgeProviderInvocationDriver
      * the caller has confirmed all gates.
      *
      * @param  array<string,mixed>  $request
-     * @return array<string,mixed>  atlas.forge.provider_driver_result.v1
+     * @return array<string,mixed> atlas.forge.provider_driver_result.v1
      */
     public function invoke(array $request): array;
 }

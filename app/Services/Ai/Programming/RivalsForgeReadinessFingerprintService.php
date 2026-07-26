@@ -140,5 +140,4 @@ class RivalsForgeReadinessFingerprintService
 
         return $trimmed === '' ? $fallback : $trimmed;
     }
-
 }

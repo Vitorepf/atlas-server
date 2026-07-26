@@ -33,7 +33,7 @@ final class DurableExecutionRunner
      * the caller can persist each step into the Evidence Ledger.
      *
      * @param  array<string,mixed>  $snapshot  Work item snapshot.
-     * @param  string  $actor                  operator:|service:|agent:<id>
+     * @param  string  $actor  operator:|service:|agent:<id>
      * @return array{
      *   schema_version: string,
      *   preflight: array<string,mixed>,
@@ -71,7 +71,7 @@ final class DurableExecutionRunner
      * Close a durable run with a receipt of the outcome.
      *
      * @param  array<string,mixed>  $decision  The decision envelope from plan().
-     * @param  array<string,mixed>  $metrics   Runtime metrics.
+     * @param  array<string,mixed>  $metrics  Runtime metrics.
      */
     public function closeWithOutcome(string $outcome, array $decision, array $metrics = []): array
     {

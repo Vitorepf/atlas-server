@@ -7,7 +7,6 @@ namespace App\Services\Ai\Programming\AtlasDev;
 use App\Models\AtlasDevRunIndex;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
-use App\Services\Ai\Programming\AtlasDev\RunIndex\AtlasDevRunIndexEntry;
 use App\Services\Ai\Programming\AtlasDev\RunIndex\AtlasDevRunIndexRepository;
 
 /**
@@ -135,6 +134,7 @@ final class DevRunControlSnapshotService
             return [];
         }
         $decoded = json_decode((string) file_get_contents($path), true);
+
         return is_array($decoded) ? $decoded : [];
     }
 

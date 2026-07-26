@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Programming;
 
+use App\Services\Ai\RuntimeBoundary\SemanticRagRuntimeClient;
 use App\Services\Ai\Support\JsonFileStore;
 use Symfony\Component\Process\Process;
 
@@ -70,7 +71,7 @@ class ProgrammingPythonRuntimeExecutor
 
     /**
      * Resolve the Python interpreter for this runtime, mirroring
-     * {@see \App\Services\Ai\RuntimeBoundary\SemanticRagRuntimeClient}: prefer the
+     * {@see SemanticRagRuntimeClient}: prefer the
      * runtime's own `.venv/bin/python` (where any third-party deps live) when it
      * exists, otherwise fall back to the system `python3`. The programming_intelligence
      * runtime is pure-stdlib AST analysis, so it has no venv today and resolves to

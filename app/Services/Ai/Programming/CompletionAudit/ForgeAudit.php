@@ -2,6 +2,23 @@
 
 namespace App\Services\Ai\Programming\CompletionAudit;
 
+use App\Console\Commands\AtlasCodeForgeFastPathCommand;
+use App\Console\Commands\AtlasCodeForgeFastPathStatusCommand;
+use App\Console\Commands\AtlasCodeForgeReviewCommand;
+use App\Console\Commands\AtlasCodeForgeWorkIntakeCommand;
+use App\Console\Commands\AtlasForgeLiveExecuteCommand;
+use App\Http\Controllers\AtlasCodeForgeFastPathController;
+use App\Http\Controllers\AtlasCodeForgeFastPathStatusController;
+use App\Http\Controllers\AtlasCodeForgeReviewCompletionController;
+use App\Http\Controllers\AtlasCodeForgeWorkIntakeController;
+use App\Services\Ai\Programming\AtlasCodeForgeFastPathService;
+use App\Services\Ai\Programming\AtlasCodeForgeFastPathStatusService;
+use App\Services\Ai\Programming\AtlasCodeForgeReviewCompletionService;
+use App\Services\Ai\Programming\AtlasCodeForgeWorkIntakeService;
+use App\Services\Ai\Programming\AtlasForgeLiveExecutionService;
+use App\Services\Ai\Programming\AtlasForgeNativeRivalsCaseManifestService;
+use App\Services\Ai\Programming\AtlasForgeNativeRivalsDryRunService;
+use App\Services\Ai\Programming\AtlasForgeNativeRivalsPreflightService;
 use App\Services\Ai\Programming\AtlasForgeNativeRivalsProtocolService;
 
 class ForgeAudit
@@ -33,12 +50,11 @@ class ForgeAudit
 
     public function __construct(
         private readonly CompletionAuditSupport $support,
-        private readonly \App\Services\Ai\Programming\AtlasForgeNativeRivalsProtocolService $forgeNativeRivalsProtocol,
-        private readonly \App\Services\Ai\Programming\AtlasForgeNativeRivalsCaseManifestService $forgeNativeRivalsCaseManifest,
-        private readonly \App\Services\Ai\Programming\AtlasForgeNativeRivalsPreflightService $forgeNativeRivalsPreflight,
-        private readonly \App\Services\Ai\Programming\AtlasForgeNativeRivalsDryRunService $forgeNativeRivalsDryRun,
-    ) {
-    }
+        private readonly AtlasForgeNativeRivalsProtocolService $forgeNativeRivalsProtocol,
+        private readonly AtlasForgeNativeRivalsCaseManifestService $forgeNativeRivalsCaseManifest,
+        private readonly AtlasForgeNativeRivalsPreflightService $forgeNativeRivalsPreflight,
+        private readonly AtlasForgeNativeRivalsDryRunService $forgeNativeRivalsDryRun,
+    ) {}
 
     /**
      * @param  array<int,array<string,mixed>>  $checklist
@@ -79,8 +95,8 @@ class ForgeAudit
      */
     public function forgeLiveExecutionCertification(): array
     {
-        $serviceClass = \App\Services\Ai\Programming\AtlasForgeLiveExecutionService::class;
-        $commandClass = \App\Console\Commands\AtlasForgeLiveExecuteCommand::class;
+        $serviceClass = AtlasForgeLiveExecutionService::class;
+        $commandClass = AtlasForgeLiveExecuteCommand::class;
         $testFile = base_path('tests/Feature/Ai/Programming/AtlasForgeLiveExecutionTest.php');
         $docFile = base_path('docs/engineering-knowledge-base/atlas-forge-live-execution-e2e-v1.md');
 
@@ -172,12 +188,12 @@ class ForgeAudit
      */
     public function forgeFastPathCertification(): array
     {
-        $serviceClass = \App\Services\Ai\Programming\AtlasCodeForgeFastPathService::class;
-        $controllerClass = \App\Http\Controllers\AtlasCodeForgeFastPathController::class;
-        $commandClass = \App\Console\Commands\AtlasCodeForgeFastPathCommand::class;
-        $statusServiceClass = \App\Services\Ai\Programming\AtlasCodeForgeFastPathStatusService::class;
-        $statusControllerClass = \App\Http\Controllers\AtlasCodeForgeFastPathStatusController::class;
-        $statusCommandClass = \App\Console\Commands\AtlasCodeForgeFastPathStatusCommand::class;
+        $serviceClass = AtlasCodeForgeFastPathService::class;
+        $controllerClass = AtlasCodeForgeFastPathController::class;
+        $commandClass = AtlasCodeForgeFastPathCommand::class;
+        $statusServiceClass = AtlasCodeForgeFastPathStatusService::class;
+        $statusControllerClass = AtlasCodeForgeFastPathStatusController::class;
+        $statusCommandClass = AtlasCodeForgeFastPathStatusCommand::class;
         $testFile = base_path('tests/Feature/Ai/Programming/AtlasCodeForgeFastPathTest.php');
         $docFile = base_path('docs/engineering-knowledge-base/atlas-code-forge-fast-path-v1.md');
         $routesFile = base_path('routes/api.php');
@@ -337,9 +353,9 @@ class ForgeAudit
      */
     public function forgeReviewCompletionCertification(): array
     {
-        $serviceClass = \App\Services\Ai\Programming\AtlasCodeForgeReviewCompletionService::class;
-        $controllerClass = \App\Http\Controllers\AtlasCodeForgeReviewCompletionController::class;
-        $commandClass = \App\Console\Commands\AtlasCodeForgeReviewCommand::class;
+        $serviceClass = AtlasCodeForgeReviewCompletionService::class;
+        $controllerClass = AtlasCodeForgeReviewCompletionController::class;
+        $commandClass = AtlasCodeForgeReviewCommand::class;
         $testFile = base_path('tests/Feature/Ai/Programming/AtlasCodeForgeReviewCompletionTest.php');
         $docFile = base_path('docs/engineering-knowledge-base/atlas-code-forge-review-completion-gate-v1.md');
         $routesFile = base_path('routes/api.php');
@@ -590,9 +606,9 @@ class ForgeAudit
      */
     public function forgeWorkIntakeCertification(): array
     {
-        $serviceClass = \App\Services\Ai\Programming\AtlasCodeForgeWorkIntakeService::class;
-        $controllerClass = \App\Http\Controllers\AtlasCodeForgeWorkIntakeController::class;
-        $commandClass = \App\Console\Commands\AtlasCodeForgeWorkIntakeCommand::class;
+        $serviceClass = AtlasCodeForgeWorkIntakeService::class;
+        $controllerClass = AtlasCodeForgeWorkIntakeController::class;
+        $commandClass = AtlasCodeForgeWorkIntakeCommand::class;
         $testFile = base_path('tests/Feature/Ai/Programming/AtlasCodeForgeWorkIntakeTest.php');
         $docFile = base_path('docs/engineering-knowledge-base/atlas-code-forge-work-intake-spec-governance-v1.md');
         $routesFile = base_path('routes/api.php');
@@ -672,12 +688,24 @@ class ForgeAudit
         $desktopUiAvailable = $desktopTypesPresent && $desktopBridgePresent && $desktopHookPresent && $desktopPanelPresent && $tauriBridgePresent && $tauriCommandsPresent;
 
         $missingArtifacts = [];
-        if (! $serviceExists) $missingArtifacts[] = 'service_class_missing';
-        if (! $controllerExists) $missingArtifacts[] = 'controller_class_missing';
-        if (! $commandExists) $missingArtifacts[] = 'command_class_missing';
-        if (! $testExists) $missingArtifacts[] = 'test_file_missing';
-        if (! $docExists) $missingArtifacts[] = 'doc_file_missing';
-        if (! $apiRegistered) $missingArtifacts[] = 'api_not_registered';
+        if (! $serviceExists) {
+            $missingArtifacts[] = 'service_class_missing';
+        }
+        if (! $controllerExists) {
+            $missingArtifacts[] = 'controller_class_missing';
+        }
+        if (! $commandExists) {
+            $missingArtifacts[] = 'command_class_missing';
+        }
+        if (! $testExists) {
+            $missingArtifacts[] = 'test_file_missing';
+        }
+        if (! $docExists) {
+            $missingArtifacts[] = 'doc_file_missing';
+        }
+        if (! $apiRegistered) {
+            $missingArtifacts[] = 'api_not_registered';
+        }
 
         $missingMethods = $testCoverage['missing_methods'];
         $allInvariantsTrue = $businessRuleRequired && $acceptanceRequired && $canonicalDocsRequired

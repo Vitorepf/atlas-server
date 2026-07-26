@@ -1,0 +1,15 @@
+{
+    "schema": "atlas.r104.live_l2_proof.v1",
+    "native_fc_enabled": true,
+    "response_contract_channel": "native_function_call",
+    "hermes_binary": "/Users/vitorepf/.local/bin/hermes",
+    "hermes_returncode": 0,
+    "hermes_raw_bytes": 136,
+    "live_hermes_tool_calls_lifted": 1,
+    "first_tool": "atlas_apply_patch",
+    "packaging_status": "ok",
+    "response_channel": "native_function_call",
+    "patch_path": "SCRATCH_ONLY_PROBE.txt",
+    "contract_salvaged": false,
+    "claim": "R104_LIVE_L2_PROVEN"
+}

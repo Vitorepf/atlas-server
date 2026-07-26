@@ -2,6 +2,15 @@
 
 namespace App\Services\Ai\Programming\CompletionAudit\AtlasAudit;
 
+use App\Console\Commands\AtlasCodeEnterpriseCertifyCommand;
+use App\Console\Commands\AtlasForgeProviderCapacityCommand;
+use App\Console\Commands\AtlasForgeProviderFailureRecordCommand;
+use App\Console\Commands\AtlasForgeProviderInvokeCommand;
+use App\Http\Controllers\AtlasCodeEnterpriseCertificationController;
+use App\Http\Controllers\AtlasCodeForgeProviderCapacityController;
+use App\Http\Controllers\AtlasCodeForgeProviderInvocationController;
+use App\Models\AtlasProject;
+use App\Services\Ai\Programming\AtlasCodeEnterpriseCertificationService;
 use App\Services\Ai\Programming\AtlasForgeClaudeCliInvocationDriver;
 use App\Services\Ai\Programming\AtlasForgeCodexCliInvocationDriver;
 use App\Services\Ai\Programming\AtlasForgeContinuumCertificationService;
@@ -23,21 +32,20 @@ class ForgeSection
 {
     public function __construct(
         private readonly CompletionAuditSupport $support,
-        private readonly \App\Services\Ai\Programming\AtlasForgeContinuumCertificationService $forgeContinuumCertification,
-        private readonly \App\Services\Ai\Programming\AtlasForgeProviderCapacityService $forgeProviderCapacity,
-        private readonly \App\Services\Ai\Programming\AtlasForgeProviderFallbackPolicyService $forgeProviderFallbackPolicy,
-        private readonly \App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter $forgeProviderInvocationDriverRouter,
-    ) {
-    }
+        private readonly AtlasForgeContinuumCertificationService $forgeContinuumCertification,
+        private readonly AtlasForgeProviderCapacityService $forgeProviderCapacity,
+        private readonly AtlasForgeProviderFallbackPolicyService $forgeProviderFallbackPolicy,
+        private readonly AtlasForgeProviderInvocationDriverRouter $forgeProviderInvocationDriverRouter,
+    ) {}
 
     /**
      * @return array<string,mixed>
      */
     public function atlasCodeEnterpriseCertification(): array
     {
-        $serviceClass = \App\Services\Ai\Programming\AtlasCodeEnterpriseCertificationService::class;
-        $commandClass = \App\Console\Commands\AtlasCodeEnterpriseCertifyCommand::class;
-        $controllerClass = \App\Http\Controllers\AtlasCodeEnterpriseCertificationController::class;
+        $serviceClass = AtlasCodeEnterpriseCertificationService::class;
+        $commandClass = AtlasCodeEnterpriseCertifyCommand::class;
+        $controllerClass = AtlasCodeEnterpriseCertificationController::class;
         $testFile = base_path('tests/Feature/AtlasCodeContractTest.php');
         $docFile = base_path('docs/engineering-knowledge-base/atlas-code-enterprise-certification.md');
 
@@ -252,7 +260,7 @@ class ForgeSection
                 return null;
             }
 
-            $projects = \App\Models\AtlasProject::query()
+            $projects = AtlasProject::query()
                 ->orderByDesc('updated_at')
                 ->limit(50)
                 ->get(['id', 'metadata']);
@@ -326,11 +334,11 @@ class ForgeSection
             && is_file($capacityServiceFile);
         $memoryServicePresent = class_exists(AtlasForgeProviderFailureMemoryService::class)
             && is_file($memoryServiceFile);
-        $capacityCommandPresent = class_exists(\App\Console\Commands\AtlasForgeProviderCapacityCommand::class)
+        $capacityCommandPresent = class_exists(AtlasForgeProviderCapacityCommand::class)
             && is_file($capacityCommandFile);
-        $failureRecordCommandPresent = class_exists(\App\Console\Commands\AtlasForgeProviderFailureRecordCommand::class)
+        $failureRecordCommandPresent = class_exists(AtlasForgeProviderFailureRecordCommand::class)
             && is_file($failureCommandFile);
-        $controllerPresent = class_exists(\App\Http\Controllers\AtlasCodeForgeProviderCapacityController::class)
+        $controllerPresent = class_exists(AtlasCodeForgeProviderCapacityController::class)
             && is_file($controllerFile);
 
         $capacityApiPresent = $routesSource !== ''
@@ -533,9 +541,9 @@ class ForgeSection
                 && class_exists(AtlasForgeProviderInvocationPromptBuilder::class),
             'invocation_receipt_available' => $serviceSource !== ''
                 && str_contains($serviceSource, "RECEIPT_SCHEMA_VERSION = 'atlas.forge.provider_invocation_receipt.v1'"),
-            'invocation_command_present' => class_exists(\App\Console\Commands\AtlasForgeProviderInvokeCommand::class)
+            'invocation_command_present' => class_exists(AtlasForgeProviderInvokeCommand::class)
                 && is_file($commandFile),
-            'invocation_controller_present' => class_exists(\App\Http\Controllers\AtlasCodeForgeProviderInvocationController::class)
+            'invocation_controller_present' => class_exists(AtlasCodeForgeProviderInvocationController::class)
                 && is_file($controllerFile),
             'state_projection_available' => $workControllerSource !== ''
                 && str_contains($workControllerSource, "'forge_provider_invocation' =>")
@@ -699,8 +707,8 @@ class ForgeSection
             'command_allowlist_present' => is_file($allowlistFile) && class_exists(AtlasForgeProviderCommandAllowlistService::class),
             'safe_process_runner_present' => is_file($runnerFile) && class_exists(AtlasForgeProviderProcessRunner::class),
             'failure_classifier_present' => is_file($classifierFile) && class_exists(AtlasForgeProviderInvocationFailureClassifier::class),
-            'driver_status_cli_available' => $commandSource !== '' && str_contains($commandSource, "--driver-status"),
-            'driver_plan_cli_available' => $commandSource !== '' && str_contains($commandSource, "--plan-driver"),
+            'driver_status_cli_available' => $commandSource !== '' && str_contains($commandSource, '--driver-status'),
+            'driver_plan_cli_available' => $commandSource !== '' && str_contains($commandSource, '--plan-driver'),
             'driver_status_api_available' => $routesSource !== '' && str_contains($routesSource, '/forge/provider-invocations/drivers')
                 && $controllerSource !== '' && str_contains($controllerSource, 'public function drivers('),
             'driver_plan_api_available' => $routesSource !== '' && str_contains($routesSource, '/forge/provider-invocations/plan-driver')
@@ -721,7 +729,7 @@ class ForgeSection
                 && str_contains($serviceSource, 'BLOCKER_DECISION_RECEIPT_REQUIRED'),
             'output_hashing_supported' => $serviceSource !== '' && str_contains($serviceSource, 'stdout_hash'),
             'timeout_supported' => $serviceSource !== '' && str_contains($serviceSource, 'STATUS_TIMED_OUT'),
-            'failure_memory_recorded_on_provider_error' => class_exists(\App\Services\Ai\Programming\AtlasForgeProviderFailureMemoryService::class),
+            'failure_memory_recorded_on_provider_error' => class_exists(AtlasForgeProviderFailureMemoryService::class),
             'ledger_events_supported' => $serviceSource !== '' && str_contains($serviceSource, 'EVENT_SUBTYPE_STARTED'),
             'provider_driver_missing_preserved' => is_file($routerFile)
                 && str_contains((string) file_get_contents($routerFile), "BLOCKER_PROVIDER_DRIVER_MISSING = 'provider_driver_missing'"),

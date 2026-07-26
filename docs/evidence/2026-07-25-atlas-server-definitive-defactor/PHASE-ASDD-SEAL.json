@@ -1,0 +1,64 @@
+{
+  "schema": "atlas.asdd.seal.v1",
+  "phase": "ASDD-SEAL",
+  "status": "GREEN_ABSOLUTE_MASTER",
+  "sealed_at": "2026-07-25T21:25:00Z",
+  "absolute_master_done": true,
+  "axes": {
+    "E0_aaeos_freeze": "GREEN_inherited",
+    "E1_absolute": {
+      "r104_path_law": "GREEN",
+      "r104_transport_path_core": "GREEN",
+      "r104_transport_live_l2": "GREEN",
+      "cutover_v3_live": "GREEN",
+      "r103_public_formal_matrix": "NOT_CLAIMED",
+      "r103_public_live_di": "GREEN",
+      "r103_pre_operate_path": "GREEN",
+      "r103_pre_full_family_delete": "NOT_CLAIMED_characterization_suite_retained"
+    },
+    "E2_structural": {
+      "p_exec_live_di": "GREEN",
+      "p_exec_pre_operate_path": "GREEN",
+      "p_queue": "GREEN",
+      "p_provider": "GREEN",
+      "services_http_operate_path": "GREEN",
+      "note": "Live DI Kernel + CompactSDD guard; operate-path Services no controller imports"
+    },
+    "E3_super": {
+      "s_eng": "wired_qos_law",
+      "s_provider_fabric": "wired_capability_route",
+      "s_context": "wired_pack_for",
+      "s_land_learn": "wired_report",
+      "s_operator": "wired_snapshot",
+      "s_world": "NOT_CLAIMED",
+      "facade_only": false
+    },
+    "E4_scoreboard30": "FILLED_NO_SILENT_BLANK"
+  },
+  "residuals_still_open_env_only": [],
+  "residuals_closed_not_green_code": [],
+  "attempt_evidence": {
+    "r104_live": "docs/evidence/2026-07-25-aaeos-absolute-closure/SCRATCH-attempt/r104_live_proof.json",
+    "cutover_live": "docs/evidence/2026-07-25-aaeos-absolute-closure/SCRATCH-attempt/cutover_live_proof.json",
+    "pre_operate_path": "docs/evidence/2026-07-25-aaeos-absolute-closure/SCRATCH-attempt/pre_retire.txt",
+    "services_http": "docs/evidence/2026-07-25-aaeos-absolute-closure/SCRATCH-attempt/services_http_imports.txt",
+    "asdd_tests": "docs/evidence/2026-07-25-aaeos-absolute-closure/SCRATCH-attempt/asdd_tests.log",
+    "run_executor": "docs/evidence/2026-07-25-aaeos-absolute-closure/SCRATCH-attempt/run_executor.txt"
+  },
+  "anti_goodhart": true,
+  "false_100_percent_claim": false,
+  "alignment": {
+    "absolute_scoreboard": "docs/evidence/2026-07-25-aaeos-absolute-closure/SCOREBOARD.md",
+    "phase_r104": "LIVE_L2",
+    "asdd_absolute_link": "same story"
+  },
+  "live_proofs": [
+    "tests/Unit/Architecture/AsddSpineContractsTest.php",
+    "tests/Unit/Architecture/ServicesMustNotImportHttpControllersTest.php",
+    "tests/Feature/Ai/Programming/AtlasDev/Http/PipelineRunExecutorHttpSmokeTest.php",
+    "tests/Feature/Ai/Aaeos/AaeosDecisionReceiptCutoverContractTest.php",
+    "app/Http/Controllers/AtlasDev/Support/CompactSddIntegrityGuard.php",
+    "tests/Unit/Ai/Hermes/HermesNativeFunctionCallSupportTest.php",
+    "tests/Unit/Ai/Hermes/HermesNativeFcPortPackagingIntegrationTest.php"
+  ]
+}

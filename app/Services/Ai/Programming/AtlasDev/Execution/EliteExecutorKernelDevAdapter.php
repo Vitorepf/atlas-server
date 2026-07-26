@@ -194,6 +194,10 @@ final readonly class EliteExecutorKernelDevAdapter implements DevKernelExecution
                 'response_contract' => $plan->result->taskContract->providerLock->responseContractFor(
                     $plan->result->compactSdd->taskKind,
                     $intent->rawGoal,
+                    \App\Services\Ai\Hermes\HermesNativeFcCapabilityAttestor::capabilitiesFor(
+                        $plan->result->taskContract->providerLock->provider,
+                        $plan->result->taskContract->providerLock->modelFamily,
+                    ),
                 ),
             ],
             'mutate' => $intent->mutate,

@@ -1,0 +1,13 @@
+{
+  "schema": "atlas.asdd.phase_receipt.v1",
+  "phase": "D1",
+  "status": "GREEN",
+  "residuals_closed": [
+    "empty AcosMax/Cognitive dirs removed",
+    "PRE import soft-fix Hermes/Forge drivers"
+  ],
+  "residuals_still_open": [
+    "ACDE empty dir forest",
+    "dead code full pass"
+  ]
+}

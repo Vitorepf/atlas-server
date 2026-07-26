@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Intelligence;
 
-
 /**
  * E1 — Outcome of the optional LLM-as-judge adversarial sub-layer for the
  * intent-falsification detector.

@@ -2,7 +2,6 @@
 
 namespace App\Services\Ai\Programming\Forge;
 
-
 /**
  * Canonical enums and defaults for `atlas.forge.work_packet_execution_cycle.v1`.
  *

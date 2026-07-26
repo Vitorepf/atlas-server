@@ -1,0 +1,5 @@
+=== cutover preflight 2026-07-25T19:12:50Z ===
+ATLAS_CUTOVER_V3_LIVE=absent
+ATLAS_AI_CUTOVER_V3_ENABLED=absent
+ATLAS_SERVER_CUTOVER_KEY=absent
+cutover=NOT_CLAIMED keys absent

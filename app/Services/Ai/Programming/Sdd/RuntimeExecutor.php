@@ -68,6 +68,7 @@ class RuntimeExecutor
             }
             if ($workspace === null) {
                 $written[] = $path; // Dry-run when no workspace declared.
+
                 continue;
             }
             $absolute = $workspace.'/'.ltrim($path, '/');

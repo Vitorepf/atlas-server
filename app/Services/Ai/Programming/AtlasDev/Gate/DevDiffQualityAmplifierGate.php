@@ -36,17 +36,25 @@ final class DevDiffQualityAmplifierGate
 {
     public const SCHEMA = 'atlas.dev.diff_quality_amplifier_gate.v1';
 
-    public const VERDICT_PASS  = 'pass';
-    public const VERDICT_WARN  = 'warn';
+    public const VERDICT_PASS = 'pass';
+
+    public const VERDICT_WARN = 'warn';
+
     public const VERDICT_BLOCK = 'block';
 
-    public const FINDING_SCOPE_RESPECT         = 'scope_respect';
-    public const FINDING_WIP_PROTECTION        = 'wip_protection';
-    public const FINDING_DIFF_MINIMALITY       = 'diff_minimality';
-    public const FINDING_CALLER_COVERAGE       = 'caller_coverage';
-    public const FINDING_TEST_RELEVANCE        = 'test_relevance';
+    public const FINDING_SCOPE_RESPECT = 'scope_respect';
+
+    public const FINDING_WIP_PROTECTION = 'wip_protection';
+
+    public const FINDING_DIFF_MINIMALITY = 'diff_minimality';
+
+    public const FINDING_CALLER_COVERAGE = 'caller_coverage';
+
+    public const FINDING_TEST_RELEVANCE = 'test_relevance';
+
     public const FINDING_OVERENGINEERING_SMELL = 'overengineering_smell';
-    public const FINDING_INTERNAL_ERROR        = 'internal_error';
+
+    public const FINDING_INTERNAL_ERROR = 'internal_error';
 
     private const DEFAULT_LINE_BUDGET = 10;
 
@@ -66,10 +74,10 @@ final class DevDiffQualityAmplifierGate
             return $this->evaluateInternal($proposedDiff, $workcell, $manifest);
         } catch (Throwable $e) {
             return [
-                'schema'   => self::SCHEMA,
-                'verdict'  => self::VERDICT_WARN,
+                'schema' => self::SCHEMA,
+                'verdict' => self::VERDICT_WARN,
                 'findings' => [[
-                    'id'      => self::FINDING_INTERNAL_ERROR,
+                    'id' => self::FINDING_INTERNAL_ERROR,
                     'message' => $e->getMessage(),
                 ]],
             ];
@@ -100,10 +108,10 @@ final class DevDiffQualityAmplifierGate
         $scopeVerdict = $guard->evaluate($filePaths, $allowedFiles, $forbiddenFiles);
         if (($scopeVerdict['decision'] ?? '') === AtlasDevScopeGuardService::DECISION_DENY) {
             $findings[] = [
-                'id'            => self::FINDING_SCOPE_RESPECT,
-                'severity'      => self::VERDICT_BLOCK,
+                'id' => self::FINDING_SCOPE_RESPECT,
+                'severity' => self::VERDICT_BLOCK,
                 'denied_writes' => (array) ($scopeVerdict['denied_writes'] ?? []),
-                'reason'        => 'proposed diff touches file(s) outside the workcell scope',
+                'reason' => 'proposed diff touches file(s) outside the workcell scope',
             ];
         }
 
@@ -122,10 +130,10 @@ final class DevDiffQualityAmplifierGate
         }
         if ($wipOverlaps !== []) {
             $findings[] = [
-                'id'       => self::FINDING_WIP_PROTECTION,
+                'id' => self::FINDING_WIP_PROTECTION,
                 'severity' => self::VERDICT_BLOCK,
-                'files'    => array_values(array_unique($wipOverlaps)),
-                'reason'   => 'diff overlaps uncommitted changes this run did not author',
+                'files' => array_values(array_unique($wipOverlaps)),
+                'reason' => 'diff overlaps uncommitted changes this run did not author',
             ];
         }
 
@@ -142,11 +150,11 @@ final class DevDiffQualityAmplifierGate
         $lineBudget = max(1, (int) ($workcell['objective_line_budget'] ?? self::DEFAULT_LINE_BUDGET));
         if ($totalChangedLines > $lineBudget * self::MINIMALITY_MULTIPLIER) {
             $findings[] = [
-                'id'                 => self::FINDING_DIFF_MINIMALITY,
-                'severity'           => self::VERDICT_WARN,
+                'id' => self::FINDING_DIFF_MINIMALITY,
+                'severity' => self::VERDICT_WARN,
                 'total_changed_lines' => $totalChangedLines,
                 'objective_line_budget' => $lineBudget,
-                'reason'             => 'changed lines far exceed the objective slice',
+                'reason' => 'changed lines far exceed the objective slice',
             ];
         }
 
@@ -195,19 +203,19 @@ final class DevDiffQualityAmplifierGate
         }
         if ($uncoveredCallers !== []) {
             $findings[] = [
-                'id'                => self::FINDING_CALLER_COVERAGE,
-                'severity'          => self::VERDICT_WARN,
+                'id' => self::FINDING_CALLER_COVERAGE,
+                'severity' => self::VERDICT_WARN,
                 'uncovered_callers' => $uncoveredCallers,
-                'reason'            => 'a changed public method has a known caller left untouched and untested',
+                'reason' => 'a changed public method has a known caller left untouched and untested',
             ];
         }
 
         // ── test_relevance (warn) — production symbols changed, no test exercises them. ──
         if ($changedPublicMethods !== [] && (! $hasTestFile || array_intersect($changedPublicMethods, $exercisedSymbols) === [])) {
             $findings[] = [
-                'id'       => self::FINDING_TEST_RELEVANCE,
+                'id' => self::FINDING_TEST_RELEVANCE,
                 'severity' => self::VERDICT_WARN,
-                'reason'   => 'the diff changes production symbols with no test exercising them',
+                'reason' => 'the diff changes production symbols with no test exercising them',
             ];
         }
 
@@ -230,10 +238,10 @@ final class DevDiffQualityAmplifierGate
         }
         if ($smells !== []) {
             $findings[] = [
-                'id'       => self::FINDING_OVERENGINEERING_SMELL,
+                'id' => self::FINDING_OVERENGINEERING_SMELL,
                 'severity' => self::VERDICT_WARN,
-                'smells'   => $smells,
-                'reason'   => 'speculative abstraction with no second consumer',
+                'smells' => $smells,
+                'reason' => 'speculative abstraction with no second consumer',
             ];
         }
 
@@ -250,8 +258,8 @@ final class DevDiffQualityAmplifierGate
         }
 
         return [
-            'schema'   => self::SCHEMA,
-            'verdict'  => $verdict,
+            'schema' => self::SCHEMA,
+            'verdict' => $verdict,
             'findings' => $findings,
         ];
     }

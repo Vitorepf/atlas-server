@@ -2023,6 +2023,15 @@ return [
                 // diff-0) é tratado como fallback-required → cai no CLI provado, com razão
                 // auditável. Default ON; permite reativar o transporte acp warm com segurança.
                 'acp_empty_output_fallback' => (bool) env('ATLAS_AI_HERMES_ACP_EMPTY_OUTPUT_FALLBACK', true),
+                // R104-TRANSPORT: when true, Hermes surfaces may advertise the
+                // native_function_call capability (transport attestation — never
+                // model-name suffix). Atlas declares atlas_apply_patch and lifts
+                // structured tool_calls from Hermes output into provider metadata
+                // for AgentExecutionProviderPortAdapter packaging. Default OFF so
+                // free_form remains the honest live channel until LIVE proof.
+                'native_fc' => [
+                    'enabled' => (bool) env('ATLAS_AI_HERMES_NATIVE_FC_ENABLED', false),
+                ],
                 // Non-interactive one-shot CLI mode. `hermes chat` is the INTERACTIVE
                 // subcommand and blocks waiting on input without a TTY — the exact hang
                 // that stalled the autonomous loop (every grind ate the full attempt

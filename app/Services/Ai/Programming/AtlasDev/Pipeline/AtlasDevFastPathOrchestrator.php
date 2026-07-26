@@ -9,6 +9,7 @@ use App\Services\Ai\EngineeringKernel\Spec\IntentEnvelope;
 use App\Services\Ai\EngineeringKernel\Spec\SpecAdversary;
 use App\Services\Ai\EngineeringKernel\Spec\SpecDraft;
 use App\Services\Ai\EngineeringKernel\TrustLevel;
+use App\Services\Ai\Kernel\Procedural\AtlasProceduralPlaybookDevBridge;
 use App\Services\Ai\Programming\AtlasDev\Discovery\CodeDiscoveryEngine;
 use App\Services\Ai\Programming\AtlasDev\Discovery\DevContextBudgetDistiller;
 use App\Services\Ai\Programming\AtlasDev\Discovery\DevGreenRunExemplarRetriever;
@@ -207,13 +208,13 @@ class AtlasDevFastPathOrchestrator
         // measurably need it.
         try {
             if (! app()->runningUnitTests()) {
-                $playbookLines = app(\App\Services\Ai\Kernel\Procedural\AtlasProceduralPlaybookDevBridge::class)
+                $playbookLines = app(AtlasProceduralPlaybookDevBridge::class)
                     ->injectionLinesForTask($envelope->runId, $classification->taskKind);
                 if ($playbookLines !== []) {
                     $knownFailureModes = array_merge($knownFailureModes, $playbookLines);
                 }
             }
-        } catch (\Throwable) {
+        } catch (Throwable) {
             // fail-open: procedural injection never breaks planning.
         }
 
@@ -332,12 +333,12 @@ class AtlasDevFastPathOrchestrator
     private function stages(): array
     {
         return [
-            'discovery_enrichment'       => fn (array $state): array => $this->stageDiscoveryEnrichment($state),
-            'aemor_outcome_bridge'       => fn (array $state): array => $this->stageAemorOutcomeBridge($state),
+            'discovery_enrichment' => fn (array $state): array => $this->stageDiscoveryEnrichment($state),
+            'aemor_outcome_bridge' => fn (array $state): array => $this->stageAemorOutcomeBridge($state),
             'context_budget_distillation' => fn (array $state): array => $this->stageContextBudgetDistillation($state),
-            'exemplar_retrieval'         => fn (array $state): array => $this->stageExemplarRetrieval($state),
-            'verification_receipts'      => fn (array $state): array => $this->stageVerificationReceipts($state),
-            'workcell_decomposition'     => fn (array $state): array => $this->stageWorkcellDecomposition($state),
+            'exemplar_retrieval' => fn (array $state): array => $this->stageExemplarRetrieval($state),
+            'verification_receipts' => fn (array $state): array => $this->stageVerificationReceipts($state),
+            'workcell_decomposition' => fn (array $state): array => $this->stageWorkcellDecomposition($state),
         ];
     }
 
@@ -933,8 +934,8 @@ class AtlasDevFastPathOrchestrator
 
     /**
      * @param  array<string,mixed>  $decomposition  DevWorkcellDecomposer::decompose() output
-     * @param  array<string,mixed>  $spec           MiniProgrammingSpec::toCanonicalArray()
-     * @param  array<string,mixed>  $distillation   DevContextBudgetDistiller::distill() output
+     * @param  array<string,mixed>  $spec  MiniProgrammingSpec::toCanonicalArray()
+     * @param  array<string,mixed>  $distillation  DevContextBudgetDistiller::distill() output
      * @return array{schema:string, instructions:list<array{workcell_id:string, instruction_text:string, sections:list<string>, char_count:int}>}
      */
     private function assembleWorkcellInstructions(array $decomposition, array $spec, string $taskKind, array $distillation, ?string $workspaceHash = null, ?string $originHash = null): array

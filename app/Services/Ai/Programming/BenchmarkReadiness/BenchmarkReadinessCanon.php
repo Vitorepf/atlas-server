@@ -2,7 +2,6 @@
 
 namespace App\Services\Ai\Programming\BenchmarkReadiness;
 
-
 /**
  * Canonical enums for the Atlas Programming Benchmark Readiness Harness.
  *

@@ -207,6 +207,7 @@ class AtlasRivalsRunOrchestrator
                 'reason' => 'no_heartbeat_within_budget',
                 'budget_seconds' => $stallBudgetSeconds,
             ]);
+
             return $this->finalize($runId, $readinessFingerprint, self::VERDICT_STALLED_RUNNER, [
                 'provider_result' => $providerResult,
             ]);

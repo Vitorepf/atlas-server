@@ -6,6 +6,7 @@ namespace App\Services\Ai\Programming;
 
 use App\Services\Ai\LongHorizon\AtlasTeosFinalCertificationService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\CertificationScaffoldHelpers;
 use Carbon\CarbonImmutable;
 use Throwable;
 
@@ -25,7 +26,7 @@ use Throwable;
  */
 final class DevForgeRobustFlowCertificationService
 {
-    use \App\Services\Ai\Support\CertificationScaffoldHelpers;
+    use CertificationScaffoldHelpers;
 
     public const SCHEMA_VERSION = 'atlas.programming.dev_forge_robust_flow_certification.v1';
 

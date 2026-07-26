@@ -4,15 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming;
 
-use App\Http\Controllers\AtlasCodeCheckpointController;
-use App\Http\Controllers\AtlasCodeForgeExecutionController;
-use App\Http\Controllers\AtlasCodeForgeReviewController;
-use App\Http\Controllers\AtlasCodeProgrammingWorkItemController;
-use App\Http\Controllers\AtlasCodeWorkController;
 use App\Models\AtlasProject;
 use App\Services\Ai\Support\DatabaseTableAvailability;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
@@ -22,8 +15,9 @@ use Throwable;
  * Product-level Atlas Code certification.
  *
  * This creates an ephemeral Obra + Forge workspace and drives the same
- * product endpoints/controllers the desktop uses. It proves the heavy
- * programming loop without paid/external providers.
+ * product application services the desktop path uses (no Http Controller
+ * imports — ASDD D4). It proves the heavy programming loop without
+ * paid/external providers.
  */
 class AtlasCodeEnterpriseCertificationService
 {
@@ -95,15 +89,14 @@ class AtlasCodeEnterpriseCertificationService
                 'requires_obra' => true,
             ];
 
-            $binding = $this->call(AtlasCodeProgrammingWorkItemController::class, 'store', [
-                'request' => $this->post('/atlas-code/works/'.$project->getKey().'/programming/work-items', [
-                    'intent' => 'certificar Atlas Code enterprise pesado com Obra, Forge, review, promotion, rollback e checkpoint',
-                    'mode' => 'structural',
-                    'risk' => 'high',
-                    'owner' => 'atlas-code-certification',
-                ]),
-                'project' => $project->refresh(),
-            ]);
+            $bindingRaw = app(ProgrammingWorkItemBindingService::class)->bindOrCreate(
+                $project->refresh(),
+                intent: 'certificar Atlas Code enterprise pesado com Obra, Forge, review, promotion, rollback e checkpoint',
+                owner: 'atlas-code-certification',
+                mode: 'structural',
+                risk: 'high',
+            );
+            $binding = $this->fromService($bindingRaw['http_status'] ?? 500, (array) ($bindingRaw['payload'] ?? []));
             $workItemId = (string) data_get($binding['json'], 'work_item.id', '');
             $workItemCode = (string) data_get($binding['json'], 'work_item.code', '');
             $stages[] = $this->stageFromResponse('work_item_binding', $binding, [
@@ -119,8 +112,10 @@ class AtlasCodeEnterpriseCertificationService
                 ]);
             }
 
-            $compiled = $this->call(AtlasCodeProgrammingWorkItemController::class, 'compileSpecPlan', [
-                'request' => $this->post('/atlas-code/works/'.$project->getKey().'/programming/work-items/'.$workItemId.'/spec', [
+            $compiledRaw = app(ProgrammingWorkItemSpecPlanService::class)->compile(
+                $project->refresh(),
+                $workItemId,
+                [
                     'likely_files' => [
                         $targetFile,
                         'docs/engineering-knowledge-base/atlas-code-forge-live-execution-surface-contract.md',
@@ -134,10 +129,9 @@ class AtlasCodeEnterpriseCertificationService
                     ],
                     'evidence_required' => ['forge_live_execution', 'forge_workspace_promotion', 'forge_workspace_rollback'],
                     'context_stack' => 'atlas_code_enterprise',
-                ]),
-                'project' => $project->refresh(),
-                'workItem' => $workItemId,
-            ]);
+                ],
+            );
+            $compiled = $this->fromService($compiledRaw['http_status'] ?? 500, (array) ($compiledRaw['payload'] ?? []));
             $stages[] = $this->stageFromResponse('spec_plan_task_queue', $compiled, [
                 'spec_hash' => data_get($compiled['json'], 'spec_hash'),
                 'plan_hash' => data_get($compiled['json'], 'plan_hash'),
@@ -152,11 +146,7 @@ class AtlasCodeEnterpriseCertificationService
                 ]);
             }
 
-            /** @var AtlasForgeLiveExecutionService $liveService */
-            $liveService = app(AtlasForgeLiveExecutionService::class);
-            /** @var AtlasCodeForgeExecutionController $executionController */
-            $executionController = app(AtlasCodeForgeExecutionController::class);
-            $live = $executionController->executeAndPersist($project->refresh(), $liveService, false);
+            $live = app(ForgeLiveExecutionApplicationService::class)->executeSync($project->refresh(), false);
             $governed = (array) data_get($live, 'snapshot.governed_execution', []);
             $stages[] = [
                 'name' => 'forge_live_execution_governed',
@@ -199,10 +189,8 @@ class AtlasCodeEnterpriseCertificationService
                 ]);
             }
 
-            $replay = $this->call(AtlasCodeForgeExecutionController::class, 'showHistory', [
-                'project' => $project->refresh(),
-                'historyId' => $historyId,
-            ]);
+            $replayRaw = app(ForgeLiveExecutionApplicationService::class)->showHistory($project->refresh(), $historyId);
+            $replay = $this->fromService($replayRaw['status'] ?? 500, (array) ($replayRaw['payload'] ?? []));
             $stages[] = $this->stageFromResponse('history_replay_read_only', $replay, [
                 'history_id' => $historyId,
                 'read_only' => data_get($replay['json'], 'replay.read_only'),
@@ -212,14 +200,13 @@ class AtlasCodeEnterpriseCertificationService
                 && data_get($json, 'snapshot_available') === true
                 && data_get($json, 'replay.external_provider_call') === false);
 
-            $review = $this->call(AtlasCodeForgeReviewController::class, 'store', [
-                'request' => $this->post('/atlas-code/works/'.$project->getKey().'/forge/reviews', [
-                    'decision' => 'approved',
-                    'history_id' => $historyId,
-                    'comment' => 'Atlas Code enterprise certification promotion',
-                ]),
-                'project' => $project->refresh(),
-            ]);
+            $reviewRaw = app(ForgeReviewApplicationService::class)->store(
+                $project->refresh(),
+                decision: 'approved',
+                historyId: $historyId,
+                comment: 'Atlas Code enterprise certification promotion',
+            );
+            $review = $this->fromService($reviewRaw['status'] ?? 500, (array) ($reviewRaw['payload'] ?? []));
             $promotionId = (string) data_get($review['json'], 'review.promotion.promotion_id', '');
             $stages[] = $this->stageFromResponse('human_review_promotion', $review, [
                 'review_status' => data_get($review['json'], 'review.status'),
@@ -240,13 +227,12 @@ class AtlasCodeEnterpriseCertificationService
                 ]);
             }
 
-            $rollback = $this->call(AtlasCodeForgeReviewController::class, 'rollback', [
-                'request' => $this->post('/atlas-code/works/'.$project->getKey().'/forge/promotions/'.$promotionId.'/rollback', [
-                    'comment' => 'Atlas Code enterprise certification rollback',
-                ]),
-                'project' => $project->refresh(),
-                'promotionId' => $promotionId,
-            ]);
+            $rollbackRaw = app(ForgeReviewApplicationService::class)->rollback(
+                $project->refresh(),
+                $promotionId,
+                comment: 'Atlas Code enterprise certification rollback',
+            );
+            $rollback = $this->fromService($rollbackRaw['status'] ?? 500, (array) ($rollbackRaw['payload'] ?? []));
             $rollbackHash = is_file($absoluteTarget) ? hash_file('sha256', $absoluteTarget) : null;
             $rollbackRestored = $rollbackHash === $initialHash
                 && is_file($absoluteTarget)
@@ -263,12 +249,11 @@ class AtlasCodeEnterpriseCertificationService
                 $blockers[] = 'governed_rollback_failed';
             }
 
-            $checkpoint = $this->call(AtlasCodeCheckpointController::class, 'store', [
-                'request' => $this->post('/atlas-code/works/'.$project->getKey().'/checkpoints', [
-                    'reason' => 'atlas_code_enterprise_certification',
-                ]),
-                'project' => $project->refresh(),
-            ]);
+            $checkpointRaw = app(AtlasCodeCheckpointApplicationService::class)->store(
+                $project->refresh(),
+                'atlas_code_enterprise_certification',
+            );
+            $checkpoint = $this->fromService($checkpointRaw['status'] ?? 500, (array) ($checkpointRaw['payload'] ?? []));
             $stages[] = $this->stageFromResponse('checkpoint_resume', $checkpoint, [
                 'checkpoint_id' => data_get($checkpoint['json'], 'checkpoint.checkpoint_id'),
                 'resume_ready' => data_get($checkpoint['json'], 'checkpoint.resume.resume_ready'),
@@ -403,33 +388,22 @@ class AtlasCodeEnterpriseCertificationService
      */
     private function state(AtlasProject $project): array
     {
-        $response = $this->call(AtlasCodeWorkController::class, 'state', [
-            'project' => $project,
-        ]);
+        $response = app(AtlasCodeWorkStateApplicationService::class)->state($project);
 
-        return (array) ($response['json'] ?? []);
-    }
-
-    private function post(string $path, array $payload): Request
-    {
-        return Request::create($path, 'POST', $payload);
+        return (array) ($response['payload'] ?? []);
     }
 
     /**
-     * @param  class-string  $controller
-     * @param  array<string,mixed>  $parameters
+     * Normalize application-service HTTP-shaped results for stage helpers.
+     *
+     * @param  array<string,mixed>  $json
      * @return array{status_code:int,json:array<string,mixed>,ok:bool}
      */
-    private function call(string $controller, string $method, array $parameters): array
+    private function fromService(int $statusCode, array $json): array
     {
-        /** @var JsonResponse $response */
-        $response = app()->call([app($controller), $method], $parameters);
-        $statusCode = $response->getStatusCode();
-        $json = json_decode((string) $response->getContent(), true);
-
         return [
             'status_code' => $statusCode,
-            'json' => is_array($json) ? $json : [],
+            'json' => $json,
             'ok' => $statusCode >= 200 && $statusCode < 300,
         ];
     }

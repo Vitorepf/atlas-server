@@ -64,7 +64,7 @@ final class SafetyUxChecks
         ];
     }
 
-/**
+    /**
      * @return array<string,mixed>
      */
     private function checkUxNoLegacyStrings(): array
@@ -129,7 +129,7 @@ final class SafetyUxChecks
         ];
     }
 
-/**
+    /**
      * @return array<string,mixed>
      */
     private function checkUxAdvancedDetailsCollapsed(): array
@@ -171,7 +171,7 @@ final class SafetyUxChecks
         ];
     }
 
-/**
+    /**
      * V6 Regression Wall · garante que a função `humanizeOverlayError`
      * canônica continua viva e exportada do módulo isolado
      * (`voxOverlayHumanize.ts`). Se ela for removida, mensagens cruas do
@@ -255,7 +255,7 @@ final class SafetyUxChecks
         ];
     }
 
-/**
+    /**
      * @return array<string,mixed>
      */
     private function checkSafetyNoTerminalAutoExecute(): array
@@ -300,7 +300,7 @@ final class SafetyUxChecks
         ];
     }
 
-/**
+    /**
      * @return array<string,mixed>
      */
     private function checkSafetyR4Blocks(): array
@@ -349,7 +349,7 @@ final class SafetyUxChecks
         ];
     }
 
-/**
+    /**
      * @return array<string,mixed>
      */
     private function checkSafetyReceiptRequired(): array
@@ -386,7 +386,7 @@ final class SafetyUxChecks
         ];
     }
 
-/**
+    /**
      * @return array<string,mixed>
      */
     private function checkSafetyReplyHelper(): array

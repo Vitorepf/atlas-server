@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Programming;
 
+use App\Services\Ai\RuntimeBoundary\SemanticRagRuntimeClient;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 
@@ -11,7 +12,7 @@ use Illuminate\Support\Str;
  * HONESTY CONTRACT (runtime_language_boundary canon): this index is a
  * bag-of-words token-count cosine — it is NOT semantic and computes NO learned
  * embeddings. The canon forbids labelling token overlap "semantic". Real
- * embeddings live behind {@see \App\Services\Ai\RuntimeBoundary\SemanticRagRuntimeClient}
+ * embeddings live behind {@see SemanticRagRuntimeClient}
  * (the Python runtime). This class is intentionally kept ONLY as a fast lexical
  * pre-filter that narrows candidates before the deterministic reranker; every
  * ref it emits is therefore labelled `lexical_token_overlap`, never `semantic`.

@@ -6,6 +6,9 @@ namespace App\Services\Ai\Vox\Gate\Checks;
 
 use App\Services\Ai\Vox\Interlocutor\VoxInterlocutorPolicy;
 use App\Services\Ai\Vox\Routing\VoxAutoModeRouter;
+use App\Services\Ai\Vox\VoxIntentExtractor;
+use App\Services\Ai\Vox\VoxPromptCompiler;
+use App\Services\Ai\Vox\VoxPromptPolisher;
 use App\Services\Ai\Vox\VoxSchema;
 
 /**
@@ -44,7 +47,7 @@ final class BackendChecks
         ];
     }
 
-/**
+    /**
      * @return array<string,mixed>
      */
     private function checkBackendEndpointsRegistered(): array
@@ -83,7 +86,7 @@ final class BackendChecks
         ];
     }
 
-/**
+    /**
      * @return array<string,mixed>
      */
     private function checkV4AutoModeAvailable(): array
@@ -123,7 +126,7 @@ final class BackendChecks
         ];
     }
 
-/**
+    /**
      * @return array<string,mixed>
      */
     private function checkV5InterlocutorAvailable(): array
@@ -171,7 +174,7 @@ final class BackendChecks
         ];
     }
 
-/**
+    /**
      * @return array<string,mixed>
      */
     private function checkDogfoodEndpointOk(): array
@@ -211,7 +214,7 @@ final class BackendChecks
         ];
     }
 
-/**
+    /**
      * @return array<string,mixed>
      */
     private function checkNoRawAudioPersisted(): array
@@ -250,7 +253,7 @@ final class BackendChecks
         ];
     }
 
-/**
+    /**
      * @return array<string,mixed>
      */
     private function checkNoPaidApiDependency(): array
@@ -297,7 +300,7 @@ final class BackendChecks
         ];
     }
 
-/**
+    /**
      * @return array<string,mixed>
      */
     private function checkNoVoiceRealtimeTouched(): array
@@ -330,7 +333,7 @@ final class BackendChecks
         ];
     }
 
-/**
+    /**
      * @return array<string,mixed>
      */
     private function checkNoMobileTouched(): array
@@ -364,7 +367,7 @@ final class BackendChecks
         ];
     }
 
-/**
+    /**
      * V6-ES-C · Prompt Quality Baseline.
      *
      * Sanity check determinístico: compila 4 vozes canônicas e verifica que
@@ -377,11 +380,11 @@ final class BackendChecks
     private function checkPromptQualityBaseline(): array
     {
         try {
-            $polisher = new \App\Services\Ai\Vox\VoxPromptPolisher();
-            $extractor = new \App\Services\Ai\Vox\VoxIntentExtractor($polisher);
-            $compiler = new \App\Services\Ai\Vox\VoxPromptCompiler();
+            $polisher = new VoxPromptPolisher;
+            $extractor = new VoxIntentExtractor($polisher);
+            $compiler = new VoxPromptCompiler;
 
-            $canonical = \App\Services\Ai\Vox\VoxPromptCompiler::CANONICAL_SECTIONS;
+            $canonical = VoxPromptCompiler::CANONICAL_SECTIONS;
             $universalVetoes = [
                 'Não execute comandos de terminal sozinho.',
                 'Não use API paga, não chame provider remoto que cobre por uso.',
@@ -459,7 +462,7 @@ final class BackendChecks
         }
     }
 
-/**
+    /**
      * V6-FPG-B · invoca o `selfCheck` determinístico do compiler em 5
      * vozes canônicas e exige:
      *   - score ≥ 0.8 em cada uma
@@ -474,9 +477,9 @@ final class BackendChecks
     private function checkPromptSelfCheckScore(): array
     {
         try {
-            $polisher = new \App\Services\Ai\Vox\VoxPromptPolisher();
-            $extractor = new \App\Services\Ai\Vox\VoxIntentExtractor($polisher);
-            $compiler = new \App\Services\Ai\Vox\VoxPromptCompiler();
+            $polisher = new VoxPromptPolisher;
+            $extractor = new VoxIntentExtractor($polisher);
+            $compiler = new VoxPromptCompiler;
 
             $voices = [
                 'codex_diagnostic_with_constraint' => 'Codex, investiga o erro do hotkey no VoxOverlay, mas não toque no VoxEvidenceService.',
@@ -508,6 +511,7 @@ final class BackendChecks
                 $sc = $compiled['quality_self_check'] ?? null;
                 if (! is_array($sc)) {
                     $failures[] = "$label: selfCheck ausente";
+
                     continue;
                 }
                 $perVoice[$label] = [

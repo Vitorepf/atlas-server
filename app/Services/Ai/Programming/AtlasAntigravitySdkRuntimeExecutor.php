@@ -19,8 +19,11 @@ use Throwable;
 class AtlasAntigravitySdkRuntimeExecutor
 {
     public const STATUS_COMPLETED = 'completed';
+
     public const STATUS_FAILED = 'failed';
+
     public const STATUS_TIMED_OUT = 'timed_out';
+
     public const STATUS_BLOCKED = 'blocked';
 
     /** @var callable|null */

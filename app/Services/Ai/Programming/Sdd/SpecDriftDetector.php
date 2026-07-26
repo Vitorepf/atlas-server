@@ -3,7 +3,6 @@
 namespace App\Services\Ai\Programming\Sdd;
 
 use App\Models\AtlasOperation;
-use App\Models\AtlasRequirement;
 use App\Models\AtlasSddDriftReport;
 use App\Models\AtlasSddTask;
 use App\Models\AtlasSpec;
@@ -27,7 +26,7 @@ use App\Models\AtlasSpecTraceability;
 class SpecDriftDetector
 {
     /**
-     * @return array<string,mixed>  the persisted DriftReport payload (atlas.sdd_drift.v1)
+     * @return array<string,mixed> the persisted DriftReport payload (atlas.sdd_drift.v1)
      */
     public function inspect(AtlasSpec $spec, ?AtlasOperation $operation = null, string $source = 'manual'): array
     {

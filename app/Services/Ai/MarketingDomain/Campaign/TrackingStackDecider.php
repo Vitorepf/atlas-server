@@ -9,6 +9,7 @@ use App\Services\Ai\MarketingDomain\Knowledge\MarketingPlaybook;
  * TrackingStackDecider — the tracking-setup skill. Recommends the tracker tier (by click throughput),
  * the conversion-delay window for data exclusions, and the attribution approach by channel — from the
  * real Nivor volume. Deterministic.
+ *
  * @unwired-until 2026-08-05 (Obra #7 W2: capability testada aguardando consumidor; triagem 2026-07-06)
  */
 class TrackingStackDecider

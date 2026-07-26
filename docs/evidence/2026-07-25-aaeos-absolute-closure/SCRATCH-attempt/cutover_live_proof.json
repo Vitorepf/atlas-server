@@ -1,0 +1,13 @@
+{
+    "schema": "atlas.cutover.v3_live_proof.v1",
+    "cutover_enabled": true,
+    "app_key_ready": true,
+    "v3_present": true,
+    "signed_by": "atlas.decide.v3-cutover",
+    "has_authority_signature": true,
+    "signature_matches": true,
+    "effect_allowed": true,
+    "schema_version": "atlas.decide.v3",
+    "receipt_id": "cutover-live-proof-6a6528b47ea2f",
+    "claim": "CUTOVER_V3_LIVE_PROVEN"
+}

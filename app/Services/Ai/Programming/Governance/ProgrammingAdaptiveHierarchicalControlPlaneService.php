@@ -422,8 +422,7 @@ class ProgrammingAdaptiveHierarchicalControlPlaneService
         array $forge,
         array $predictive,
         array $twin,
-    ): array
-    {
+    ): array {
         $followUps = [];
 
         if (data_get($live, 'event_stream.count', 0) === 0) {

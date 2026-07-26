@@ -4,13 +4,15 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Pipeline;
 
+use App\Services\Ai\Programming\AtlasDev\Schemas\CodeDiscoveryManifest;
+use App\Services\Ai\Programming\AtlasDev\Schemas\MiniProgrammingSpec;
 use Throwable;
 
 /**
  * Gives Atlas Dev real workcell decomposition so a model always receives a small, provable unit
  * instead of one giant undifferentiated diff. Pure, deterministic: given the composed
- * {@see \App\Services\Ai\Programming\AtlasDev\Schemas\MiniProgrammingSpec} payload and the
- * {@see \App\Services\Ai\Programming\AtlasDev\Schemas\CodeDiscoveryManifest} payload, it clusters
+ * {@see MiniProgrammingSpec} payload and the
+ * {@see CodeDiscoveryManifest} payload, it clusters
  * `allowed_files` by directory and splits `acceptance_criteria` along those clusters.
  *
  * COMMON CASE (zero overhead): a spec whose allowed_files live in ONE directory cluster yields

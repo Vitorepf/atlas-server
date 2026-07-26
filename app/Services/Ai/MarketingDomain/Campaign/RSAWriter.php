@@ -14,7 +14,7 @@ class RSAWriter
     public function __construct(private readonly MarketingPlaybook $playbook = new MarketingPlaybook) {}
 
     /**
-     * @param  array<string,mixed>  $adGroup   name, theme, terms[]
+     * @param  array<string,mixed>  $adGroup  name, theme, terms[]
      * @param  array<string,mixed>  $adAssets  extracted headlines[]/descriptions[]
      * @return array<string,mixed>
      */

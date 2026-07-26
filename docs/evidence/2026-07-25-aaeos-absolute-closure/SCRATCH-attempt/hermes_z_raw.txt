@@ -1,0 +1,2 @@
+{"tool_calls":[{"name":"atlas_apply_patch","arguments":{"path":"SCRATCH_ONLY_PROBE.txt","mode":"create","next":"r104-live-probe\n"}}]}
+

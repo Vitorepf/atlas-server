@@ -1,0 +1,6 @@
+=== R104 LIVE attempt 2026-07-25T19:12:50Z ===
+/Users/vitorepf/.local/bin/hermes
+ATLAS_AI_HERMES_NATIVE_FC_ENABLED=unset
+native_fc={"enabled":false}
+channel=native_function_call
+live_l2=NOT_CLAIMED env/operator after attempt

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\DurableExecution;
 
-
 /**
  * Programming Harness — Durable Execution Handoff Packet (AP-286).
  *
@@ -36,7 +35,7 @@ final class DurableExecutionHandoffPacket
 
     /**
      * @param  array<string,mixed>  $preflight  Envelope from DurableExecutionPreflight.
-     * @param  array<string,mixed>  $decision   Envelope from DurableExecutionDecisionContract.
+     * @param  array<string,mixed>  $decision  Envelope from DurableExecutionDecisionContract.
      * @return array{
      *   schema_version: string,
      *   ap_reference: string,
@@ -92,5 +91,4 @@ final class DurableExecutionHandoffPacket
 
         return $packet;
     }
-
 }

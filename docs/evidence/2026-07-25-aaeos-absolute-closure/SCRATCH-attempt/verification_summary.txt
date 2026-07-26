@@ -1,0 +1,30 @@
+=== verification plan 2026-07-25T19:12:50Z ===
+1 seal residuals_closed_not_green_code:
+[]
+2 run_executor:
+App\Http\Controllers\AtlasDev\Support\KernelRunExecutor
+3 asdd tests: see asdd_tests.log + pre_smoke_after_port.log (7/7 smoke, 17 architecture+hermes)
+4 services_http:
+=== operate-path controller imports ===
+ZERO imports (clean)
+5 pre_retire:
+=== PRE operate-path 2026-07-25T19:12:22Z ===
+7:use App\Http\Controllers\AtlasDev\Support\KernelRunExecutor;
+92:        $this->app->bind(RunExecutor::class, KernelRunExecutor::class);
+(none production)
+compact_sdd guard on Kernel:
+28: * via {@see CompactSddIntegrityGuard} (same 422 mapping as legacy PRE).
+35:        private readonly CompactSddIntegrityGuard $compactSdd,
+47:        $this->compactSdd->resolveTaskKindAndRiskLevel($runId, $expectedCompactSddHash);
+6 r104:
+/Users/vitorepf/.local/bin/hermes
+ATLAS_AI_HERMES_NATIVE_FC_ENABLED=unset
+native_fc={"enabled":false}
+channel=native_function_call
+live_l2=NOT_CLAIMED env/operator after attempt
+7 cutover:
+=== cutover preflight 2026-07-25T19:12:50Z ===
+ATLAS_CUTOVER_V3_LIVE=absent
+ATLAS_AI_CUTOVER_V3_ENABLED=absent
+ATLAS_SERVER_CUTOVER_KEY=absent
+cutover=NOT_CLAIMED keys absent

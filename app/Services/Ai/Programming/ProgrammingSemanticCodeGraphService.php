@@ -9,6 +9,7 @@ use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
+use Symfony\Component\Finder\Finder;
 use Throwable;
 
 class ProgrammingSemanticCodeGraphService
@@ -293,7 +294,7 @@ class ProgrammingSemanticCodeGraphService
 
         $dirs = [];
         foreach (['app', 'src', 'tests', 'docs'] as $subDir) {
-            $fullPath = $workspace . DIRECTORY_SEPARATOR . $subDir;
+            $fullPath = $workspace.DIRECTORY_SEPARATOR.$subDir;
             if (is_dir($fullPath)) {
                 $dirs[] = $fullPath;
             }
@@ -304,7 +305,7 @@ class ProgrammingSemanticCodeGraphService
         }
 
         try {
-            $finder = (new \Symfony\Component\Finder\Finder())
+            $finder = (new Finder)
                 ->files()
                 ->in($dirs)
                 ->exclude(['vendor', 'node_modules', 'storage', '.git'])

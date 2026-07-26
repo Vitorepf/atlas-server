@@ -20,7 +20,7 @@ class DescriptorMatrixForge
 
     /**
      * @param  array<int,string>  $categories  categoria/órgão coined pela VSL (fungus, anti fungal, nail, brain, prostate)
-     * @param  array<int,string>  $forms       forma-fator (pen, applicator, drops, pill, serum, solution)
+     * @param  array<int,string>  $forms  forma-fator (pen, applicator, drops, pill, serum, solution)
      * @param  array<int,string>|null  $intents
      * @return array<int,string>
      */

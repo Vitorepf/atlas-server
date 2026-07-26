@@ -4,7 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming;
 
+use App\Console\Commands\AtlasForgeContinuumCertifyCommand;
+use App\Console\Commands\AtlasForgeProviderInvokeCommand;
+use App\Console\Commands\AtlasForgeRuntimeDispatchCommand;
 use App\Models\AtlasProject;
+use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
+use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
@@ -29,10 +34,15 @@ class AtlasForgeContinuumCertificationService
     public const SCHEMA_VERSION = 'atlas.forge_continuum_certification.v1';
 
     public const STATUS_AVAILABLE = 'available';
+
     public const STATUS_BACKEND_AVAILABLE_UI_PENDING = 'backend_available_ui_pending';
+
     public const STATUS_AVAILABLE_WITHOUT_OBRA_CONTEXT = 'available_without_obra_context';
+
     public const STATUS_BLOCKED_OBRA_REQUIRED = 'blocked_obra_required_for_runtime_projection';
+
     public const STATUS_MISSING_ARTIFACTS = 'missing_artifacts';
+
     public const STATUS_BLOCKED = 'blocked';
 
     /** @var list<string> Canonical invariants this block must report. */
@@ -259,15 +269,16 @@ class AtlasForgeContinuumCertificationService
         $completionAuditFile = $repoRoot.'/app/Services/Ai/Programming/ProgrammingProfessionalCompletionAuditService.php';
         $providerTopologyFile = $repoRoot.'/app/Services/Ai/Programming/AtlasForgeProviderTopologyService.php';
 
-        $repairExecutorClass = \App\Services\Ai\Programming\ProgrammingRepairExecutor::class;
-        $reviewServiceClass = \App\Services\Ai\Programming\AtlasCodeForgeReviewCompletionService::class;
-        $workIntakeServiceClass = \App\Services\Ai\Programming\AtlasCodeForgeWorkIntakeService::class;
-        $fastPathServiceClass = \App\Services\Ai\Programming\AtlasCodeForgeFastPathService::class;
-        $liveExecutionServiceClass = \App\Services\Ai\Programming\AtlasForgeLiveExecutionService::class;
-        $reviewControllerClass = \App\Http\Controllers\AtlasCodeForgeReviewController::class;
-        $evidencePackServiceClass = \App\Services\Ai\Programming\AtlasRivalsEvidencePackService::class;
-        $evidenceLedgerClass = \App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger::class;
-        $ledgerEventTypeClass = \App\Services\Ai\Kernel\Evidence\LedgerEventType::class;
+        $repairExecutorClass = ProgrammingRepairExecutor::class;
+        $reviewServiceClass = AtlasCodeForgeReviewCompletionService::class;
+        $workIntakeServiceClass = AtlasCodeForgeWorkIntakeService::class;
+        $fastPathServiceClass = AtlasCodeForgeFastPathService::class;
+        $liveExecutionServiceClass = AtlasForgeLiveExecutionService::class;
+        // String FQCN only — continuum cert must not import Http Controllers (ASDD D4).
+        $reviewControllerClass = 'App\\Http\\Controllers\\AtlasCodeForgeReviewController';
+        $evidencePackServiceClass = AtlasRivalsEvidencePackService::class;
+        $evidenceLedgerClass = AtlasEvidenceLedger::class;
+        $ledgerEventTypeClass = LedgerEventType::class;
 
         $workControllerSource = is_file($workControllerFile) ? (string) file_get_contents($workControllerFile) : '';
         $auditSource = is_file($completionAuditFile) ? (string) file_get_contents($completionAuditFile) : '';
@@ -303,7 +314,7 @@ class AtlasForgeContinuumCertificationService
 
         return [
             'doc_mother_present' => is_file($docMother),
-            'atlas_code_forge_only' => class_exists(\App\Services\Ai\Programming\AtlasForgeRuntimeCertificationService::class),
+            'atlas_code_forge_only' => class_exists(AtlasForgeRuntimeCertificationService::class),
             'obra_required' => $this->fileContains($workControllerFile, 'obra')
                 && class_exists($fastPathServiceClass)
                 && $noSilentObraCreation,
@@ -337,7 +348,7 @@ class AtlasForgeContinuumCertificationService
                 && class_exists($reviewControllerClass)
                 && is_file($reviewDoc),
             'repair_loop_preserved' => class_exists($repairExecutorClass)
-                && class_exists(\App\Services\Ai\Programming\ProgrammingRepairAttemptStore::class),
+                && class_exists(ProgrammingRepairAttemptStore::class),
             'evidence_pack_available' => class_exists($evidencePackServiceClass)
                 && is_file($repoRoot.'/docs/engineering-knowledge-base/atlas-rivals-evidence-pack-replay-manifest-v1.md'),
             'evidence_ledger_refs_supported' => class_exists($evidenceLedgerClass)
@@ -348,12 +359,12 @@ class AtlasForgeContinuumCertificationService
             'no_external_provider_call' => true,
             'no_silent_obra_creation' => $noSilentObraCreation,
             'completion_audit_block_available' => $completionAuditBlockAvailable,
-            'runtime_dispatch_service_available' => class_exists(\App\Services\Ai\Programming\AtlasForgeRuntimeDispatchService::class)
+            'runtime_dispatch_service_available' => class_exists(AtlasForgeRuntimeDispatchService::class)
                 && is_file($repoRoot.'/app/Services/Ai/Programming/AtlasForgeRuntimeDispatchService.php'),
             'runtime_dispatch_endpoint_registered' => $this->fileContains(
                 $repoRoot.'/routes/api.php',
                 '/forge/runtime-dispatch',
-            ) && class_exists(\App\Http\Controllers\AtlasCodeForgeRuntimeDispatchController::class),
+            ) && class_exists('App\\Http\\Controllers\\AtlasCodeForgeRuntimeDispatchController'),
             'runtime_dispatch_static_policy_blocked' => $this->fileContains(
                 $repoRoot.'/app/Services/Ai/Programming/AtlasForgeRuntimeDispatchService.php',
                 "BLOCKER_LIVE_DECIDE_REQUIRED = 'live_decide_receipt_required'",
@@ -363,17 +374,17 @@ class AtlasForgeContinuumCertificationService
                 'createChildReceipt',
             ) && $this->fileContains(
                 $repoRoot.'/app/Services/Ai/Programming/AtlasForgeRuntimeDispatchService.php',
-                "atlas.forge.child_decision_receipt.v1",
+                'atlas.forge.child_decision_receipt.v1',
             ),
-            'provider_invocation_service_available' => class_exists(\App\Services\Ai\Programming\AtlasForgeProviderInvocationService::class)
+            'provider_invocation_service_available' => class_exists(AtlasForgeProviderInvocationService::class)
                 && is_file($repoRoot.'/app/Services/Ai/Programming/AtlasForgeProviderInvocationService.php'),
-            'provider_invocation_command_registered' => class_exists(\App\Console\Commands\AtlasForgeProviderInvokeCommand::class),
+            'provider_invocation_command_registered' => class_exists(AtlasForgeProviderInvokeCommand::class),
             'provider_invocation_endpoint_registered' => $this->fileContains(
                 $repoRoot.'/routes/api.php',
                 '/forge/provider-invocations',
-            ) && class_exists(\App\Http\Controllers\AtlasCodeForgeProviderInvocationController::class),
-            'provider_invocation_driver_router_available' => class_exists(\App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter::class),
-            'provider_invocation_prompt_builder_available' => class_exists(\App\Services\Ai\Programming\AtlasForgeProviderInvocationPromptBuilder::class),
+            ) && class_exists('App\\Http\\Controllers\\AtlasCodeForgeProviderInvocationController'),
+            'provider_invocation_driver_router_available' => class_exists(AtlasForgeProviderInvocationDriverRouter::class),
+            'provider_invocation_prompt_builder_available' => class_exists(AtlasForgeProviderInvocationPromptBuilder::class),
             'provider_invocation_dry_run_mode_available' => $this->fileContains(
                 $repoRoot.'/app/Services/Ai/Programming/AtlasForgeProviderInvocationService.php',
                 "MODE_DRY_RUN = 'dry_run'",
@@ -450,12 +461,12 @@ class AtlasForgeContinuumCertificationService
                 'present' => class_exists(AtlasForgeProviderFallbackPolicyService::class),
             ],
             'continuum_certify_command' => [
-                'class' => \App\Console\Commands\AtlasForgeContinuumCertifyCommand::class,
-                'present' => class_exists(\App\Console\Commands\AtlasForgeContinuumCertifyCommand::class),
+                'class' => AtlasForgeContinuumCertifyCommand::class,
+                'present' => class_exists(AtlasForgeContinuumCertifyCommand::class),
             ],
             'provider_topology_controller' => [
-                'class' => \App\Http\Controllers\AtlasCodeForgeProviderTopologyController::class,
-                'present' => class_exists(\App\Http\Controllers\AtlasCodeForgeProviderTopologyController::class),
+                'class' => 'App\\Http\\Controllers\\AtlasCodeForgeProviderTopologyController',
+                'present' => class_exists('App\\Http\\Controllers\\AtlasCodeForgeProviderTopologyController'),
             ],
             'state_projection' => [
                 'path' => 'app/Http/Controllers/AtlasCodeWorkController.php',
@@ -502,40 +513,40 @@ class AtlasForgeContinuumCertificationService
                 'present' => is_file($repoRoot.'/tests/Feature/Ai/Programming/AtlasForgeProviderTopologyTest.php'),
             ],
             'runtime_dispatch_service' => [
-                'class' => \App\Services\Ai\Programming\AtlasForgeRuntimeDispatchService::class,
-                'present' => class_exists(\App\Services\Ai\Programming\AtlasForgeRuntimeDispatchService::class),
+                'class' => AtlasForgeRuntimeDispatchService::class,
+                'present' => class_exists(AtlasForgeRuntimeDispatchService::class),
             ],
             'runtime_dispatch_command' => [
-                'class' => \App\Console\Commands\AtlasForgeRuntimeDispatchCommand::class,
-                'present' => class_exists(\App\Console\Commands\AtlasForgeRuntimeDispatchCommand::class),
+                'class' => AtlasForgeRuntimeDispatchCommand::class,
+                'present' => class_exists(AtlasForgeRuntimeDispatchCommand::class),
             ],
             'runtime_dispatch_controller' => [
-                'class' => \App\Http\Controllers\AtlasCodeForgeRuntimeDispatchController::class,
-                'present' => class_exists(\App\Http\Controllers\AtlasCodeForgeRuntimeDispatchController::class),
+                'class' => 'App\\Http\\Controllers\\AtlasCodeForgeRuntimeDispatchController',
+                'present' => class_exists('App\\Http\\Controllers\\AtlasCodeForgeRuntimeDispatchController'),
             ],
             'test_runtime_dispatch' => [
                 'path' => 'tests/Feature/Ai/Programming/AtlasForgeRuntimeDispatchTest.php',
                 'present' => is_file($repoRoot.'/tests/Feature/Ai/Programming/AtlasForgeRuntimeDispatchTest.php'),
             ],
             'provider_invocation_service' => [
-                'class' => \App\Services\Ai\Programming\AtlasForgeProviderInvocationService::class,
-                'present' => class_exists(\App\Services\Ai\Programming\AtlasForgeProviderInvocationService::class),
+                'class' => AtlasForgeProviderInvocationService::class,
+                'present' => class_exists(AtlasForgeProviderInvocationService::class),
             ],
             'provider_invocation_driver_router' => [
-                'class' => \App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter::class,
-                'present' => class_exists(\App\Services\Ai\Programming\AtlasForgeProviderInvocationDriverRouter::class),
+                'class' => AtlasForgeProviderInvocationDriverRouter::class,
+                'present' => class_exists(AtlasForgeProviderInvocationDriverRouter::class),
             ],
             'provider_invocation_prompt_builder' => [
-                'class' => \App\Services\Ai\Programming\AtlasForgeProviderInvocationPromptBuilder::class,
-                'present' => class_exists(\App\Services\Ai\Programming\AtlasForgeProviderInvocationPromptBuilder::class),
+                'class' => AtlasForgeProviderInvocationPromptBuilder::class,
+                'present' => class_exists(AtlasForgeProviderInvocationPromptBuilder::class),
             ],
             'provider_invocation_command' => [
-                'class' => \App\Console\Commands\AtlasForgeProviderInvokeCommand::class,
-                'present' => class_exists(\App\Console\Commands\AtlasForgeProviderInvokeCommand::class),
+                'class' => AtlasForgeProviderInvokeCommand::class,
+                'present' => class_exists(AtlasForgeProviderInvokeCommand::class),
             ],
             'provider_invocation_controller' => [
-                'class' => \App\Http\Controllers\AtlasCodeForgeProviderInvocationController::class,
-                'present' => class_exists(\App\Http\Controllers\AtlasCodeForgeProviderInvocationController::class),
+                'class' => 'App\\Http\\Controllers\\AtlasCodeForgeProviderInvocationController',
+                'present' => class_exists('App\\Http\\Controllers\\AtlasCodeForgeProviderInvocationController'),
             ],
             'test_provider_invocation' => [
                 'path' => 'tests/Feature/Ai/Programming/AtlasForgeProviderInvocationTest.php',
@@ -582,5 +593,4 @@ class AtlasForgeContinuumCertificationService
 
         return rtrim(base_path(), '/');
     }
-
 }

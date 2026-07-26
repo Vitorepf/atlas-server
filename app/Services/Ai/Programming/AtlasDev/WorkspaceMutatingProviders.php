@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev;
 
-
 /**
  * Canonical, single-source list of Atlas Dev providers that edit the worktree
  * DIRECTLY (in-place workspace mutation), as opposed to returning a text diff

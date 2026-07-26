@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Escalation;
 
-
 /**
  * Deterministic 0..10 escalation score (doc principal §20 "Forge Escalation").
  *

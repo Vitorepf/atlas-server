@@ -33,6 +33,7 @@ final class AtlasCodeProgrammingWorkItemController extends Controller
         Request $request,
         AtlasProject $project,
         ProgrammingGovernanceService $governance,
+        \App\Services\Ai\Programming\ProgrammingWorkItemBindingService $binding,
     ): JsonResponse {
         $data = $request->validate([
             'intent' => ['nullable', 'string', 'max:2000'],
@@ -42,40 +43,17 @@ final class AtlasCodeProgrammingWorkItemController extends Controller
             'risk' => ['nullable', Rule::in(['low', 'medium', 'high', 'critical'])],
         ]);
 
-        $existing = $this->existingWorkItem($project);
-        if ($existing) {
-            return response()->json($this->responsePayload($project, $governance, $existing, created: false));
-        }
+        // Thin HTTP adapter: business binding lives in ProgrammingWorkItemBindingService (ASDD D4).
+        $result = $binding->bindOrCreate(
+            $project,
+            is_string($data['intent'] ?? null) ? $data['intent'] : null,
+            is_string($data['owner'] ?? null) ? $data['owner'] : null,
+            is_string($data['type'] ?? null) ? $data['type'] : null,
+            is_string($data['mode'] ?? null) ? $data['mode'] : null,
+            is_string($data['risk'] ?? null) ? $data['risk'] : null,
+        );
 
-        $intent = $this->intentFor($project, is_string($data['intent'] ?? null) ? $data['intent'] : null);
-        if ($intent === '') {
-            return response()->json([
-                'schema_version' => 'atlas.code.programming_work_item_binding_response.v1',
-                'work_id' => (string) $project->getKey(),
-                'created' => false,
-                'status' => 'blocked',
-                'error' => 'programming_intent_required',
-            'route_decision' => \App\Services\Ai\DualCore\CanonicalRouteDecisionEnvelope::emit(route: 'programming', reason: 'http_atlas_code_programming_work_item_controller'),
-        ], 422);
-        }
-
-        $workspace = trim((string) data_get($project->metadata, 'workspace_path', ''));
-        $snapshot = $governance->intake($intent, array_filter([
-            'owner' => $data['owner'] ?? 'atlas-code',
-            'type' => $data['type'] ?? null,
-            'mode' => $data['mode'] ?? null,
-            'risk' => $data['risk'] ?? null,
-            'workspace' => $workspace !== '' ? $workspace : null,
-        ], static fn (mixed $value): bool => $value !== null && $value !== ''));
-
-        $workItem = AtlasProgrammingWorkItem::query()->findOrFail((string) $snapshot['id']);
-        $workItem->forceFill([
-            'metadata_json' => $this->workItemMetadata($project, (array) $workItem->metadata_json),
-        ])->save();
-
-        $this->rememberBinding($project, $workItem);
-
-        return response()->json($this->responsePayload($project->refresh(), $governance, $workItem->refresh(), created: true), 201);
+        return response()->json($result['payload'], (int) $result['http_status']);
     }
 
     public function compileSpecPlan(

@@ -2,7 +2,6 @@
 
 namespace App\Services\Ai\Programming\Sdd\Enums;
 
-
 /**
  * Autonomy levels per autonomy-and-clarification-policy.md:102-111.
  *

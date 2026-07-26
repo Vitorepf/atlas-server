@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming;
 
 use App\Models\AtlasProject;
+use App\Services\Ai\ExecutionAuthority\ForgeProviderTopologyPort;
 use App\Services\Ai\Programming\ForgeTopology\ForgeTopologyCapacityAlignmentValidator;
 use App\Services\Ai\Programming\ForgeTopology\ForgeTopologyFallbackChainCoherenceValidator;
 use App\Services\Ai\Programming\ForgeTopology\ForgeTopologyRoleCoverageValidator;
@@ -33,14 +34,18 @@ use Illuminate\Support\Str;
  *   - repair_agent       · failure packets, minimal patches, retest
  *   - local_tool_runner  · local tooling: lint, test, graph, evidence
  */
-class AtlasForgeProviderTopologyService implements \App\Services\Ai\ExecutionAuthority\ForgeProviderTopologyPort
+class AtlasForgeProviderTopologyService implements ForgeProviderTopologyPort
 {
     public const SCHEMA_VERSION = 'atlas.forge.provider_topology.v1';
 
     public const ROLE_PRIMARY_BUILDER = 'primary_builder';
+
     public const ROLE_CRITICAL_REVIEWER = 'critical_reviewer';
+
     public const ROLE_CONTEXT_SCOUT = 'context_scout';
+
     public const ROLE_REPAIR_AGENT = 'repair_agent';
+
     public const ROLE_LOCAL_TOOL_RUNNER = 'local_tool_runner';
 
     /** @var list<string> */
@@ -55,10 +60,15 @@ class AtlasForgeProviderTopologyService implements \App\Services\Ai\ExecutionAut
     public const STRATEGY_ONE_SHOT_ENTERPRISE = 'one_shot_enterprise_default';
 
     public const STATUS_SELECTED = 'selected';
+
     public const STATUS_AVAILABLE = 'available';
+
     public const STATUS_UNAVAILABLE = 'unavailable';
+
     public const STATUS_FALLBACK_SELECTED = 'fallback_selected';
+
     public const STATUS_BLOCKED = 'blocked';
+
     public const STATUS_NOT_REQUIRED = 'not_required';
 
     public function __construct(

@@ -8,6 +8,7 @@ use App\Services\Ai\MarketingDomain\Knowledge\MarketingPlaybook;
  * FunnelSequenceDecider — the funnel-architect skill. Sequences the value-ladder stages by traffic
  * temperature and product economics (cold → advertorial first; warm → more direct; higher price →
  * add order bump / OTO). Deterministic.
+ *
  * @unwired-until 2026-08-05 (Obra #7 W2: capability testada aguardando consumidor; triagem 2026-07-06)
  */
 class FunnelSequenceDecider

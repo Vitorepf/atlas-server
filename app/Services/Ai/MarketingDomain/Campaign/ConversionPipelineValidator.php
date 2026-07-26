@@ -10,6 +10,7 @@ use App\Services\Ai\MarketingDomain\Knowledge\MarketingPlaybook;
  * validates a tracking stack against the loop (auto-tagging → GCLID → Data Manager API → Enhanced
  * Conversions → postback macros → email auth), scores readiness 0-100, and emits the ordered setup
  * steps. It is a DATA-QUALITY metric, never a veto — Atlas reports, it does not refuse.
+ *
  * @unwired-until 2026-08-05 (Obra #7 W2: capability testada aguardando consumidor; triagem 2026-07-06)
  */
 class ConversionPipelineValidator
@@ -21,8 +22,8 @@ class ConversionPipelineValidator
 
     /**
      * @param  array<string,mixed>  $stack  has_auto_tagging, captures_gclid, uses_data_manager_api,
-     *                                       enhanced_conversions, postback_macros[], has_email_auth,
-     *                                       affiliate_network, tracker, traffic_channel
+     *                                      enhanced_conversions, postback_macros[], has_email_auth,
+     *                                      affiliate_network, tracker, traffic_channel
      * @return array<string,mixed>
      */
     public function validate(array $stack): array

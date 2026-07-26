@@ -18,17 +18,21 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\LightTaskContract;
 use App\Services\Ai\Programming\AtlasDev\Schemas\ProviderPromptProjection;
 
 /**
- * Compatibility translator for the v1 HTTP/worker contract.
+ * Compatibility translator for the v1 HTTP/worker contract (live DI default).
  *
  * It owns no provider, workspace or release behavior. It derives the typed
  * Dev intent from persisted v1 artifacts, delegates to AtlasDevExecutionService
  * and projects the v2 outcome back into RunExecutionResult.
+ *
+ * F-03: fail-closed CompactSDD integrity runs BEFORE kernel/provider spend
+ * via {@see CompactSddIntegrityGuard} (same 422 mapping as legacy PRE).
  */
 final class KernelRunExecutor implements RunExecutor
 {
     public function __construct(
         private readonly AtlasDevFastPathOrchestrator $orchestrator,
         private readonly AtlasDevExecutionService $execution,
+        private readonly CompactSddIntegrityGuard $compactSdd,
     ) {}
 
     public function execute(
@@ -38,6 +42,10 @@ final class KernelRunExecutor implements RunExecutor
         string $runId,
         ?string $expectedCompactSddHash = null,
     ): RunExecutionResult {
+        // Live operate-path safety: never spend kernel/provider on unattestable
+        // CompactSDD (missing / invalid enum / hash pin mismatch).
+        $this->compactSdd->resolveTaskKindAndRiskLevel($runId, $expectedCompactSddHash);
+
         $plan = $this->orchestrator->planOnly(
             'atlas_dev_execution',
             $envelope->workspace,

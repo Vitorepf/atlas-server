@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming;
 
+use App\Services\Ai\Concerns\RunsCliProcesses;
+use App\Services\Ai\HermesCliProvider;
 
 /**
  * Single source of truth for the two settings every Atlas path that runs Hermes
@@ -13,7 +15,7 @@ namespace App\Services\Ai\Programming;
  *   1. {@see self::model()} — Hermes is a meta-provider that routes its own
  *      sub-model (gpt-5.5/codex by default). It must receive the Hermes default
  *      sentinel (a model id ending in `_default`, which
- *      {@see \App\Services\Ai\HermesCliProvider::invocationModel()} maps to
+ *      {@see HermesCliProvider::invocationModel()} maps to
  *      "omit --model"), NEVER an Atlas-Decide/Dev model family such as `sonnet`
  *      or `minimax-m3`, which the Hermes CLI rejects with cli_error.
  *
@@ -21,11 +23,11 @@ namespace App\Services\Ai\Programming;
  *      passes `--yolo` and Hermes edits the workspace AUTONOMOUSLY (a
  *      non-interactive run has no TTY to approve writes). With `mode: 'write'`
  *      Hermes answers but never mutates. The workspace is pinned into the exact
- *      key {@see \App\Services\Ai\Concerns\RunsCliProcesses::workdirForJob()}
+ *      key {@see RunsCliProcesses::workdirForJob()}
  *      reads, so Hermes runs IN the governed workspace.
  *
  * Consumed by the Dev pipeline
- * ({@see \App\Http\Controllers\AtlasDev\Support\PipelineRunExecutor::executeHermesProvider()}),
+ * ({@see \App\Http\Controllers\AtlasDev\Support\PipelineRun\ProviderExecutionSection}),
  * the Forge driver
  * ({@see AtlasForgeHermesCliInvocationDriver::invoke()}) and the Dev provider-lock
  * resolver ({@see AtlasDev\Pipeline\SpecComposer::resolveModelFamily()}).

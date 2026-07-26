@@ -47,7 +47,7 @@ final class DesktopChecks
         ];
     }
 
-/**
+    /**
      * @return array<string,mixed>
      */
     private function checkDesktopReleaseCheck(): array
@@ -104,7 +104,7 @@ final class DesktopChecks
         ];
     }
 
-/**
+    /**
      * @return array<string,mixed>
      */
     private function checkDesktopVisualSmoke(): array
@@ -150,7 +150,7 @@ final class DesktopChecks
         ];
     }
 
-/**
+    /**
      * @return array<string,mixed>
      */
     private function checkDesktopV6TauriCommands(): array
@@ -199,7 +199,7 @@ final class DesktopChecks
         ];
     }
 
-/**
+    /**
      * @return array<string,mixed>
      */
     private function checkDesktopAmbientHelpers(): array
@@ -237,7 +237,7 @@ final class DesktopChecks
         ];
     }
 
-/**
+    /**
      * @return array<string,mixed>
      */
     private function checkDesktopVoiceReplyDefaultOff(): array
@@ -274,7 +274,7 @@ final class DesktopChecks
         ];
     }
 
-/**
+    /**
      * @return array<string,mixed>
      */
     private function checkDesktopSettingsPersistence(): array
@@ -317,7 +317,7 @@ final class DesktopChecks
         ];
     }
 
-/**
+    /**
      * @return array<string,mixed>
      */
     private function checkDesktopOptionSpaceInProcess(): array
@@ -350,7 +350,7 @@ final class DesktopChecks
         ];
     }
 
-/**
+    /**
      * @return array<string,mixed>
      */
     private function checkMacOsIdentifier(): array
@@ -390,7 +390,7 @@ final class DesktopChecks
         ];
     }
 
-/**
+    /**
      * @return array<string,mixed>
      */
     private function checkMacOsMicrophoneUsageDescription(): array
@@ -427,7 +427,7 @@ final class DesktopChecks
         ];
     }
 
-/**
+    /**
      * @return array<string,mixed>
      */
     private function checkMacOsAudioInputEntitlement(): array
@@ -468,7 +468,7 @@ final class DesktopChecks
         ];
     }
 
-/**
+    /**
      * @return array<string,mixed>
      */
     private function checkMacOsSigningIdentity(): array
@@ -515,7 +515,7 @@ final class DesktopChecks
         ];
     }
 
-/**
+    /**
      * V6 Regression Wall · prova que `buildVoxKernelIntentPayload` continua
      * achatando o transcript em snake_case na raiz. Se alguém ressuscitar
      * o wrapper legado `{ transcript: {...} }`, o Kernel devolve 422 e o
@@ -578,7 +578,7 @@ final class DesktopChecks
         ];
     }
 
-/**
+    /**
      * V6 Regression Wall · varre os manifests gerados por `npm run vox:*`
      * em busca de padrões de token (Bearer, ATLAS_TOKEN=valor, sk-..., e
      * confirmation_token literal). Esses arquivos seguem o operador no
@@ -656,7 +656,7 @@ final class DesktopChecks
         ];
     }
 
-/**
+    /**
      * V6 Regression Wall · garante que o crate `atlas-platform` continua
      * declarando `raw_pcm_persisted: false` (e nunca `: true`) em qualquer
      * estado de sessão Vox. Lei 0.9: áudio cru nunca toca disco.
@@ -701,7 +701,7 @@ final class DesktopChecks
         ];
     }
 
-/**
+    /**
      * V6 Regression Wall · `tauri.conf.json` precisa usar `signingIdentity`
      * (camelCase, canon Tauri 2). A variante kebab-case `signing-identity`
      * é silenciosamente ignorada pelo Tauri e gera build sem assinatura.

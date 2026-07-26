@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Pipeline;
 
-
 /**
  * Pure, deterministic renderer: assembles everything the fast-path pipeline already produced
  * (a decomposed workcell, the budget-distilled context, the mini spec, and green-run exemplars)
@@ -27,10 +26,10 @@ final class DevWorkcellInstructionAssembler
     public const SCHEMA = 'atlas.dev.workcell_instruction_assembler.v1';
 
     /**
-     * @param  array<string,mixed>  $workcell          one entry from DevWorkcellDecomposer::decompose()['workcells']
-     * @param  array<string,mixed>  $distilledContext   DevContextBudgetDistiller::distill() output
-     * @param  array<string,mixed>  $spec               the mini spec canonical array (MiniProgrammingSpec::toCanonicalArray())
-     * @param  list<array<string,mixed>>  $exemplars     DevGreenRunExemplarRetriever::retrieve() output
+     * @param  array<string,mixed>  $workcell  one entry from DevWorkcellDecomposer::decompose()['workcells']
+     * @param  array<string,mixed>  $distilledContext  DevContextBudgetDistiller::distill() output
+     * @param  array<string,mixed>  $spec  the mini spec canonical array (MiniProgrammingSpec::toCanonicalArray())
+     * @param  list<array<string,mixed>>  $exemplars  DevGreenRunExemplarRetriever::retrieve() output
      * @return array{instruction_text:string, sections:list<string>, char_count:int}
      */
     public function assemble(array $workcell, array $distilledContext, array $spec, array $exemplars): array
@@ -136,7 +135,7 @@ final class DevWorkcellInstructionAssembler
     /** @param  array<string,mixed>  $workcell */
     private function renderRubric(array $workcell): string
     {
-        $renderer = new DevInstructionQualityRubricRenderer();
+        $renderer = new DevInstructionQualityRubricRenderer;
         $result = $renderer->render($workcell);
 
         return $result['rubric_text'];
@@ -144,7 +143,7 @@ final class DevWorkcellInstructionAssembler
 
     /**
      * @param  array<string,mixed>  $distilledContext
-     * @return array<string,string>  label => rendered block, in included_labels order
+     * @return array<string,string> label => rendered block, in included_labels order
      */
     private function renderDistilledContext(array $distilledContext): array
     {

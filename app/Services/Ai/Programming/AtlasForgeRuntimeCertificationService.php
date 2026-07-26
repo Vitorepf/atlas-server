@@ -22,7 +22,9 @@ use App\Services\Ai\Surface\SurfaceAdapterRegistry;
 class AtlasForgeRuntimeCertificationService
 {
     public const SCHEMA_VERSION = 'atlas.forge_runtime_certification.v1';
+
     public const FORGE_WORKSPACE_BINDING_SCHEMA = 'atlas.forge_workspace_binding.v1';
+
     public const FORGE_WORKSPACE_BLOCKER_SCHEMA = 'atlas.forge_workspace_blocker.v1';
 
     public function __construct(
@@ -362,5 +364,4 @@ class AtlasForgeRuntimeCertificationService
 
         return 'passed';
     }
-
 }

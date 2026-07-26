@@ -360,7 +360,7 @@ class AtlasForgeProviderInvocationPromptBuilder
                 ->where('workspace', 'like', '%'.((string) $project->getKey()).'%')
                 ->orderByDesc('created_at')
                 ->first();
-        } catch (\Throwable) {
+        } catch (Throwable) {
             return null;
         }
     }

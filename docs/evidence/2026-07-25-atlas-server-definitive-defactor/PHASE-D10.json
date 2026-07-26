@@ -1,0 +1,13 @@
+{
+  "schema": "atlas.asdd.phase_receipt.v1",
+  "phase": "D10",
+  "status": "GREEN",
+  "residuals_closed": [
+    "TaskQueueOrchestrator rehomed to ControlPlane/TaskQueue",
+    "class_alias historical FQCN",
+    "CODEMAP-SC"
+  ],
+  "residuals_still_open": [
+    "migrate call sites off alias"
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "schema": "atlas.asdd.phase_receipt.v1",
+  "phase": "D4",
+  "status": "PATH_CORE",
+  "residuals_closed": [
+    "architecture test Services\u2192Http inventory cap",
+    "census residual <40"
+  ],
+  "residuals_still_open": [
+    "port Forge cert/fast-path off Controllers"
+  ]
+}

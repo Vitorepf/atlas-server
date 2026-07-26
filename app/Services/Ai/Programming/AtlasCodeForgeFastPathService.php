@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming;
 
-use App\Http\Controllers\AtlasCodeCheckpointController;
-use App\Http\Controllers\AtlasCodeForgeExecutionController;
-use App\Http\Controllers\AtlasCodeProgrammingWorkItemController;
 use App\Models\AtlasProgrammingWorkItem;
 use App\Models\AtlasProject;
 use App\Services\Ai\DualCore\ForgeIntakeRouteDecisionRecorder;
@@ -434,8 +431,6 @@ class AtlasCodeForgeFastPathService
      */
     private function stageWorkItemResolution(AtlasProject $project, ?string $intent, bool $autoCreate): array
     {
-        $governance = app(ProgrammingGovernanceService::class);
-
         $existing = $this->resolveExistingWorkItem($project);
         if ($existing !== null) {
             return [
@@ -468,13 +463,13 @@ class AtlasCodeForgeFastPathService
             ];
         }
 
-        $request = Request::create('/_fast-path/work-item', 'POST', [
-            'intent' => $effectiveIntent,
-            'owner' => 'atlas-code',
-        ]);
-
+        // ASDD D4: call application binding service — no Http Controller import.
         try {
-            $response = app(AtlasCodeProgrammingWorkItemController::class)->store($request, $project, $governance);
+            $result = app(ProgrammingWorkItemBindingService::class)->bindOrCreate(
+                $project,
+                $effectiveIntent,
+                'atlas-code',
+            );
         } catch (Throwable $e) {
             return [
                 'name' => 'work_item_resolution',
@@ -484,36 +479,41 @@ class AtlasCodeForgeFastPathService
             ];
         }
 
-        $payload = (array) $response->getData(true);
-        $status = (string) ($payload['status'] ?? 'unknown');
+        $payload = (array) ($result['payload'] ?? []);
+        $status = (string) ($result['status'] ?? $payload['status'] ?? 'unknown');
         if ($status !== 'bound') {
             return [
                 'name' => 'work_item_resolution',
                 'status' => 'blocked',
-                'blocker' => $status === 'blocked' ? (string) ($payload['error'] ?? 'work_item_store_blocked') : 'work_item_store_unexpected_status',
+                'blocker' => $status === 'blocked' ? (string) ($payload['error'] ?? $result['error'] ?? 'work_item_store_blocked') : 'work_item_store_unexpected_status',
                 'reason' => $status,
                 'payload' => $payload,
             ];
         }
 
-        $workItemId = (string) data_get($payload, 'work_item.id', data_get($payload, 'binding.work_item_id', ''));
-        $workItem = $workItemId !== ''
-            ? AtlasProgrammingWorkItem::query()->whereKey($workItemId)->first()
-            : null;
+        $workItem = $result['work_item'] ?? null;
+        if (! $workItem instanceof AtlasProgrammingWorkItem) {
+            $workItemId = (string) data_get($payload, 'work_item.id', data_get($payload, 'binding.work_item_id', ''));
+            $workItem = $workItemId !== ''
+                ? AtlasProgrammingWorkItem::query()->whereKey($workItemId)->first()
+                : null;
+        }
 
         if ($workItem === null) {
             return [
                 'name' => 'work_item_resolution',
                 'status' => 'blocked',
                 'blocker' => 'work_item_not_persisted',
-                'reason' => 'AtlasCodeProgrammingWorkItemController retornou bound sem persistir work item.',
+                'reason' => 'ProgrammingWorkItemBindingService retornou bound sem work item.',
             ];
         }
+
+        $workItemId = (string) $workItem->getKey();
 
         return [
             'name' => 'work_item_resolution',
             'status' => 'passed',
-            'mode' => (bool) ($payload['created'] ?? false) ? 'created' : 'reused',
+            'mode' => (bool) ($result['created'] ?? $payload['created'] ?? false) ? 'created' : 'reused',
             'work_item_id' => $workItemId,
             'work_item_code' => (string) $workItem->code,
             'project' => $project->refresh(),
@@ -548,17 +548,14 @@ class AtlasCodeForgeFastPathService
             ];
         }
 
-        $governance = app(ProgrammingGovernanceService::class);
-        $specCompiler = app(ProgrammingSpecCompiler::class);
-        $planCompiler = app(PlanCompiler::class);
-        $taskCompiler = app(TaskCompiler::class);
-
         $workItem = $this->applyWorkIntakeToWorkItem($project, $workItem);
-        $request = Request::create('/_fast-path/spec-plan', 'POST', $this->specPlanRequestPayload($project, $workItem));
 
         try {
-            $response = app(AtlasCodeProgrammingWorkItemController::class)
-                ->compileSpecPlan($request, $project, (string) $workItem->id, $governance, $specCompiler, $planCompiler, $taskCompiler);
+            $result = app(ProgrammingWorkItemSpecPlanService::class)->compile(
+                $project,
+                (string) $workItem->id,
+                $this->specPlanRequestPayload($project, $workItem),
+            );
         } catch (Throwable $e) {
             return [
                 'name' => 'spec_plan_resolution',
@@ -569,7 +566,7 @@ class AtlasCodeForgeFastPathService
             ];
         }
 
-        $payload = (array) $response->getData(true);
+        $payload = (array) ($result['payload'] ?? []);
         $status = (string) ($payload['status'] ?? 'unknown');
         $refreshed = $workItem->refresh();
 
@@ -610,17 +607,11 @@ class AtlasCodeForgeFastPathService
             ];
         }
 
-        $controller = app(AtlasCodeForgeExecutionController::class);
+        $dispatch = app(ForgeLiveExecutionApplicationService::class);
 
         if ($mode === self::MODE_EXECUTE_SYNC) {
             try {
-                $request = Request::create('/_fast-path/forge/live-executions', 'POST', ['simulate_failure' => false]);
-                $response = $controller->store(
-                    $request,
-                    $project,
-                    app(AtlasForgeLiveExecutionService::class),
-                    app(ForgeIntakeRouteDecisionRecorder::class),
-                );
+                $wrapped = $dispatch->storeSync($project, false);
             } catch (Throwable $e) {
                 return [
                     'name' => 'execution_dispatch',
@@ -630,7 +621,7 @@ class AtlasCodeForgeFastPathService
                 ];
             }
 
-            $payload = (array) $response->getData(true);
+            $payload = (array) ($wrapped['payload'] ?? []);
             $snapshotStatus = (string) data_get($payload, 'snapshot.status', 'unknown');
             $runId = (string) data_get($payload, 'persistence.engineering_run_id', '');
             $evidenceId = (string) data_get($payload, 'persistence.engineering_evidence_id', '');
@@ -654,12 +645,7 @@ class AtlasCodeForgeFastPathService
 
         // execute_async (default)
         try {
-            $request = Request::create('/_fast-path/forge/live-executions/async', 'POST', ['simulate_failure' => false]);
-            $response = $controller->startAsync(
-                $request,
-                $project,
-                app(ForgeIntakeRouteDecisionRecorder::class),
-            );
+            $wrapped = $dispatch->startAsync($project, false);
         } catch (Throwable $e) {
             return [
                 'name' => 'execution_dispatch',
@@ -669,7 +655,7 @@ class AtlasCodeForgeFastPathService
             ];
         }
 
-        $payload = (array) $response->getData(true);
+        $payload = (array) ($wrapped['payload'] ?? []);
         $executionId = (string) data_get($payload, 'execution.execution_id', '');
         $executionStatus = (string) data_get($payload, 'execution.status', 'unknown');
 
@@ -720,10 +706,7 @@ class AtlasCodeForgeFastPathService
     private function stageCheckpoint(AtlasProject $project, string $operatorId, array $dispatchStage): array
     {
         try {
-            $request = Request::create('/_fast-path/checkpoints', 'POST', [
-                'reason' => 'forge_fast_path',
-            ]);
-            $response = app(AtlasCodeCheckpointController::class)->store($request, $project);
+            $wrapped = app(AtlasCodeCheckpointApplicationService::class)->store($project, 'forge_fast_path');
         } catch (Throwable $e) {
             return [
                 'name' => 'checkpoint',
@@ -733,7 +716,7 @@ class AtlasCodeForgeFastPathService
             ];
         }
 
-        $payload = (array) $response->getData(true);
+        $payload = (array) ($wrapped['payload'] ?? []);
         $checkpointId = (string) data_get($payload, 'checkpoint.checkpoint_id', '');
 
         return [

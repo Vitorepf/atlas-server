@@ -17,8 +17,7 @@ class AtlasAudit
         private readonly ForgeSection $forge,
         private readonly UxSection $ux,
         private readonly SelfImprovementSection $selfImprovement,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<string,mixed>

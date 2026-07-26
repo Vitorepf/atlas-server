@@ -1,0 +1,8 @@
+=== PRE operate-path 2026-07-25T19:12:22Z ===
+7:use App\Http\Controllers\AtlasDev\Support\KernelRunExecutor;
+92:        $this->app->bind(RunExecutor::class, KernelRunExecutor::class);
+(none production)
+compact_sdd guard on Kernel:
+28: * via {@see CompactSddIntegrityGuard} (same 422 mapping as legacy PRE).
+35:        private readonly CompactSddIntegrityGuard $compactSdd,
+47:        $this->compactSdd->resolveTaskKindAndRiskLevel($runId, $expectedCompactSddHash);

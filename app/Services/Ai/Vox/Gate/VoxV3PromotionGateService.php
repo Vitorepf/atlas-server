@@ -33,11 +33,15 @@ final class VoxV3PromotionGateService
     public const SCHEMA = 'atlas.vox.gate_v3.v1';
 
     public const STATUS_BLOCKED = 'blocked';
+
     public const STATUS_WARMING_UP = 'warming_up';
+
     public const STATUS_READY = 'ready_for_vitor_review';
 
     public const MIN_REAL_USAGE_DAYS = 30;
+
     public const MIN_TOTAL_SESSIONS = 100;
+
     public const MIN_ECLIPSE_TEST_SUCCESS = 3;
 
     public function __construct(

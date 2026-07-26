@@ -169,6 +169,7 @@ class ProgrammingHierarchicalControlLoopService
 
             if ($run === null) {
                 $missingBlocking[] = $gate;
+
                 continue;
             }
 
@@ -178,6 +179,7 @@ class ProgrammingHierarchicalControlLoopService
                     'reason' => $run->reason,
                     'payload' => $run->payload_json,
                 ];
+
                 continue;
             }
 

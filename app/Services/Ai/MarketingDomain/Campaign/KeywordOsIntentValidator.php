@@ -10,6 +10,7 @@ namespace App\Services\Ai\MarketingDomain\Campaign;
  *
  * Não-circular: o score de intenção vem do TEXTO; a CVR vem da VENDA. Se baterem, a inteligência é real.
  * Provider-free e determinístico (a CVR exige minClicks pra ser estatisticamente honesta).
+ *
  * @unwired-until 2026-08-05 (Obra #7 W2: capability testada aguardando consumidor; triagem 2026-07-06)
  */
 class KeywordOsIntentValidator

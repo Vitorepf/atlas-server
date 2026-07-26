@@ -6,6 +6,7 @@ namespace App\Services\Ai\Programming\AtlasDev\Discovery;
 
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\AtlasOpenBrainService;
+use App\Services\Ai\Context\AtlasContextRuntime;
 use App\Services\Ai\Programming\AtlasDev\Schemas\AtlasDevOperationEnvelope as OperationEnvelope;
 use App\Services\Ai\Programming\AtlasDev\Schemas\CompactSdd;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ContextRef;
@@ -13,6 +14,7 @@ use App\Services\Ai\Programming\AtlasDev\Schemas\ContextRetrievalPlan;
 use App\Services\Ai\Programming\AtlasDev\Schemas\OpenBrainProgrammingProjection;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Support\CanonicalHasher;
 use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
+use App\Services\Ai\ValueObjects\AiTaskRequest;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -167,8 +169,8 @@ final class OpenBrainProjectionAdapter
     private function callComposeRuntime(OperationEnvelope $envelope, CompactSdd $compactSdd): ?array
     {
         try {
-            $runtime = app(\App\Services\Ai\Context\AtlasContextRuntime::class);
-            $task = \App\Services\Ai\ValueObjects\AiTaskRequest::fromInput($envelope->normalizedIntent, [
+            $runtime = app(AtlasContextRuntime::class);
+            $task = AiTaskRequest::fromInput($envelope->normalizedIntent, [
                 'agent_slug' => 'atlas_dev',
                 'provider' => 'local',
                 'source_type' => 'atlas_dev_discovery',

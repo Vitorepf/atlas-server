@@ -34,7 +34,7 @@ class KeywordInvestmentGate
     /**
      * Decide whether a keyword is INVESTIMENTO / TESTE / GASTO.
      *
-     * @param  array<string,mixed>  $econ      payout (gross), refund, margin?, cpc|cpc_forecast, cvr|cvr_forecast
+     * @param  array<string,mixed>  $econ  payout (gross), refund, margin?, cpc|cpc_forecast, cvr|cvr_forecast
      * @param  array<string,mixed>  $observed  optional live data: clicks, conversions, revenue (proven path)
      * @return array{verdict:string,basis:string,reason:string,breakeven_cvr:float,cut_after_clicks:?int,epc:?float,net_payout:float,cpc:float}
      */

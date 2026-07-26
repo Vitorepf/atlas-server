@@ -1,0 +1,7 @@
+{
+  "schema": "atlas.asdd.phase_receipt.v1",
+  "phase": "D0",
+  "status": "GREEN",
+  "code_sha": "6f497182771670385953e47fd8fca3b919aa4567",
+  "residuals_closed": ["evidence folder", "metrics baseline", "ledgers"]
+}

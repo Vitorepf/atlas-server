@@ -129,6 +129,7 @@ class AtlasRivalsEvidencePackVerifierService
             $value = data_get($pack, $path);
             if ($value === null) {
                 $missing[] = $path;
+
                 continue;
             }
             if (is_array($value) && $value === []) {

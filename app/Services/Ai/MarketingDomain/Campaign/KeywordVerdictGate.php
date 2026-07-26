@@ -13,8 +13,8 @@ class KeywordVerdictGate
 {
     /**
      * @param  array<string,mixed>  $significance  KeywordInvestmentGate::decide() output (verdict + basis)
-     * @param  array<string,mixed>  $attribution   optional: last_click_conv, dda_conv
-     * @param  array<string,mixed>  $lag           optional: days_since_launch, bake_days
+     * @param  array<string,mixed>  $attribution  optional: last_click_conv, dda_conv
+     * @param  array<string,mixed>  $lag  optional: days_since_launch, bake_days
      * @return array{verdict:string,basis:string,proven:bool,gates:array<string,mixed>,reason:string}
      */
     public function verdict(array $significance, array $attribution = [], array $lag = []): array

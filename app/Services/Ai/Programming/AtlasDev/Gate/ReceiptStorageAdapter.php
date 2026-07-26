@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Gate;
 
-
 /**
  * Narrow contract VerificationGate uses to persist per-command test logs.
  *

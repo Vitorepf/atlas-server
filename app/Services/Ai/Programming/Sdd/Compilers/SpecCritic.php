@@ -105,7 +105,7 @@ class SpecCritic
                 'empty_list' => "Please populate `{$field}`: even a single explicit entry is enough to remove ambiguity.",
                 'no_measurable_criterion' => 'Add at least one objectively verifiable completion criterion (a test name, a CLI gate, a metric threshold).',
                 default => str_starts_with($reason, 'vague_word:')
-                    ? "Replace the vague term in `{$field}` (\"".substr($reason, strlen('vague_word:'))."\") with a concrete commitment."
+                    ? "Replace the vague term in `{$field}` (\"".substr($reason, strlen('vague_word:')).'") with a concrete commitment.'
                     : "Clarify `{$field}` ({$reason}).",
             };
         }

@@ -1,0 +1,11 @@
+{
+  "schema": "atlas.asdd.phase_receipt.v1",
+  "phase": "D40",
+  "status": "PATH_CORE",
+  "residuals_closed": [
+    "EngineeringSpine contract fa\u00e7ade"
+  ],
+  "residuals_still_open": [
+    "full prepare/verify/repair/promote composition"
+  ]
+}

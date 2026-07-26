@@ -214,6 +214,7 @@ class AtlasForgeCursorCliInvocationDriver extends AtlasForgeBaseCliInvocationDri
         if ($promptFile !== '') {
             $argv[] = 'Open '.$promptFile.', read prompt.rendered_prompt_text, and execute that Atlas task now. Edit only allowed_files.';
         }
+
         return $argv;
     }
 

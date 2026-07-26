@@ -9,6 +9,7 @@ use App\Services\Ai\Governance\ProviderGovernanceConsult;
 use App\Services\Ai\Governance\ProviderGovernanceCoverageLedger;
 use App\Services\Ai\Kernel\Decision\ComputeEffortPolicy;
 use App\Services\Ai\Support\AiStringListNormalizer;
+use Symfony\Component\Process\Process;
 
 /**
  * Base implementation shared by the governed CLI provider drivers
@@ -254,7 +255,7 @@ abstract class AtlasForgeBaseCliInvocationDriver implements AtlasForgeProviderIn
             return [];
         }
         try {
-            $process = new \Symfony\Component\Process\Process(
+            $process = new Process(
                 ['git', '-C', $cwd, 'status', '--porcelain', '--untracked-files=all'],
                 $cwd,
             );

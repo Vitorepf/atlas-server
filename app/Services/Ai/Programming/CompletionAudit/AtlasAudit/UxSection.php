@@ -68,7 +68,7 @@ class UxSection
             'review_gate_preserved' => $serviceSource !== ''
                 && str_contains($serviceSource, "'review_completion_gate_preserved' => true"),
             'advanced_diagnostics_preserved' => $registrySource !== ''
-                && str_contains($registrySource, "ForgeAdvancedPanel")
+                && str_contains($registrySource, 'ForgeAdvancedPanel')
                 && (is_file($desktopRoot.'/apps/desktop/src/surfaces/code/panels/ForgeAdvancedPanel.tsx')
                     && str_contains((string) file_get_contents($desktopRoot.'/apps/desktop/src/surfaces/code/panels/ForgeAdvancedPanel.tsx'), 'ForgeProviderTopologyPanel')
                     && str_contains((string) file_get_contents($desktopRoot.'/apps/desktop/src/surfaces/code/panels/ForgeAdvancedPanel.tsx'), 'ForgeProviderCapacityPanel')),
@@ -243,13 +243,13 @@ class UxSection
             'endpoint_registered' => $routesSource !== ''
                 && str_contains($routesSource, '/obra-command-center'),
             'cli_registered' => is_file($commandFile)
-                && str_contains((string) file_get_contents($commandFile), "atlas:code:obra-command-center"),
+                && str_contains((string) file_get_contents($commandFile), 'atlas:code:obra-command-center'),
             'center_not_empty' => ($panelSource !== '' && str_contains($panelSource, 'ObraCommandCenterPanel'))
                 || ($conversationSource !== '' && str_contains($conversationSource, 'ObraCommandCenter')),
             'lifecycle_phases_available' => $serviceSource !== ''
                 && str_contains($serviceSource, "PHASE_INTAKE = 'intake'")
                 && str_contains($serviceSource, "PHASE_LEARNING = 'learning'")
-                && str_contains($serviceSource, "lifecycle_phases"),
+                && str_contains($serviceSource, 'lifecycle_phases'),
             'lifecycle_has_eight_phases' => $serviceSource !== ''
                 && substr_count($serviceSource, 'PHASE_INTAKE') >= 1
                 && substr_count($serviceSource, 'PHASE_ARCHITECTURE') >= 1
@@ -272,13 +272,13 @@ class UxSection
             'blocker_translation_available' => $serviceSource !== ''
                 && str_contains($serviceSource, "'blocker_translation' =>"),
             'scope_blocker_not_generic' => $serviceSource !== ''
-                && str_contains($serviceSource, "fix_scope"),
+                && str_contains($serviceSource, 'fix_scope'),
             'operational_health_available' => $serviceSource !== ''
-                && str_contains($serviceSource, "operational_health")
-                && str_contains($serviceSource, "queue_name")
-                && str_contains($serviceSource, "atlas-code-forge"),
+                && str_contains($serviceSource, 'operational_health')
+                && str_contains($serviceSource, 'queue_name')
+                && str_contains($serviceSource, 'atlas-code-forge'),
             'unknown_health_is_honest' => $serviceSource !== ''
-                && str_contains($serviceSource, "unknownOperationalHealth")
+                && str_contains($serviceSource, 'unknownOperationalHealth')
                 && str_contains($serviceSource, "'unknown'"),
             'evidence_digest_available' => $serviceSource !== ''
                 && str_contains($serviceSource, 'evidence_digest')
@@ -414,14 +414,14 @@ class UxSection
                 && (str_contains($obrasSectionSource, 'cc-obra-row') || str_contains($obrasSectionSource, 'ObraListItem'))
                 && str_contains($leftRailSource, 'cc-btn cc-btn-primary'),
             'active_obra_state_visible' => ($obrasSectionSource !== ''
-                && (str_contains($obrasSectionSource, "data-active={active")
+                && (str_contains($obrasSectionSource, 'data-active={active')
                     || str_contains($obrasSectionSource, "data-active='true'")
-                    || str_contains($obrasSectionSource, "active={o.id === activeObraId}")))
+                    || str_contains($obrasSectionSource, 'active={o.id === activeObraId}')))
                 && str_contains($indexCss, ".cc-obra-row[data-active='true']"),
             'long_session_typography_available' => $indexCss !== ''
-                && str_contains($indexCss, "--cc-font-sans:")
-                && str_contains($indexCss, "font-family: var(--cc-font-sans)")
-                && str_contains($indexCss, "--cc-leading-relaxed"),
+                && str_contains($indexCss, '--cc-font-sans:')
+                && str_contains($indexCss, 'font-family: var(--cc-font-sans)')
+                && str_contains($indexCss, '--cc-leading-relaxed'),
             'color_palette_not_monochrome' => $indexCss !== ''
                 && str_contains($indexCss, '--cc-success:')
                 && str_contains($indexCss, '--cc-warning:')
@@ -459,7 +459,7 @@ class UxSection
             'advanced_details_deemphasized' => $forgePanelSource !== ''
                 && str_contains($forgePanelSource, '<details'),
             'no_external_provider_call' => $commandCenterSource !== ''
-                && (str_contains($commandCenterSource, "safety.externalProviderCall")
+                && (str_contains($commandCenterSource, 'safety.externalProviderCall')
                     || str_contains($commandCenterSource, 'externalProviderCall=')),
             'no_token_spend' => $commandCenterSource !== ''
                 && (str_contains($commandCenterSource, 'safety.providerTokensSpent')
@@ -600,7 +600,7 @@ class UxSection
                 && str_contains($commandCenterSource, 'completionClaimPromoted=')
                 && str_contains($commandCenterSource, 'reviewGatePreserved='),
             'no_external_provider_call' => $commandCenterSource !== ''
-                && str_contains($commandCenterSource, "snapshot.safetySummary.externalProviderCall"),
+                && str_contains($commandCenterSource, 'snapshot.safetySummary.externalProviderCall'),
             'no_token_spend_visible' => $commandCenterSource !== ''
                 && str_contains($commandCenterSource, 'providerTokensSpent'),
             'no_completion_claim_promotion' => $commandCenterSource !== ''

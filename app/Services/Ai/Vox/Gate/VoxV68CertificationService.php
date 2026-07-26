@@ -18,10 +18,13 @@ use Carbon\CarbonImmutable;
 final class VoxV68CertificationService
 {
     public const SCHEMA = 'atlas.vox.v6_8_certification.v1';
+
     public const VERSION = '0.1.0';
 
     public const STATUS_PASS = 'pass';
+
     public const STATUS_WARN = 'warn';
+
     public const STATUS_FAIL = 'fail';
 
     public function __construct(

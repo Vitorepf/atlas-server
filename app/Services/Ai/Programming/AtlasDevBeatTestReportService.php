@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming;
 
-use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopBacklogManifestService;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -976,7 +976,6 @@ final class AtlasDevBeatTestReportService
     }
 
     /**
-     * @param  mixed  $value
      * @return list<string>
      */
     private function stringList(mixed $value): array

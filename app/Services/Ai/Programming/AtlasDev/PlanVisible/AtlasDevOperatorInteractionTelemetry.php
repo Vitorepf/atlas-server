@@ -20,7 +20,7 @@ final class AtlasDevOperatorInteractionTelemetry
     private const COUNTED_KINDS = ['question', 'override', 'cancellation', 'handoff'];
 
     /**
-     * @param list<array<string,mixed>> $events
+     * @param  list<array<string,mixed>>  $events
      * @return array{schema_version:string,status:string,counts:array{questions:int,overrides:int,cancellations:int,handoffs:int},active_minutes:float,event_count:int}
      */
     public function aggregate(array $events): array

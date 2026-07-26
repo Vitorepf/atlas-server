@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\Programming\CompletionAudit;
 
+use App\Services\Ai\Programming\AtlasForgeNativeRivalsCaseManifestService;
+use App\Services\Ai\Programming\AtlasForgeNativeRivalsDryRunService;
 use App\Services\Ai\Programming\AtlasRivalsEvidencePackService;
 use App\Services\Ai\Programming\AtlasRivalsEvidencePackVerifierService;
 use App\Services\Ai\Programming\AtlasRivalsOneShotEnterpriseEvaluationService;
@@ -10,14 +12,13 @@ use App\Services\Ai\Programming\AtlasRivalsOneShotEnterpriseRubricService;
 class RivalsAudit
 {
     public function __construct(
-        private readonly \App\Services\Ai\Programming\AtlasForgeNativeRivalsCaseManifestService $forgeNativeRivalsCaseManifest,
-        private readonly \App\Services\Ai\Programming\AtlasForgeNativeRivalsDryRunService $forgeNativeRivalsDryRun,
-        private readonly \App\Services\Ai\Programming\AtlasRivalsOneShotEnterpriseRubricService $oneShotEnterpriseRubric,
-        private readonly \App\Services\Ai\Programming\AtlasRivalsOneShotEnterpriseEvaluationService $oneShotEnterpriseEvaluation,
-        private readonly \App\Services\Ai\Programming\AtlasRivalsEvidencePackService $evidencePack,
-        private readonly \App\Services\Ai\Programming\AtlasRivalsEvidencePackVerifierService $evidencePackVerifier,
-    ) {
-    }
+        private readonly AtlasForgeNativeRivalsCaseManifestService $forgeNativeRivalsCaseManifest,
+        private readonly AtlasForgeNativeRivalsDryRunService $forgeNativeRivalsDryRun,
+        private readonly AtlasRivalsOneShotEnterpriseRubricService $oneShotEnterpriseRubric,
+        private readonly AtlasRivalsOneShotEnterpriseEvaluationService $oneShotEnterpriseEvaluation,
+        private readonly AtlasRivalsEvidencePackService $evidencePack,
+        private readonly AtlasRivalsEvidencePackVerifierService $evidencePackVerifier,
+    ) {}
 
     /**
      * @return array<string,mixed>

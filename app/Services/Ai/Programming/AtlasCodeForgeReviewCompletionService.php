@@ -28,6 +28,7 @@ use Throwable;
 class AtlasCodeForgeReviewCompletionService
 {
     public const REVIEW_PACKET_SCHEMA = 'atlas.code.forge_review_packet.v1';
+
     public const COMPLETION_CLAIM_SCHEMA = 'atlas.code.forge_completion_claim.v1';
 
     public static function normalizeRunIdInput(mixed $value): ?string
@@ -405,21 +406,6 @@ class AtlasCodeForgeReviewCompletionService
      * @param  array<string,mixed>  $metadata
      * @return array<string,mixed>|null
      */
-    private function findRun(array $metadata, string $runId): ?array
-    {
-        $latest = data_get($metadata, 'latest_atlas_code_forge_fast_path_run');
-        if (is_array($latest) && (string) ($latest['fast_path_run_id'] ?? '') === $runId) {
-            return $latest;
-        }
-
-        foreach ((array) data_get($metadata, 'atlas_code_forge_fast_path_run_history', []) as $entry) {
-            if (is_array($entry) && (string) ($entry['fast_path_run_id'] ?? '') === $runId) {
-                return $entry;
-            }
-        }
-
-        return null;
-    }
 
     /**
      * Correlaciona forge live execution ao run pelo execution_id/history_id/evidence_id.
@@ -565,5 +551,21 @@ class AtlasCodeForgeReviewCompletionService
             'next_action' => 'inspect_blocker',
             'external_provider_call' => false,
         ];
+    }
+
+    private function findRun(array $metadata, string $runId): ?array
+    {
+        $latest = data_get($metadata, 'latest_atlas_code_forge_fast_path_run');
+        if (is_array($latest) && (string) ($latest['fast_path_run_id'] ?? '') === $runId) {
+            return $latest;
+        }
+
+        foreach ((array) data_get($metadata, 'atlas_code_forge_fast_path_run_history', []) as $entry) {
+            if (is_array($entry) && (string) ($entry['fast_path_run_id'] ?? '') === $runId) {
+                return $entry;
+            }
+        }
+
+        return null;
     }
 }

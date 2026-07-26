@@ -1,0 +1,13 @@
+{
+  "schema": "atlas.asdd.phase_receipt.v1",
+  "phase": "D3",
+  "status": "PATH_CORE",
+  "residuals_closed": [
+    "HttpSmoke binding asserts Kernel not PRE",
+    "PRE still retained for tests"
+  ],
+  "residuals_still_open": [
+    "full port of ~28 tests",
+    "amendment delete PRE"
+  ]
+}

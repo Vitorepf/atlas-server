@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Schemas\Support;
 
-
 /**
  * Provider-safe redaction helper per contracts doc 3.4.
  *

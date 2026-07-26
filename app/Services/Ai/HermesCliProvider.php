@@ -18,6 +18,8 @@ use App\Services\Ai\Hermes\HermesExecutiveMissionFactory;
 use App\Services\Ai\Hermes\HermesHookBridge;
 use App\Services\Ai\Hermes\HermesMcpAdapter;
 use App\Services\Ai\Hermes\HermesMemoryAdapter;
+use App\Services\Ai\Hermes\HermesNativeFcCapabilityAttestor;
+use App\Services\Ai\Hermes\HermesNativeFunctionCallSupport;
 use App\Services\Ai\Hermes\HermesProcedureAdapter;
 use App\Services\Ai\Hermes\HermesResultPacketFactory;
 use App\Services\Ai\Hermes\HermesScheduleAdapter;
@@ -147,6 +149,14 @@ class HermesCliProvider implements AiProvider
         [$args, $skillProvisionReceipt] = $this->withGovernedSkills($args, $job, $provider, $mission);
 
         $prompt = $this->promptWithExecutiveMission($prompt, $mission);
+
+        // R104-TRANSPORT: when the job requests native FC lift, append the Atlas
+        // tool declaration so Hermes text channel can return structured tool_calls.
+        // Does not claim capability from model labels — only from job contract/config.
+        $jobPayload = is_array($job->payload) ? $job->payload : [];
+        if (HermesNativeFcCapabilityAttestor::jobRequestsNativeFcLift($jobPayload)) {
+            $prompt = rtrim($prompt)."\n\n".HermesNativeFunctionCallSupport::declarePromptBlock();
+        }
 
         if ($model = $this->invocationModel($job, $provider)) {
             $args[] = '--model';
@@ -284,6 +294,8 @@ class HermesCliProvider implements AiProvider
         $scheduleAdapterReceipt = $this->scheduleAdapter->persistCandidates($job, $resultPacket, $mission, $invocation, $schedulePolicy);
         $procedureAdapterReceipt = $this->procedureAdapter->persistCandidates($job, $resultPacket, $mission, $invocation, $procedurePolicy);
 
+        $nativeFcMeta = $this->liftNativeFunctionCallMetadata($job, (string) $result->output, is_array($result->metadata) ? $result->metadata : []);
+
         return new AiProviderResult(
             ok: $result->ok,
             output: $result->output,
@@ -294,7 +306,7 @@ class HermesCliProvider implements AiProvider
             stderr: $result->stderr,
             errorCode: $result->errorCode,
             errorMessage: $result->errorMessage,
-            metadata: array_merge($result->metadata, [
+            metadata: array_merge($result->metadata, $nativeFcMeta, [
                 // Transport actually used: 'acp' when the persistent JSON-RPC session
                 // carried the run (stamped by maybeRunViaAcp), else 'cli'. The fallback
                 // reason records WHY ACP was not used, so a silent CLI fallback is never
@@ -668,6 +680,15 @@ class HermesCliProvider implements AiProvider
             return null;
         }
 
+        $metadata = [
+            'hermes_transport' => 'acp',
+            'acp_pooled' => $pooled,
+            'acp_usage' => $usage,
+            'acp_session_present' => (bool) data_get($packet, 'session_id_hash'),
+            'acp_permission_decisions' => is_array($packet['permission_decisions'] ?? null) ? $packet['permission_decisions'] : [],
+        ];
+        $metadata = array_merge($metadata, $this->liftNativeFunctionCallMetadata($job, $text, $metadata));
+
         return new AiProviderResult(
             ok: $ok,
             output: $text,
@@ -678,13 +699,7 @@ class HermesCliProvider implements AiProvider
             stderr: '',
             errorCode: $ok ? null : 'acp_run_incomplete',
             errorMessage: null,
-            metadata: [
-                'hermes_transport' => 'acp',
-                'acp_pooled' => $pooled,
-                'acp_usage' => $usage,
-                'acp_session_present' => (bool) data_get($packet, 'session_id_hash'),
-                'acp_permission_decisions' => is_array($packet['permission_decisions'] ?? null) ? $packet['permission_decisions'] : [],
-            ],
+            metadata: $metadata,
         );
     }
 
@@ -1467,5 +1482,44 @@ class HermesCliProvider implements AiProvider
         $value = (int) $value;
 
         return $value > 0 ? $value : null;
+    }
+
+    /**
+     * R104-TRANSPORT: declare atlas_apply_patch and lift structured tool_calls
+     * into metadata so AgentExecutionProviderPortAdapter can package patch_plan
+     * without model-authored JSON³. Never invents capability from model labels.
+     *
+     * @param  array<string,mixed>  $existingMetadata
+     * @return array<string,mixed>
+     */
+    private function liftNativeFunctionCallMetadata(AiJob $job, string $output, array $existingMetadata): array
+    {
+        $payload = is_array($job->payload) ? $job->payload : [];
+        $requestsLift = HermesNativeFcCapabilityAttestor::jobRequestsNativeFcLift($payload);
+        $declared = $requestsLift || HermesNativeFcCapabilityAttestor::nativeFcEnabled();
+
+        $meta = [
+            'atlas_apply_patch_declared' => $declared,
+            'atlas_apply_patch_tool' => HermesNativeFunctionCallSupport::TOOL_NAME,
+            'atlas_native_fc_transport' => $requestsLift,
+        ];
+
+        $existingCalls = HermesNativeFunctionCallSupport::normalizeToolCallsList(
+            is_array($existingMetadata['tool_calls'] ?? null) ? $existingMetadata['tool_calls'] : [],
+        );
+        $parsed = HermesNativeFunctionCallSupport::parseToolCallsFromText($output);
+        $calls = $existingCalls !== [] ? $existingCalls : $parsed;
+
+        if ($calls === []) {
+            $meta['atlas_native_fc_lifted'] = false;
+
+            return $meta;
+        }
+
+        $meta['tool_calls'] = $calls;
+        $meta['atlas_native_fc_lifted'] = true;
+        $meta['atlas_native_fc_call_count'] = count($calls);
+
+        return $meta;
     }
 }

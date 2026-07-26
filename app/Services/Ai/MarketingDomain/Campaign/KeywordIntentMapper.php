@@ -62,6 +62,7 @@ class KeywordIntentMapper
     private function classify(array $cluster, array $terms): string
     {
         $blob = strtolower(implode(' ', $terms).' '.(string) ($cluster['intent'] ?? '').' '.(string) ($cluster['name'] ?? '')); // search the cluster
+
         return match (true) {
             str_contains($blob, 'official') || str_contains($blob, 'brand') || str_contains($blob, 'site') => 'brand_official',
             str_contains($blob, 'review') || str_contains($blob, 'avalia') || str_contains($blob, 'resenha') => 'review',

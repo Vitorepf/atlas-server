@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Support\BaselineSignature;
 
-
 /**
  * Loads the pinned {@see BaselineSignature} from the committed artifact on
  * disk. The path is determined once at the loader's construction (from a

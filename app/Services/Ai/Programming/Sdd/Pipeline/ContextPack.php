@@ -2,7 +2,6 @@
 
 namespace App\Services\Ai\Programming\Sdd\Pipeline;
 
-
 /**
  * Versioned, governed context bundle. Per context-packages-and-projections.md,
  * a ContextPack lists which packages were selected and a digest hash so the

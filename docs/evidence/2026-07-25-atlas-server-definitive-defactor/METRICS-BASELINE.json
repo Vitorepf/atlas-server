@@ -1,0 +1,11 @@
+{
+  "schema": "atlas.asdd.metrics.v1",
+  "captured_at": "2026-07-25",
+  "code_sha": "6f497182771670385953e47fd8fca3b919aa4567",
+  "godfiles_app_php_ge_1500": 32,
+  "support_php_count": 114,
+  "console_command_php_count": 908,
+  "routes_api_modules": 20,
+  "route_list_count": 1388,
+  "notes": "baseline full-plan execution start"
+}

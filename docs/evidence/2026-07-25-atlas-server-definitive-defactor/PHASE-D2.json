@@ -1,0 +1,13 @@
+{
+  "schema": "atlas.asdd.phase_receipt.v1",
+  "phase": "D2",
+  "status": "PATH_CORE",
+  "residuals_closed": [
+    "CODEMAP-PUBLIC-ENTRIES",
+    "container RunExecutor=KernelRunExecutor",
+    "bin/atlas dev/forge/autonomos mapped"
+  ],
+  "residuals_still_open": [
+    "formal cold matrix runner command"
+  ]
+}

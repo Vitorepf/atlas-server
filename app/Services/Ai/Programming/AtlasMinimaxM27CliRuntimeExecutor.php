@@ -25,10 +25,15 @@ use Throwable;
 class AtlasMinimaxM27CliRuntimeExecutor
 {
     public const STATUS_COMPLETED = 'completed';
+
     public const STATUS_FAILED = 'failed';
+
     public const STATUS_TIMED_OUT = 'timed_out';
+
     public const STATUS_BLOCKED = 'blocked';
+
     public const BLOCKER_MODEL_NOT_M3 = 'minimax_m3_required';
+
     public const MODEL = 'MiniMax-M3';
 
     /**
@@ -36,6 +41,7 @@ class AtlasMinimaxM27CliRuntimeExecutor
      * limit is truncated (never crashes). ~4 chars per token approximation.
      */
     public const MAX_TOKENS = 38000;
+
     private const MAX_CONTEXT_CHARS = self::MAX_TOKENS * 4;
 
     /** @var callable|null */

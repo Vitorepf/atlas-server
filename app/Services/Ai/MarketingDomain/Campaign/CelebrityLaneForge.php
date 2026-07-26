@@ -24,7 +24,7 @@ class CelebrityLaneForge
 
     /**
      * @param  array<int,string>  $celebrities  autoridades citadas na VSL (persuasion_devices.authority)
-     * @param  array<int,string>  $domains      órgão/benefício do nicho (brain, memory, prostate, vision, blood sugar)
+     * @param  array<int,string>  $domains  órgão/benefício do nicho (brain, memory, prostate, vision, blood sugar)
      * @param  array<int,string>|null  $nouns
      * @return array<int,array{keyword:string,celebrity:string,domain:string,noun:string,saturated:bool}>
      */

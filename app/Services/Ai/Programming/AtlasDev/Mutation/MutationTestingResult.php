@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Mutation;
 
-
 /**
  * Outcome of a {@see MutationTestingAdapter::run()} call.
  *
@@ -114,8 +113,7 @@ final class MutationTestingResult
         ?array $rawCounts = null,
         ?array $perFileStats = null,
         ?string $reportPath = null,
-    ): self
-    {
+    ): self {
         return new self(
             skipped: false,
             skipReason: '',

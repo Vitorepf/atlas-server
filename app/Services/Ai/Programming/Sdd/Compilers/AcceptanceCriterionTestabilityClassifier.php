@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\Sdd\Compilers;
 
-
 /**
  * Classifies a single acceptance criterion into a closed-set testability label.
  *
@@ -16,7 +15,8 @@ namespace App\Services\Ai\Programming\Sdd\Compilers;
  * verifiable category.
  *
  * @see docs/engineering-knowledge-base/atlas-aaeos-reliability-testos-leap-backlog.md (S177)
- * @see \App\Services\Ai\Programming\Sdd\Compilers\SpecCritic VAGUE_WORDS source
+ * @see SpecCritic VAGUE_WORDS source
+ *
  * @unwired-until 2026-08-05 (Obra #7 W2: capability testada aguardando consumidor; triagem 2026-07-06)
  */
 final class AcceptanceCriterionTestabilityClassifier

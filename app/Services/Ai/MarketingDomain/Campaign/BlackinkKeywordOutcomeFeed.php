@@ -91,6 +91,7 @@ class BlackinkKeywordOutcomeFeed
     private function inferNiche(string $name): string
     {
         $n = mb_strtolower($name);
+
         return match (true) {
             (bool) preg_match('/weight|gelatin|skinny|fat |lean|emagre|peso|jello/', $n) => 'weight_loss',
             (bool) preg_match('/memor|brain|mente|cogni|alzhe|visao|vision|eye|olho/', $n) => 'memory_vision',

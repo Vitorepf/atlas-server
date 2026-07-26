@@ -8,6 +8,8 @@ use App\Models\AiJob;
 use App\Services\Ai\AiProvider;
 use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\AiProviderResult;
+use App\Services\Ai\Concerns\RunsCliProcesses;
+use App\Services\Ai\HermesCliProvider;
 use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
@@ -20,16 +22,16 @@ use Throwable;
  * extend {@see AtlasForgeBaseCliInvocationDriver} and spawn a binary through
  * {@see AtlasForgeProviderProcessRunner}), Hermes is the Atlas executive
  * runtime and is already governed end-to-end by
- * {@see \App\Services\Ai\HermesCliProvider}. This driver is a THIN ADAPTER that
+ * {@see HermesCliProvider}. This driver is a THIN ADAPTER that
  * routes the Forge provider-invocation path through that provider via
  * {@see AiProviderManager}, then maps the returned {@see AiProviderResult} into
  * the canonical `atlas.forge.provider_driver_result.v1` shape every other Forge
  * driver returns.
  *
  * It mirrors the proven Dev-side approach in
- * {@see \App\Http\Controllers\AtlasDev\Support\PipelineRunExecutor::executeHermesProvider()}:
+ * {@see \App\Http\Controllers\AtlasDev\Support\PipelineRun\ProviderExecutionSection}:
  * Hermes chooses its own cwd via
- * {@see \App\Services\Ai\Concerns\RunsCliProcesses::workdirForJob()} which reads
+ * {@see RunsCliProcesses::workdirForJob()} which reads
  * (in order) payload.tool_permissions.workspace, payload.workspace, then
  * config('atlas.ai.workdir'). We therefore pin BOTH workspace keys to the
  * request's `cwd` so Hermes runs in the governed workspace.
@@ -73,7 +75,7 @@ class AtlasForgeHermesCliInvocationDriver implements AtlasForgeProviderInvocatio
      * Report runtime configuration status. NEVER calls an external provider —
      * it only asks the manager whether a `hermes_cli` driver is resolvable.
      *
-     * @return array<string,mixed>  atlas.forge.provider_driver_config_status.v1
+     * @return array<string,mixed> atlas.forge.provider_driver_config_status.v1
      */
     public function configured(): array
     {
@@ -100,7 +102,7 @@ class AtlasForgeHermesCliInvocationDriver implements AtlasForgeProviderInvocatio
      * Plan-only. NEVER calls an external provider.
      *
      * @param  array<string,mixed>  $request
-     * @return array<string,mixed>  atlas.forge.provider_driver_plan.v1
+     * @return array<string,mixed> atlas.forge.provider_driver_plan.v1
      */
     public function plan(array $request): array
     {
@@ -132,13 +134,13 @@ class AtlasForgeHermesCliInvocationDriver implements AtlasForgeProviderInvocatio
     }
 
     /**
-     * Execute through {@see \App\Services\Ai\HermesCliProvider} and map the
+     * Execute through {@see HermesCliProvider} and map the
      * result into the canonical Forge driver-result schema. Only this method
      * may reach a real Hermes runtime, and only when the caller confirmed all
      * gates upstream.
      *
      * @param  array<string,mixed>  $request
-     * @return array<string,mixed>  atlas.forge.provider_driver_result.v1
+     * @return array<string,mixed> atlas.forge.provider_driver_result.v1
      */
     public function invoke(array $request): array
     {

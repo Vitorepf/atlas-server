@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Support\BaselineSignature;
 
-
 /**
  * Immutable snapshot of the pre-existing "reds" in the AtlasDev scope, captured
  * once at mission start (M0) and pinned to a committed artifact. The mission

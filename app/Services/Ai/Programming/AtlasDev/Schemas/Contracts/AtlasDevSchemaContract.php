@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Schemas\Contracts;
 
-
 interface AtlasDevSchemaContract
 {
     public function schemaVersion(): string;

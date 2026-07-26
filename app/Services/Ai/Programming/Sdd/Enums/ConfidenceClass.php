@@ -2,7 +2,6 @@
 
 namespace App\Services\Ai\Programming\Sdd\Enums;
 
-
 /**
  * Confidence class for context discovery findings.
  *

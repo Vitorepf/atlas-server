@@ -2,7 +2,6 @@
 
 namespace App\Services\Ai\Programming\Sdd\Pipeline;
 
-
 /**
  * Immutable envelope describing a request the SDD pipeline must process.
  *

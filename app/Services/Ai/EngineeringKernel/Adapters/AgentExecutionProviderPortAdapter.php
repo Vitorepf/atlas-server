@@ -57,11 +57,20 @@ final class AgentExecutionProviderPortAdapter implements ProviderPort
             // harbor). Só assim o metadata['hermes_usage'] nasce preenchido.
             // Gated pela env do rivals: fora dela, comportamento byte-idêntico.
             $usageFile = null;
+            $responseContract = is_array($request['response_contract'] ?? null) ? $request['response_contract'] : [];
+            $nativeFcChannel = ($responseContract['channel'] ?? null) === 'native_function_call';
+            $hermesPayload = [
+                'lift_native_function_calls' => $nativeFcChannel,
+                'response_contract' => $responseContract,
+            ];
             if (filter_var(getenv('ATLAS_RIVALS_RUNTIME_EXECUTION') ?: false, FILTER_VALIDATE_BOOLEAN)) {
                 $usageFile = tempnam(sys_get_temp_dir(), 'rivals-hermes-usage-');
                 @unlink($usageFile);
-                $payload['hermes'] = ['cli_oneshot' => true, 'usage_file' => $usageFile];
+                $hermesPayload['cli_oneshot'] = true;
+                $hermesPayload['usage_file'] = $usageFile;
             }
+            $payload['hermes'] = array_merge(is_array($payload['hermes'] ?? null) ? $payload['hermes'] : [], $hermesPayload);
+            $payload['response_contract'] = $responseContract;
             $job = new AiJob([
                 'type' => 'atlas_self_construction_native_patch_plan',
                 'status' => 'running',
@@ -70,11 +79,14 @@ final class AgentExecutionProviderPortAdapter implements ProviderPort
                 'payload' => $payload,
             ]);
             $result = $provider->run($job, $prompt);
+            $metadata = is_array($result->metadata) ? $result->metadata : [];
+            // Prefer structured tool_calls on the result root when the provider lifted them.
+            $toolCalls = $metadata['tool_calls'] ?? null;
             $raw = [
                 'ok' => $result->ok,
                 'output' => $result->output,
-                'provider' => (string) ($result->metadata['provider'] ?? $result->metadata['provider_key'] ?? $provider->key()),
-                'model' => (string) ($result->metadata['model'] ?? $result->metadata['actual_model'] ?? $job->model ?? ''),
+                'provider' => (string) ($metadata['provider'] ?? $metadata['provider_key'] ?? $provider->key()),
+                'model' => (string) ($metadata['model'] ?? $metadata['actual_model'] ?? $job->model ?? ''),
                 'error' => $result->errorMessage,
                 'error_code' => $result->errorCode,
                 'error_message' => $result->errorMessage,
@@ -84,8 +96,11 @@ final class AgentExecutionProviderPortAdapter implements ProviderPort
                 // function-calls nativos chegam como fatos estruturados do
                 // provider. Preservá-los aqui permite que o Atlas empacote o
                 // patch_plan sem pedir JSON dentro de JSON ao modelo.
-                'metadata' => $result->metadata,
+                'metadata' => $metadata,
             ];
+            if (is_array($toolCalls) && $toolCalls !== []) {
+                $raw['tool_calls'] = $toolCalls;
+            }
             // Rivals: o provider_call do fast-path não carrega tokens no path
             // hermes (só o adaptador Sonnet os preenche), e sem tokens TODO
             // relatório do braço com-Atlas trava no gate por usage vazio, mesmo
@@ -340,6 +355,7 @@ final class AgentExecutionProviderPortAdapter implements ProviderPort
             $sources[] = $raw['metadata'];
         }
         $normalizedCalls = [];
+        $seen = [];
 
         foreach ($sources as $source) {
             foreach (['tool_calls', 'function_calls'] as $key) {
@@ -349,12 +365,22 @@ final class AgentExecutionProviderPortAdapter implements ProviderPort
                 }
                 foreach (array_is_list($rawCalls) ? $rawCalls : [$rawCalls] as $call) {
                     if ($normalized = $this->normalizeNativeFunctionCall($call)) {
+                        $dedupeKey = $normalized['name']."\0".json_encode($normalized['arguments'], JSON_UNESCAPED_SLASHES);
+                        if (isset($seen[$dedupeKey])) {
+                            continue;
+                        }
+                        $seen[$dedupeKey] = true;
                         $normalizedCalls[] = $normalized;
                     }
                 }
             }
             foreach (['function_call', 'tool_call', 'native_function_call'] as $key) {
                 if ($normalized = $this->normalizeNativeFunctionCall($source[$key] ?? null)) {
+                    $dedupeKey = $normalized['name']."\0".json_encode($normalized['arguments'], JSON_UNESCAPED_SLASHES);
+                    if (isset($seen[$dedupeKey])) {
+                        continue;
+                    }
+                    $seen[$dedupeKey] = true;
                     $normalizedCalls[] = $normalized;
                 }
             }

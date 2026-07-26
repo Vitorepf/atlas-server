@@ -5,7 +5,9 @@ namespace App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence;
 use App\Models\AtlasDevFailureCapsule;
 use App\Models\AtlasDevOutcomeMemory;
 use App\Models\AtlasDevTaskPacket;
+use App\Services\Ai\Aemor\Envelope\OutcomeEnvelopeBridge;
 use App\Services\Ai\EngineeringKernel\OutcomeProofGate;
+use App\Services\Ai\Kernel\Procedural\AtlasProceduralPlaybookDevBridge;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Programming\AtlasDev\Support\AtlasDevStringListNormalizer;
 
@@ -59,7 +61,7 @@ class DevOutcomeMemoryService
         ];
         $payload['outcome_memory_hash'] = MissionCanonicalHash::sha256($payload);
 
-        $envelope = app(\App\Services\Ai\Aemor\Envelope\OutcomeEnvelopeBridge::class)
+        $envelope = app(OutcomeEnvelopeBridge::class)
             ->project('dev_procedural', $payload, [
                 'provider' => $input['provider'] ?? null,
                 'task_category' => 'dev',
@@ -127,7 +129,7 @@ class DevOutcomeMemoryService
         // ledger; fail-open — learning never breaks the outcome write.
         try {
             if (! app()->runningUnitTests()) {
-                app(\App\Services\Ai\Kernel\Procedural\AtlasProceduralPlaybookDevBridge::class)
+                app(AtlasProceduralPlaybookDevBridge::class)
                     ->recordOutcomeForTask(
                         (string) $payload['run_id'],
                         (string) $payload['outcome_status'],

@@ -2,17 +2,38 @@
 
 namespace App\Services\Ai\Programming\CompletionAudit\AtlasAudit;
 
+use App\Console\Commands\AtlasSelfImprovementActivateForgeCommand;
+use App\Console\Commands\AtlasSelfImprovementActivationCockpitCommand;
+use App\Console\Commands\AtlasSelfImprovementBeforeAfterCommand;
+use App\Console\Commands\AtlasSelfImprovementInvariantLockCommand;
+use App\Console\Commands\AtlasSelfImprovementMaturityScoreCommand;
+use App\Console\Commands\AtlasSelfImprovementProposalGateCommand;
+use App\Console\Commands\AtlasSelfImprovementRegressionSentinelCommand;
+use App\Console\Commands\AtlasSelfImprovementTrustLedgerCommand;
+use App\Http\Controllers\AtlasCodeSelfImprovementActivationCockpitController;
+use App\Http\Controllers\AtlasCodeSelfImprovementForgeActivationController;
+use App\Http\Controllers\AtlasCodeSelfImprovementGovernanceController;
+use App\Services\Ai\SelfImprovement\AtlasSelfImprovementActivationCockpitService;
+use App\Services\Ai\SelfImprovement\AtlasSelfImprovementCapabilityMaturityScoreService;
+use App\Services\Ai\SelfImprovement\AtlasSelfImprovementDeltaScorecardService;
+use App\Services\Ai\SelfImprovement\AtlasSelfImprovementForgeActivationService;
+use App\Services\Ai\SelfImprovement\AtlasSelfImprovementHumanTrustLedgerService;
+use App\Services\Ai\SelfImprovement\AtlasSelfImprovementInvariantLockService;
+use App\Services\Ai\SelfImprovement\AtlasSelfImprovementProposalBacklogService;
+use App\Services\Ai\SelfImprovement\AtlasSelfImprovementProposalPacketService;
+use App\Services\Ai\SelfImprovement\AtlasSelfImprovementProposalPowerGateService;
+use App\Services\Ai\SelfImprovement\AtlasSelfImprovementRegressionSentinelService;
+use App\Services\Ai\SelfImprovement\AtlasSelfImprovementStrategyPortfolioService;
 
 class SelfImprovementSection
 {
     public function __construct(
-        private readonly \App\Services\Ai\SelfImprovement\AtlasSelfImprovementProposalPacketService $selfImprovementProposalPacket,
-        private readonly \App\Services\Ai\SelfImprovement\AtlasSelfImprovementProposalPowerGateService $selfImprovementProposalPowerGate,
-        private readonly \App\Services\Ai\SelfImprovement\AtlasSelfImprovementForgeActivationService $selfImprovementForgeActivation,
-        private readonly \App\Services\Ai\SelfImprovement\AtlasSelfImprovementActivationCockpitService $selfImprovementActivationCockpit,
-        private readonly \App\Services\Ai\SelfImprovement\AtlasSelfImprovementProposalBacklogService $selfImprovementProposalBacklog,
-    ) {
-    }
+        private readonly AtlasSelfImprovementProposalPacketService $selfImprovementProposalPacket,
+        private readonly AtlasSelfImprovementProposalPowerGateService $selfImprovementProposalPowerGate,
+        private readonly AtlasSelfImprovementForgeActivationService $selfImprovementForgeActivation,
+        private readonly AtlasSelfImprovementActivationCockpitService $selfImprovementActivationCockpit,
+        private readonly AtlasSelfImprovementProposalBacklogService $selfImprovementProposalBacklog,
+    ) {}
 
     /**
      * Atlas Self-Improvement Governance certification (Self-Improvement v1).
@@ -31,22 +52,22 @@ class SelfImprovementSection
         $desktopRoot = dirname($repoRoot).'/atlas-desktop';
 
         $services = [
-            'proposal_packet_service' => \App\Services\Ai\SelfImprovement\AtlasSelfImprovementProposalPacketService::class,
-            'proposal_power_gate_service' => \App\Services\Ai\SelfImprovement\AtlasSelfImprovementProposalPowerGateService::class,
-            'delta_scorecard_service' => \App\Services\Ai\SelfImprovement\AtlasSelfImprovementDeltaScorecardService::class,
-            'invariant_lock_service' => \App\Services\Ai\SelfImprovement\AtlasSelfImprovementInvariantLockService::class,
-            'regression_sentinel_service' => \App\Services\Ai\SelfImprovement\AtlasSelfImprovementRegressionSentinelService::class,
-            'capability_maturity_score_service' => \App\Services\Ai\SelfImprovement\AtlasSelfImprovementCapabilityMaturityScoreService::class,
-            'human_trust_ledger_service' => \App\Services\Ai\SelfImprovement\AtlasSelfImprovementHumanTrustLedgerService::class,
-            'strategy_portfolio_service' => \App\Services\Ai\SelfImprovement\AtlasSelfImprovementStrategyPortfolioService::class,
+            'proposal_packet_service' => AtlasSelfImprovementProposalPacketService::class,
+            'proposal_power_gate_service' => AtlasSelfImprovementProposalPowerGateService::class,
+            'delta_scorecard_service' => AtlasSelfImprovementDeltaScorecardService::class,
+            'invariant_lock_service' => AtlasSelfImprovementInvariantLockService::class,
+            'regression_sentinel_service' => AtlasSelfImprovementRegressionSentinelService::class,
+            'capability_maturity_score_service' => AtlasSelfImprovementCapabilityMaturityScoreService::class,
+            'human_trust_ledger_service' => AtlasSelfImprovementHumanTrustLedgerService::class,
+            'strategy_portfolio_service' => AtlasSelfImprovementStrategyPortfolioService::class,
         ];
         $commands = [
-            'proposal_gate_command' => \App\Console\Commands\AtlasSelfImprovementProposalGateCommand::class,
-            'before_after_command' => \App\Console\Commands\AtlasSelfImprovementBeforeAfterCommand::class,
-            'invariant_lock_command' => \App\Console\Commands\AtlasSelfImprovementInvariantLockCommand::class,
-            'regression_sentinel_command' => \App\Console\Commands\AtlasSelfImprovementRegressionSentinelCommand::class,
-            'maturity_score_command' => \App\Console\Commands\AtlasSelfImprovementMaturityScoreCommand::class,
-            'trust_ledger_command' => \App\Console\Commands\AtlasSelfImprovementTrustLedgerCommand::class,
+            'proposal_gate_command' => AtlasSelfImprovementProposalGateCommand::class,
+            'before_after_command' => AtlasSelfImprovementBeforeAfterCommand::class,
+            'invariant_lock_command' => AtlasSelfImprovementInvariantLockCommand::class,
+            'regression_sentinel_command' => AtlasSelfImprovementRegressionSentinelCommand::class,
+            'maturity_score_command' => AtlasSelfImprovementMaturityScoreCommand::class,
+            'trust_ledger_command' => AtlasSelfImprovementTrustLedgerCommand::class,
         ];
 
         $servicePresence = [];
@@ -58,7 +79,7 @@ class SelfImprovementSection
             $commandPresence[$key] = class_exists($cls);
         }
 
-        $controllerPresent = class_exists(\App\Http\Controllers\AtlasCodeSelfImprovementGovernanceController::class);
+        $controllerPresent = class_exists(AtlasCodeSelfImprovementGovernanceController::class);
         $docPath = $repoRoot.'/docs/engineering-knowledge-base/atlas-self-improvement-governance-ladder.md';
         $docPresent = is_file($docPath);
         $testsPath = $repoRoot.'/tests/Feature/Ai/SelfImprovement/AtlasSelfImprovementGovernanceTest.php';
@@ -104,14 +125,14 @@ class SelfImprovementSection
                 'risk_level' => 'low',
                 'human_review_required' => true,
             ]);
-            $packetTrip = ($packet['status'] ?? null) === \App\Services\Ai\SelfImprovement\AtlasSelfImprovementProposalPacketService::STATUS_READY;
+            $packetTrip = ($packet['status'] ?? null) === AtlasSelfImprovementProposalPacketService::STATUS_READY;
             $gate = $this->selfImprovementProposalPowerGate->evaluate($packet);
             $gateTrip = in_array(
                 $gate['outcome'] ?? null,
                 [
-                    \App\Services\Ai\SelfImprovement\AtlasSelfImprovementProposalPowerGateService::OUTCOME_APPROVED,
-                    \App\Services\Ai\SelfImprovement\AtlasSelfImprovementProposalPowerGateService::OUTCOME_HUMAN_REVIEW_REQUIRED,
-                    \App\Services\Ai\SelfImprovement\AtlasSelfImprovementProposalPowerGateService::OUTCOME_NEEDS_REVISION,
+                    AtlasSelfImprovementProposalPowerGateService::OUTCOME_APPROVED,
+                    AtlasSelfImprovementProposalPowerGateService::OUTCOME_HUMAN_REVIEW_REQUIRED,
+                    AtlasSelfImprovementProposalPowerGateService::OUTCOME_NEEDS_REVISION,
                 ],
                 true,
             );
@@ -204,14 +225,14 @@ class SelfImprovementSection
                 'self_strategy_or_self_evolution',
             ],
             'canonical_schemas' => [
-                \App\Services\Ai\SelfImprovement\AtlasSelfImprovementProposalPacketService::SCHEMA_VERSION,
-                \App\Services\Ai\SelfImprovement\AtlasSelfImprovementProposalPowerGateService::SCHEMA_VERSION,
-                \App\Services\Ai\SelfImprovement\AtlasSelfImprovementDeltaScorecardService::SCHEMA_VERSION,
-                \App\Services\Ai\SelfImprovement\AtlasSelfImprovementInvariantLockService::SCHEMA_VERSION,
-                \App\Services\Ai\SelfImprovement\AtlasSelfImprovementRegressionSentinelService::SCHEMA_VERSION,
-                \App\Services\Ai\SelfImprovement\AtlasSelfImprovementCapabilityMaturityScoreService::SCHEMA_VERSION,
-                \App\Services\Ai\SelfImprovement\AtlasSelfImprovementHumanTrustLedgerService::SCHEMA_VERSION,
-                \App\Services\Ai\SelfImprovement\AtlasSelfImprovementStrategyPortfolioService::SCHEMA_VERSION,
+                AtlasSelfImprovementProposalPacketService::SCHEMA_VERSION,
+                AtlasSelfImprovementProposalPowerGateService::SCHEMA_VERSION,
+                AtlasSelfImprovementDeltaScorecardService::SCHEMA_VERSION,
+                AtlasSelfImprovementInvariantLockService::SCHEMA_VERSION,
+                AtlasSelfImprovementRegressionSentinelService::SCHEMA_VERSION,
+                AtlasSelfImprovementCapabilityMaturityScoreService::SCHEMA_VERSION,
+                AtlasSelfImprovementHumanTrustLedgerService::SCHEMA_VERSION,
+                AtlasSelfImprovementStrategyPortfolioService::SCHEMA_VERSION,
             ],
             'commands' => [
                 'proposal_gate' => 'php artisan atlas:self-improvement:proposal-gate --proposal=@path --json --strict',
@@ -255,9 +276,9 @@ class SelfImprovementSection
         $repoRoot = rtrim($workspace, DIRECTORY_SEPARATOR);
         $desktopRoot = dirname($repoRoot).'/atlas-desktop';
 
-        $serviceClass = \App\Services\Ai\SelfImprovement\AtlasSelfImprovementForgeActivationService::class;
-        $cliClass = \App\Console\Commands\AtlasSelfImprovementActivateForgeCommand::class;
-        $controllerClass = \App\Http\Controllers\AtlasCodeSelfImprovementForgeActivationController::class;
+        $serviceClass = AtlasSelfImprovementForgeActivationService::class;
+        $cliClass = AtlasSelfImprovementActivateForgeCommand::class;
+        $controllerClass = AtlasCodeSelfImprovementForgeActivationController::class;
 
         $servicePath = $repoRoot.'/app/Services/Ai/SelfImprovement/AtlasSelfImprovementForgeActivationService.php';
         $cliPath = $repoRoot.'/app/Console/Commands/AtlasSelfImprovementActivateForgeCommand.php';
@@ -307,11 +328,11 @@ class SelfImprovementSection
                 'human_review_required' => true,
             ];
             $plan = $this->selfImprovementForgeActivation->plan(['proposal' => $strongProposal, 'dry_run' => true]);
-            $planRoundTripOk = ($plan['schema_version'] ?? null) === \App\Services\Ai\SelfImprovement\AtlasSelfImprovementForgeActivationService::SCHEMA_VERSION
+            $planRoundTripOk = ($plan['schema_version'] ?? null) === AtlasSelfImprovementForgeActivationService::SCHEMA_VERSION
                 && in_array($plan['status'] ?? '', [
-                    \App\Services\Ai\SelfImprovement\AtlasSelfImprovementForgeActivationService::STATUS_DRY_RUN,
-                    \App\Services\Ai\SelfImprovement\AtlasSelfImprovementForgeActivationService::STATUS_PENDING_HUMAN_REVIEW,
-                    \App\Services\Ai\SelfImprovement\AtlasSelfImprovementForgeActivationService::STATUS_ACCEPTED,
+                    AtlasSelfImprovementForgeActivationService::STATUS_DRY_RUN,
+                    AtlasSelfImprovementForgeActivationService::STATUS_PENDING_HUMAN_REVIEW,
+                    AtlasSelfImprovementForgeActivationService::STATUS_ACCEPTED,
                 ], true)
                 && ($plan['created_obra_id'] ?? null) === null;
 
@@ -342,8 +363,8 @@ class SelfImprovementSection
             'maturity_score_included' => $planRoundTripOk,
             'strategy_portfolio_included' => $planRoundTripOk,
             'trust_ledger_integrated' => in_array(
-                \App\Services\Ai\SelfImprovement\AtlasSelfImprovementHumanTrustLedgerService::OUTCOME_PROPOSAL_ACCEPTED_FOR_FORGE,
-                \App\Services\Ai\SelfImprovement\AtlasSelfImprovementHumanTrustLedgerService::KNOWN_OUTCOMES,
+                AtlasSelfImprovementHumanTrustLedgerService::OUTCOME_PROPOSAL_ACCEPTED_FOR_FORGE,
+                AtlasSelfImprovementHumanTrustLedgerService::KNOWN_OUTCOMES,
                 true,
             ),
             'docs_hashes_available' => $planRoundTripOk,
@@ -432,10 +453,10 @@ class SelfImprovementSection
         $repoRoot = rtrim($workspace, DIRECTORY_SEPARATOR);
         $desktopRoot = dirname($repoRoot).'/atlas-desktop';
 
-        $serviceClass = \App\Services\Ai\SelfImprovement\AtlasSelfImprovementActivationCockpitService::class;
-        $cliClass = \App\Console\Commands\AtlasSelfImprovementActivationCockpitCommand::class;
-        $controllerClass = \App\Http\Controllers\AtlasCodeSelfImprovementActivationCockpitController::class;
-        $forgeControllerClass = \App\Http\Controllers\AtlasCodeSelfImprovementForgeActivationController::class;
+        $serviceClass = AtlasSelfImprovementActivationCockpitService::class;
+        $cliClass = AtlasSelfImprovementActivationCockpitCommand::class;
+        $controllerClass = AtlasCodeSelfImprovementActivationCockpitController::class;
+        $forgeControllerClass = AtlasCodeSelfImprovementForgeActivationController::class;
 
         $servicePath = $repoRoot.'/app/Services/Ai/SelfImprovement/AtlasSelfImprovementActivationCockpitService.php';
         $cliPath = $repoRoot.'/app/Console/Commands/AtlasSelfImprovementActivationCockpitCommand.php';
@@ -528,7 +549,7 @@ class SelfImprovementSection
         try {
             $cockpit = $this->selfImprovementActivationCockpit->cockpit([]);
             $cockpitReadModelAvailable = ($cockpit['schema_version'] ?? null)
-                === \App\Services\Ai\SelfImprovement\AtlasSelfImprovementActivationCockpitService::SCHEMA_VERSION
+                === AtlasSelfImprovementActivationCockpitService::SCHEMA_VERSION
                 && ($cockpit['is_read_model'] ?? false) === true
                 && ($cockpit['external_provider_call'] ?? null) === false
                 && ($cockpit['provider_tokens_spent'] ?? null) === false
@@ -564,7 +585,7 @@ class SelfImprovementSection
             ]);
             $detail = $this->selfImprovementActivationCockpit->humaniseActivation($plan);
             $activationDetailAvailable = ($detail['schema_version'] ?? null)
-                === \App\Services\Ai\SelfImprovement\AtlasSelfImprovementActivationCockpitService::SCHEMA_VERSION
+                === AtlasSelfImprovementActivationCockpitService::SCHEMA_VERSION
                 && isset($detail['proposal_summary'])
                 && isset($detail['power_gate'])
                 && isset($detail['next_safe_action'])
@@ -740,20 +761,20 @@ class SelfImprovementSection
             : '';
         $apiAvailable = $routesSource !== ''
             && str_contains($routesSource, "'/self-improvement/proposals'")
-            && str_contains($routesSource, "/self-improvement/proposals/{proposal}/evaluate")
-            && str_contains($routesSource, "/self-improvement/proposals/{proposal}/prioritize")
-            && str_contains($routesSource, "/self-improvement/proposals/{proposal}/closed-loop")
-            && str_contains($routesSource, "/self-improvement/proposals/{proposal}/measure-result")
-            && str_contains($routesSource, "/self-improvement/result-ledger")
-            && str_contains($routesSource, "/self-improvement/next-cycle-recommendations");
+            && str_contains($routesSource, '/self-improvement/proposals/{proposal}/evaluate')
+            && str_contains($routesSource, '/self-improvement/proposals/{proposal}/prioritize')
+            && str_contains($routesSource, '/self-improvement/proposals/{proposal}/closed-loop')
+            && str_contains($routesSource, '/self-improvement/proposals/{proposal}/measure-result')
+            && str_contains($routesSource, '/self-improvement/result-ledger')
+            && str_contains($routesSource, '/self-improvement/next-cycle-recommendations');
 
         $trustLedgerOutcomesExtended = in_array(
-            \App\Services\Ai\SelfImprovement\AtlasSelfImprovementHumanTrustLedgerService::OUTCOME_SELF_IMPROVEMENT_MAJOR_IMPROVEMENT,
-            \App\Services\Ai\SelfImprovement\AtlasSelfImprovementHumanTrustLedgerService::KNOWN_OUTCOMES,
+            AtlasSelfImprovementHumanTrustLedgerService::OUTCOME_SELF_IMPROVEMENT_MAJOR_IMPROVEMENT,
+            AtlasSelfImprovementHumanTrustLedgerService::KNOWN_OUTCOMES,
             true,
         ) && in_array(
-            \App\Services\Ai\SelfImprovement\AtlasSelfImprovementHumanTrustLedgerService::OUTCOME_SELF_IMPROVEMENT_REGRESSED,
-            \App\Services\Ai\SelfImprovement\AtlasSelfImprovementHumanTrustLedgerService::KNOWN_OUTCOMES,
+            AtlasSelfImprovementHumanTrustLedgerService::OUTCOME_SELF_IMPROVEMENT_REGRESSED,
+            AtlasSelfImprovementHumanTrustLedgerService::KNOWN_OUTCOMES,
             true,
         );
 
@@ -787,7 +808,7 @@ class SelfImprovementSection
                 'source' => 'operator',
             ]);
             $proposalBacklogPersistent = isset($created['proposal_id'])
-                && ($created['schema_version'] ?? null) === \App\Services\Ai\SelfImprovement\AtlasSelfImprovementProposalBacklogService::ITEM_SCHEMA_VERSION;
+                && ($created['schema_version'] ?? null) === AtlasSelfImprovementProposalBacklogService::ITEM_SCHEMA_VERSION;
             if ($proposalBacklogPersistent) {
                 $evaluated = $this->selfImprovementProposalBacklog->evaluateProposal((string) $created['proposal_id']);
                 $proposalEvaluationIntegrated = is_array($evaluated['power_gate'] ?? null)
@@ -804,15 +825,15 @@ class SelfImprovementSection
             'proposal_backlog_persistent' => $proposalBacklogPersistent,
             'proposal_evaluation_integrated' => $proposalEvaluationIntegrated,
             'strategy_portfolio_integrated' => $strategyPortfolioIntegrated,
-            'activation_linked' => method_exists(\App\Services\Ai\SelfImprovement\AtlasSelfImprovementProposalBacklogService::class, 'markActivated'),
-            'obra_linked' => method_exists(\App\Services\Ai\SelfImprovement\AtlasSelfImprovementProposalBacklogService::class, 'linkObra'),
-            'forge_state_linked' => method_exists(\App\Services\Ai\SelfImprovement\AtlasSelfImprovementProposalBacklogService::class, 'markForgeState'),
+            'activation_linked' => method_exists(AtlasSelfImprovementProposalBacklogService::class, 'markActivated'),
+            'obra_linked' => method_exists(AtlasSelfImprovementProposalBacklogService::class, 'linkObra'),
+            'forge_state_linked' => method_exists(AtlasSelfImprovementProposalBacklogService::class, 'markForgeState'),
             'closed_loop_projection_available' => $closedLoopAvailable,
             'result_ledger_available' => $resultLedgerAvailable,
             'before_after_delta_available' => $resultLedgerAvailable,
-            'invariant_lock_integrated' => class_exists(\App\Services\Ai\SelfImprovement\AtlasSelfImprovementInvariantLockService::class),
-            'regression_sentinel_integrated' => class_exists(\App\Services\Ai\SelfImprovement\AtlasSelfImprovementRegressionSentinelService::class),
-            'trust_ledger_updated' => class_exists(\App\Services\Ai\SelfImprovement\AtlasSelfImprovementHumanTrustLedgerService::class),
+            'invariant_lock_integrated' => class_exists(AtlasSelfImprovementInvariantLockService::class),
+            'regression_sentinel_integrated' => class_exists(AtlasSelfImprovementRegressionSentinelService::class),
+            'trust_ledger_updated' => class_exists(AtlasSelfImprovementHumanTrustLedgerService::class),
             'trust_ledger_outcomes_extended' => $trustLedgerOutcomesExtended,
             'learning_packet_available' => $resultLedgerAvailable,
             'next_cycle_recommendation_available' => $nextCycleAvailable,

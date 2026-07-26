@@ -6,7 +6,6 @@ namespace App\Services\Ai\Vox\Gate;
 
 use App\Services\Ai\Vox\Dogfood\VoxDogfoodService;
 use App\Services\Ai\Vox\Metrics\VoxMetricsService;
-use App\Services\Ai\Vox\VoxSchema;
 use Carbon\CarbonImmutable;
 
 /**
@@ -42,12 +41,17 @@ use Carbon\CarbonImmutable;
 final class VoxV7UnlockGateService
 {
     public const SCHEMA = 'atlas.vox.v7_unlock_gate.v1';
+
     public const VERSION = '0.1.0';
 
     public const REQUIRED_MIN_SESSIONS = 100;
+
     public const REQUIRED_MIN_REAL_USAGE_DAYS = 30;
+
     public const REQUIRED_MIN_SUCCESS_RATE = 0.70;
+
     public const REQUIRED_MAX_REGRET_RATE = 0.20;
+
     public const REQUIRED_MIN_DICTIONARY_CORRECTIONS = 10;
 
     /** Caminho canon onde o operador deixa o marker fora-de-banda. */
@@ -89,6 +93,7 @@ final class VoxV7UnlockGateService
         foreach ($criteria as $key => $row) {
             if ($row['ok']) {
                 $met[] = $key;
+
                 continue;
             }
             $blockers[] = $key;

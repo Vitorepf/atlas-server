@@ -42,11 +42,11 @@ final class CodeDiscoveryManifest implements AtlasDevSchemaContract
      * @param  list<MissingRef>  $missingRefs
      * @param  list<string>  $forbiddenFiles
      * @param  list<ContextRef>  $likelyCallers  the strongest production consumers of the likely
-     *   files, discovered via the same code-intelligence lookup used for relatedSymbols. Additive,
-     *   defaults empty when the lookup is unavailable — never blocks discovery.
+     *                                           files, discovered via the same code-intelligence lookup used for relatedSymbols. Additive,
+     *                                           defaults empty when the lookup is unavailable — never blocks discovery.
      * @param  list<string>  $recentOutcomeFacts  compact facts about recent Dev run outcomes that
-     *   touched the same files (read through AtlasAemorRuntimeService when available). Additive,
-     *   defaults empty when the runtime is unavailable — never blocks discovery.
+     *                                            touched the same files (read through AtlasAemorRuntimeService when available). Additive,
+     *                                            defaults empty when the runtime is unavailable — never blocks discovery.
      */
     public function __construct(
         public readonly string $runId,

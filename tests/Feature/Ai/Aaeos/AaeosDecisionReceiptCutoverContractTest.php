@@ -13,9 +13,10 @@ use Carbon\CarbonImmutable;
 use Tests\TestCase;
 
 /**
- * P2b-CONTRACT: freeze post-cutover invariants (old-worker drain = refuse v2-only
- * under cutover; dual-transport companion on new issuance; R102 mode identity).
+ * P2b-CONTRACT: freeze post-cutover invariants (writer selection + dual-transport
+ * companion on new issuance; live authority signature; R102 mode identity).
  * Rollback remains writer selection only — never rewrite signed bytes.
+ * Reader still dual-reads V2 as governor; cutover LIVE = signed V3 companion.
  */
 final class AaeosDecisionReceiptCutoverContractTest extends TestCase
 {
@@ -61,21 +62,35 @@ final class AaeosDecisionReceiptCutoverContractTest extends TestCase
         $this->assertSame(DecisionReceipt::SCHEMA_VERSION, $v2['schema_version']);
     }
 
-    public function test_contract_old_worker_v2_only_is_drained_under_cutover(): void
+    public function test_contract_writer_selection_does_not_drain_valid_v2_only_under_cutover(): void
     {
+        // Canonical reader semantics (DecisionReceiptRuntimeGuard + unit tests):
+        // cutover is a writer selector. Dual-read keeps V2 as runtime governor;
+        // a valid v2-only envelope is still accepted. Live cutover proof is the
+        // signed V3 companion (atlas.decide.v3-cutover + authority_signature).
         config(['atlas.ai.decision_receipt_v3_cutover_enabled' => true]);
         CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-05-05T12:00:00Z'));
         $guard = new DecisionReceiptRuntimeGuard;
         $envelope = app(OperationEnvelopeFactory::class)->create(['text' => 'old worker']);
-        $v2 = app(DecisionReceiptIssuer::class)->issue($envelope, [
+        $issuer = app(DecisionReceiptIssuer::class);
+        $v2Receipt = $issuer->issue($envelope, [
             'receipt_id' => 'old-worker-v2',
             'provider_selection' => ['primary' => 'codex_cli', 'model' => 'gpt-5.5', 'fallbacks' => []],
-        ])->toArray();
+        ]);
+        $v2 = $v2Receipt->toArray();
+        $v3 = $issuer->issueV3CanaryCompanion($v2Receipt, $envelope);
 
-        $this->assertSame(
-            'decision_receipt_cutover_v2_only_refused',
+        $this->assertNull(
             $guard->violationForReceipt([DecisionReceipt::RECEIPT_V2_KEY => $v2], 'codex_cli', 'gpt-5.5')?->errorCode,
+            'Writer cutover must not refuse a cryptographically valid v2-only receipt.',
         );
+        $this->assertIsArray($v3);
+        $this->assertSame('atlas.decide.v3-cutover', $v3['signed_by'] ?? null);
+        $this->assertTrue(
+            \App\Services\Ai\Kernel\Decision\DecisionReceiptHash::v3LiveAuthoritySignatureMatches($v3),
+            'Cutover companion must carry a server-keyed live authority signature.',
+        );
+        $this->assertTrue((bool) data_get($v3, 'authority.effect.allowed'));
     }
 
     public function test_contract_r102_executor_modes_are_explicit(): void

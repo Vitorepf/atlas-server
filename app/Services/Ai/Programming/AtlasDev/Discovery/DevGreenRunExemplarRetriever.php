@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Discovery;
 
+use App\Services\Ai\Programming\AtlasDev\Pipeline\AtlasDevFastPathOrchestrator;
 use Throwable;
 
 /**
- * Turns the Dev receipts already persisted per run ({@see \App\Services\Ai\Programming\AtlasDev\Pipeline\AtlasDevFastPathOrchestrator})
+ * Turns the Dev receipts already persisted per run ({@see AtlasDevFastPathOrchestrator})
  * into a replay library: real, proven examples any model can be boosted with, instead of a blank
  * page. This is a pure READ MODEL over the existing `verification_receipt.json` artifact under
  * `<receipts_path>/<run_id>/` — it never re-persists or duplicates the store, and it strips every

@@ -327,5 +327,4 @@ class ProgrammingResumeService
 
         return 'resume_stage:'.$nextStage;
     }
-
 }

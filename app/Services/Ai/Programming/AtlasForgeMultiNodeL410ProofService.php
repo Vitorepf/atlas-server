@@ -761,6 +761,7 @@ final class AtlasForgeMultiNodeL410ProofService
         foreach ($value as $entry) {
             if (is_string($entry) && trim($entry) !== '') {
                 $out[] = trim($entry);
+
                 continue;
             }
             if (! is_array($entry)) {

@@ -2,7 +2,6 @@
 
 namespace App\Services\Ai\Programming;
 
-use App\Services\Ai\Policy\AtlasAiPolicyService;
 use App\Services\Ai\AtlasDecideService;
 use App\Services\Ai\Context\AtlasContextRuntime;
 use App\Services\Ai\ContextIntelligence\AtlasContextOperationsRuntimeService;
@@ -10,6 +9,7 @@ use App\Services\Ai\Kernel\Domain\AtlasDomainOrchestrator;
 use App\Services\Ai\Kernel\Provider\AgentBehaviorContract;
 use App\Services\Ai\Kernel\Repair\RepairStrategy;
 use App\Services\Ai\PersistentContext\AtlasPersistentContextRuntimeService;
+use App\Services\Ai\Policy\AtlasAiPolicyService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendCompanyRepoOnboardingService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendDesignRuntimeService;
 use App\Services\Ai\Programming\Frontend\AtlasFrontendEnterpriseBootstrapService;

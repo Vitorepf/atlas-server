@@ -36,11 +36,13 @@ use Throwable;
 class AtlasForgeProviderFailureMemoryService
 {
     public const SCHEMA_VERSION = 'atlas.forge.provider_failure_memory.v1';
+
     public const EVENT_SCHEMA_VERSION = 'atlas.forge.provider_failure_memory_event.v1';
 
     public const METADATA_KEY = 'atlas_forge_provider_failure_memory';
 
     public const MAX_EVENTS = 50;
+
     public const DEDUPE_WINDOW_SECONDS = 60;
 
     /** @var array<string,int> */
@@ -75,7 +77,7 @@ class AtlasForgeProviderFailureMemoryService
      *     provider_status_after?: string|null,
      *     occurred_at?: \DateTimeInterface|string|null,
      * } $payload
-     * @return array<string,mixed>  Recorded event.
+     * @return array<string,mixed> Recorded event.
      */
     public function record(AtlasProject $project, array $payload): array
     {
@@ -222,8 +224,8 @@ class AtlasForgeProviderFailureMemoryService
     }
 
     /**
-     * @param list<array<string,mixed>> $events
-     * @param array<string,mixed> $candidate
+     * @param  list<array<string,mixed>>  $events
+     * @param  array<string,mixed>  $candidate
      */
     private function dedupe(array $events, array $candidate): bool
     {
@@ -258,6 +260,7 @@ class AtlasForgeProviderFailureMemoryService
             if (abs($candidateAt->diffInSeconds($existingAt, true)) <= self::DEDUPE_WINDOW_SECONDS) {
                 return true;
             }
+
             // Older event of same shape outside window — stop scanning.
             return false;
         }
@@ -307,7 +310,7 @@ class AtlasForgeProviderFailureMemoryService
     }
 
     /**
-     * @param array<string,mixed> $event
+     * @param  array<string,mixed>  $event
      */
     private function maybeWriteLedger(AtlasProject $project, array $event): void
     {
@@ -335,5 +338,4 @@ class AtlasForgeProviderFailureMemoryService
             // Ledger is best-effort. Metadata is the source of truth.
         }
     }
-
 }

@@ -746,14 +746,25 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
      * from an explicit transport capability; a model-name suffix is not a
      * transport claim, so Dev and AAEOS retain the same free-form fallback.
      *
+     * @param  list<string>|null  $providerCapabilities  optional explicit transport facts;
+     *                                                   when null, HermesNativeFcCapabilityAttestor is consulted
      * @return array{channel:string,name?:string,server_packages_patch_plan:bool}
      */
-    public static function providerResponseContract(string $provider, ?string $model, string $taskType): array
-    {
+    public static function providerResponseContract(
+        string $provider,
+        ?string $model,
+        string $taskType,
+        ?array $providerCapabilities = null,
+    ): array {
+        $capabilities = $providerCapabilities ?? \App\Services\Ai\Hermes\HermesNativeFcCapabilityAttestor::capabilitiesFor(
+            $provider,
+            $model,
+        );
+
         return (new ProviderLock(
             provider: $provider,
             modelFamily: $model ?? '',
-        ))->responseContractFor($taskType);
+        ))->responseContractFor($taskType, '', $capabilities);
     }
 
     /**

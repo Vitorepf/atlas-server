@@ -146,6 +146,7 @@ class RivalsForgeRunLogStreamService
     {
         $runId = $this->sanitizeRunId($runId);
         $path = $this->runDirectory($runId).DIRECTORY_SEPARATOR.'events.jsonl';
+
         return array_slice(AppendOnlyJsonlStore::read($path), max(0, $sinceLine));
     }
 

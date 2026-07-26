@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming\AtlasDev\Differential\Shadow;
 
-
 /**
  * E4 -- Injected collaborator that executes the OLD vs NEW implementation of
  * a pure function on the same probe inputs and returns the captured outputs.

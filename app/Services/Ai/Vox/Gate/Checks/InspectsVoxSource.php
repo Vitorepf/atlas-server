@@ -15,7 +15,9 @@ namespace App\Services\Ai\Vox\Gate\Checks;
 trait InspectsVoxSource
 {
     public const STATUS_PASS = 'pass';
+
     public const STATUS_WARN = 'warn';
+
     public const STATUS_FAIL = 'fail';
 
     /**

@@ -109,5 +109,4 @@ class KeywordRevenueProjector
             'total_expected_revenue' => round(array_sum(array_column($proj, 'expected_revenue')), 2),
         ];
     }
-
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Programming;
 
 use App\Models\AtlasProject;
+use App\Services\Ai\SelfImprovement\AtlasSelfImprovementResultLedgerService;
 use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Support\Carbon;
 
@@ -29,26 +30,41 @@ class AtlasCodeObraCommandCenterService
     public const SCHEMA_VERSION = 'atlas.code.obra_command_center.v1';
 
     public const STATUS_OK = 'ok';
+
     public const STATUS_BLOCKED = 'blocked';
+
     public const STATUS_NO_OBRA = 'no_obra';
 
     /** Lifecycle canônico de uma Obra do Atlas Code. */
     public const PHASE_INTAKE = 'intake';
+
     public const PHASE_ARCHITECTURE = 'architecture';
+
     public const PHASE_FORGE_PREP = 'forge_prep';
+
     public const PHASE_BUILD = 'build';
+
     public const PHASE_REVIEW = 'review';
+
     public const PHASE_PROOFS = 'proofs';
+
     public const PHASE_DECISION = 'decision';
+
     public const PHASE_LEARNING = 'learning';
 
     /** Status canonicos de fase. */
     public const PHASE_STATUS_NOT_STARTED = 'not_started';
+
     public const PHASE_STATUS_READY = 'ready';
+
     public const PHASE_STATUS_RUNNING = 'running';
+
     public const PHASE_STATUS_BLOCKED = 'blocked';
+
     public const PHASE_STATUS_PASSED = 'passed';
+
     public const PHASE_STATUS_NEEDS_HUMAN = 'needs_human';
+
     public const PHASE_STATUS_COMPLETED = 'completed';
 
     public static function normalizeObraIdInput(mixed $value): ?string
@@ -99,7 +115,7 @@ class AtlasCodeObraCommandCenterService
 
     public function __construct(
         private readonly AtlasCodeForgeUxOrchestratorService $orchestrator,
-        private readonly ?\App\Services\Ai\SelfImprovement\AtlasSelfImprovementResultLedgerService $resultLedger = null,
+        private readonly ?AtlasSelfImprovementResultLedgerService $resultLedger = null,
     ) {}
 
     /**
@@ -1075,5 +1091,4 @@ class AtlasCodeObraCommandCenterService
             default => 0,
         };
     }
-
 }

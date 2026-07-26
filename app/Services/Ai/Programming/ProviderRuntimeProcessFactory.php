@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming;
 
+use App\Services\Ai\Governance\ProviderGovernanceConsult;
 use Symfony\Component\Process\Process;
 
 final class ProviderRuntimeProcessFactory
@@ -19,7 +20,7 @@ final class ProviderRuntimeProcessFactory
         // coverage ledger e nunca altera o Process construído.
         try {
             if (function_exists('app') && $argv !== []) {
-                app(\App\Services\Ai\Governance\ProviderGovernanceConsult::class)->consultBeforeSpawn([
+                app(ProviderGovernanceConsult::class)->consultBeforeSpawn([
                     'provider' => basename((string) $argv[0]),
                     'surface' => 'provider_runtime_process_factory',
                     'kind' => 'atlas_programming',

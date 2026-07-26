@@ -7,9 +7,10 @@ namespace App\Http\Controllers\AtlasDev\Support;
 use RuntimeException;
 
 /**
- * Thrown by {@see PipelineRunExecutor} when the persisted CompactSDD that
- * carries the canonical task_kind / risk_level for a run cannot be loaded
- * or is structurally invalid.
+ * Thrown by the live {@see KernelRunExecutor} (via
+ * {@see CompactSddIntegrityGuard}) and legacy {@see PipelineRunExecutor}
+ * when the persisted CompactSDD that carries the canonical task_kind /
+ * risk_level for a run cannot be loaded or is structurally invalid.
  *
  * F-03: VerificationReceipt MUST mirror the CompactSDD's task_kind /
  * risk_level. Silently inventing defaults (e.g. `patch`/`R0` or the old

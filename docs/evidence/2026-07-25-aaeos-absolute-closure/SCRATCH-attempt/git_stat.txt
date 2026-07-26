@@ -1,0 +1,16 @@
+ M app/Http/Controllers/AtlasDev/Support/CompactSddUnavailableException.php
+ M app/Http/Controllers/AtlasDev/Support/KernelRunExecutor.php
+ M app/Services/Ai/Programming/AtlasCodeEnterpriseCertificationService.php
+ M app/Services/Ai/Programming/AtlasCodeForgeFastPathService.php
+ M app/Services/Ai/Programming/AtlasForgeContinuumCertificationService.php
+ M tests/Feature/Ai/Programming/AtlasDev/Http/PipelineRunExecutorHttpSmokeTest.php
+?? app/Http/Controllers/AtlasDev/Support/CompactSddIntegrityGuard.php
+?? app/Services/Ai/Programming/AtlasCodeCheckpointApplicationService.php
+?? app/Services/Ai/Programming/AtlasCodeWorkStateApplicationService.php
+?? app/Services/Ai/Programming/ForgeLiveExecutionApplicationService.php
+?? app/Services/Ai/Programming/ForgeReviewApplicationService.php
+?? app/Services/Ai/Programming/ProgrammingWorkItemBindingService.php
+?? app/Services/Ai/Programming/ProgrammingWorkItemSpecPlanService.php
+?? docs/evidence/2026-07-25-aaeos-absolute-closure/
+?? docs/evidence/2026-07-25-atlas-server-definitive-defactor/
+?? tests/Unit/Architecture/

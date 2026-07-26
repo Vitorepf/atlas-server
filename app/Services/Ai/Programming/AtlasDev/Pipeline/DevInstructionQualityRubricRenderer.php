@@ -57,7 +57,7 @@ final class DevInstructionQualityRubricRenderer
         $items[] = [
             'finding_id' => 'diff_minimality',
             'text' => $allowedFiles !== []
-                ? "Touch only: ".implode(', ', $allowedFiles).". No drive-by refactors or formatting churn."
+                ? 'Touch only: '.implode(', ', $allowedFiles).'. No drive-by refactors or formatting churn.'
                 : 'Touch only the allowed files; no drive-by refactors or formatting churn.',
         ];
 
@@ -65,7 +65,7 @@ final class DevInstructionQualityRubricRenderer
         $items[] = [
             'finding_id' => 'caller_coverage',
             'text' => $allowedFiles !== []
-                ? "Verify every caller of symbols in ".implode(', ', array_slice($allowedFiles, 0, 3))." still works."
+                ? 'Verify every caller of symbols in '.implode(', ', array_slice($allowedFiles, 0, 3)).' still works.'
                 : 'Verify every caller of the changed symbol still works.',
         ];
 
@@ -81,7 +81,7 @@ final class DevInstructionQualityRubricRenderer
         $items[] = [
             'finding_id' => 'scope_respect',
             'text' => $allowedFiles !== []
-                ? "Do not edit files outside: ".implode(', ', $allowedFiles)."."
+                ? 'Do not edit files outside: '.implode(', ', $allowedFiles).'.'
                 : 'Do not edit files outside the allowed list.',
         ];
 
