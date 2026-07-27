@@ -1,6 +1,7 @@
 <?php
 
 declare(strict_types=1);
+use App\Services\Ai\AutonomousEvolution\Verify\AtlasDocStructureAnalyzer;
 
 $basePath = realpath(__DIR__.'/..');
 $docsRoot = $basePath.'/docs/engineering-knowledge-base';
@@ -50,6 +51,7 @@ foreach ($iterator as $file) {
     $status = scalar($frontmatter, 'status') ?: 'active';
     if (str_contains($relativePath, '/archive/') || in_array($status, ['archived', 'source_material'], true)) {
         $summary['skipped_historical']++;
+
         continue;
     }
 
@@ -109,12 +111,18 @@ foreach ($iterator as $file) {
             continue;
         }
         $text = $section === 'Resumo' ? $summaryText : $defaultText;
-        $newBody .= "\n\n## {$section}\n\n{$text}";
+        // Mark generated prose so the ratchet can tell a stub from a written
+        // section. Without it, appending 12 headings takes a doc from 12
+        // violations to 0 while adding no information about the doc itself.
+        // The author deletes this line when the section is actually written.
+        $marker = AtlasDocStructureAnalyzer::PLACEHOLDER_MARKER;
+        $newBody .= "\n\n## {$section}\n\n{$marker}\n{$text}";
     }
 
     $newMarkdown = "---\n{$newFrontmatter}\n---\n".ltrim($newBody)."\n";
     if ($newMarkdown === $markdown) {
         $summary['unchanged']++;
+
         continue;
     }
 

@@ -28,6 +28,12 @@ final class AtlasDocStructureAnalyzer
     public const VALID_LAYERS = ['system', 'module', 'flow', 'world', 'gear'];
 
     /**
+     * Written by scripts/standardize-enterprise-docs.php into every section it
+     * fills with placeholder prose. Delete the line when the section is written.
+     */
+    public const PLACEHOLDER_MARKER = '<!-- atlas:unwritten -->';
+
+    /**
      * @return array{
      *     schema_version:string,
      *     path:string,
@@ -68,6 +74,20 @@ final class AtlasDocStructureAnalyzer
             foreach (self::REQUIRED_SECTIONS as $section) {
                 if (preg_match('/^##\s+'.preg_quote($section, '/').'\s*$/m', $content) !== 1) {
                     $violations[] = 'missing_section['.$section.']';
+
+                    continue;
+                }
+
+                // A heading alone is not a written section. scripts/standardize-
+                // enterprise-docs.php can append all 12 headings with placeholder
+                // prose that describes what the section SHOULD contain and says
+                // nothing about this document — running it would take a doc from
+                // 12 violations to 0 while adding no information. That is the
+                // score fiction §1.6 bans, and without this check the gate cannot
+                // tell it apart from authored content. The script marks what it
+                // writes; the marker goes away when someone writes the section.
+                if ($this->sectionIsPlaceholder($content, $section)) {
+                    $violations[] = 'unwritten_section['.$section.']';
                 }
             }
         }
@@ -78,5 +98,18 @@ final class AtlasDocStructureAnalyzer
             'is_module' => $isModule,
             'violations' => $violations,
         ];
+    }
+
+    /**
+     * True when the section body is still the generator's placeholder.
+     */
+    private function sectionIsPlaceholder(string $content, string $section): bool
+    {
+        $pattern = '/^##\s+'.preg_quote($section, '/').'\s*$(.*?)(?=^##\s|\z)/ms';
+        if (preg_match($pattern, $content, $m) !== 1) {
+            return false;
+        }
+
+        return str_contains($m[1], self::PLACEHOLDER_MARKER);
     }
 }
