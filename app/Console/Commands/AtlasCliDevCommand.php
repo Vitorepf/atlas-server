@@ -4,41 +4,38 @@ namespace App\Console\Commands;
 
 use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Commands\Concerns\ResolvesGitProjectRoot;
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Models\AtlasTask;
-use App\Services\Ai\AtlasOpenBrainContextInjectionService;
 use App\Services\Ai\Cli\AtlasCliDevEfficientHandler;
 use App\Services\Ai\Cli\AtlasCliDevWorkflowService;
 use App\Services\Ai\Cli\AtlasCliModelCatalogService;
-use App\Services\Ai\Context\AiContextPackBuilder;
+use App\Services\Ai\Context\AtlasContextRuntime;
 use App\Services\Ai\FairClaudePolicy;
 use App\Services\Ai\Kernel\Decision\ComputeEffortPolicy;
 use App\Services\Ai\Kernel\Decision\ModelSelectionContractFactory;
 use App\Services\Ai\Kernel\Pipeline\KernelPipelineDevPlanBuilder;
 use App\Services\Ai\Policy\AtlasAiRuntimeSettings;
-use App\Services\Ai\Provider\ProviderCatalog;
 use App\Services\Ai\Programming\AtlasProgrammingOrchestrator;
 use App\Services\Ai\Programming\ProgrammingExecutionRequest;
 use App\Services\Ai\Programming\ProgrammingIterationPolicy;
 use App\Services\Ai\Programming\ProgrammingStageReceiptStore;
 use App\Services\Ai\Programming\ProgrammingSurfaceContractFactory;
+use App\Services\Ai\Provider\ProviderCatalog;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
 use App\Services\Engineering\EngineeringBlueprintService;
 use App\Services\Engineering\EngineeringBlueprintSnapshotService;
 use App\Services\Engineering\EngineeringTaskContractService;
 use App\Support\AtlasPhpBinary;
 use App\Support\AtlasSecurity;
+use App\Support\YesNo;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\Process;
-use App\Support\YesNo;
-use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasCliDevCommand extends Command
 {
     use EmitsCanonicalJson;
-
     use ReadsNonEmptyStringOption;
-
     use ResolvesGitProjectRoot;
 
     protected $signature = 'atlas:cli:dev
@@ -802,8 +799,12 @@ class AtlasCliDevCommand extends Command
                 'agent' => 'desenvolvedor',
                 'intent' => 'atlas_cli_dev_plan_preview',
             ]);
-            $contextPack = app(AiContextPackBuilder::class)->build($input, $task, $options);
-            $result = app(AtlasOpenBrainContextInjectionService::class)->inject($input, $task, $contextPack, $options);
+            // Through the shared ACOS façade, not build()+inject() by hand: the
+            // façade is what carries the unified retrieval rollout and the fused
+            // core. Doing it here pinned Dev to `legacy` retrieval forever and
+            // kept its runs out of the shadow/canary evidence the rollout needs.
+            $contract = app(AtlasContextRuntime::class)->compose($input, $task, $options);
+            $result = (array) ($contract->pack['open_brain_injection'] ?? []);
 
             return $this->compactOpenBrainPlanPreview($result);
         } catch (\Throwable $exception) {
@@ -1034,7 +1035,6 @@ class AtlasCliDevCommand extends Command
 
         return app(ComputeEffortPolicy::class)->normalize((string) $value);
     }
-
 
     /**
      * @return array<string,bool>
@@ -1376,5 +1376,4 @@ class AtlasCliDevCommand extends Command
 
         return $this->projectRootFor($resolved) ?: $resolved;
     }
-
 }

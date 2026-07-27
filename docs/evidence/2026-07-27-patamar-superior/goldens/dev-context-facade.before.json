@@ -1,0 +1,66 @@
+{
+    "direct": {
+        "enabled": false,
+        "status": "skipped",
+        "reason": "policy_off",
+        "surface": "api",
+        "mode": "off",
+        "workspace": null,
+        "context_pack_hash": null,
+        "audit_id": "<volatile>",
+        "prompt_section": null,
+        "summary": {
+            "context_refs": 0,
+            "memory_refs": 0,
+            "knowledge_refs": 0,
+            "code_refs": 0,
+            "budget_chars": 20000,
+            "used_chars": 0,
+            "provider_safe": true
+        },
+        "warnings": [],
+        "next_actions": [],
+        "context_refs": [],
+        "policy": {
+            "enabled": true,
+            "mode": "off",
+            "surface": "api",
+            "budget_chars": 20000,
+            "refresh": false,
+            "provider_safe_only": true
+        }
+    },
+    "via_facade": {
+        "enabled": false,
+        "status": "skipped",
+        "reason": "policy_off",
+        "surface": "api",
+        "mode": "off",
+        "workspace": null,
+        "context_pack_hash": null,
+        "audit_id": "<volatile>",
+        "prompt_section": null,
+        "summary": {
+            "context_refs": 0,
+            "memory_refs": 0,
+            "knowledge_refs": 0,
+            "code_refs": 0,
+            "budget_chars": 20000,
+            "used_chars": 0,
+            "provider_safe": true
+        },
+        "warnings": [],
+        "next_actions": [],
+        "context_refs": [],
+        "policy": {
+            "enabled": true,
+            "mode": "off",
+            "surface": "api",
+            "budget_chars": 20000,
+            "refresh": false,
+            "provider_safe_only": true
+        }
+    },
+    "retrieval_core_status": "legacy",
+    "equal": true
+}
