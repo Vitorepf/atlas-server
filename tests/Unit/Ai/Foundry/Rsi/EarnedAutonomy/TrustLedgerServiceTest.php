@@ -218,8 +218,36 @@ final class TrustLedgerServiceTest extends TestCase
         $lines[0] = (string) json_encode($forged, JSON_UNESCAPED_SLASHES);
         file_put_contents($path, implode("\n", $lines)."\n");
 
+        // Caught as an event-hash mismatch on the rewritten line itself, which
+        // fires at index 0 — BEFORE the prev-hash break would surface on line 1.
+        // Both are tamper; the content check is simply the earlier, stronger one.
+        // The prev-hash path stays pinned by the removed-line test below, where no
+        // single line's own hash changes.
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('prev-hash chain break');
+        $this->expectExceptionMessage('tamper');
+        $svc->replay('a', 'f');
+    }
+
+    public function test_replay_rejects_an_in_place_edit_that_keeps_both_hash_fields(): void
+    {
+        // The case the chain link alone could never see: edit the body and leave
+        // event_hash AND prev_hash exactly as written. Ordering still verifies, so
+        // before the content hash was recomputed this replayed clean and could
+        // forge a qualifying cycle.
+        $svc = $this->service();
+        $svc->recordCycle(['area_id' => 'a', 'focus' => 'f', 'cycle_id' => 'c1'], $this->provenRecord());
+        $svc->recordCycle(['area_id' => 'a', 'focus' => 'f', 'cycle_id' => 'c2'], $this->provenRecord());
+
+        $path = $svc->ledgerPath('a', 'f');
+        $lines = array_values(array_filter(explode("\n", (string) file_get_contents($path)), static fn ($l) => trim($l) !== ''));
+        $edited = json_decode($lines[0], true);
+        $edited['qualifies'] = true;
+        $edited['forged_marker'] = 'edited without touching either hash';
+        $lines[0] = (string) json_encode($edited, JSON_UNESCAPED_SLASHES);
+        file_put_contents($path, implode("\n", $lines)."\n");
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('event-hash mismatch');
         $svc->replay('a', 'f');
     }
 

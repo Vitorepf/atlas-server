@@ -256,7 +256,21 @@ final class TrustLedgerService
             if ((string) ($decoded['prev_hash'] ?? '') !== $expectedPrev) {
                 throw new RuntimeException('earned_autonomy.trust_ledger tamper: prev-hash chain break at index '.$index);
             }
-            $expectedPrev = (string) ($decoded['event_hash'] ?? '');
+            // Recompute the content hash. The prev-hash link above only proves the
+            // lines are in their original ORDER — it says nothing about whether a
+            // line's body still matches its own event_hash. Editing a proof signal
+            // in place, leaving both hash fields untouched, used to replay clean
+            // and could forge a pass, which is precisely what the docblock on
+            // append() promises is impossible. append() hashes the event before
+            // event_hash is attached, so verification removes that key and hashes
+            // the rest.
+            $storedHash = (string) ($decoded['event_hash'] ?? '');
+            $body = $decoded;
+            unset($body['event_hash']);
+            if (! hash_equals(MissionCanonicalHash::sha256($body), $storedHash)) {
+                throw new RuntimeException('earned_autonomy.trust_ledger tamper: event-hash mismatch at index '.$index);
+            }
+            $expectedPrev = $storedHash;
             $events[] = $decoded;
             $index++;
         }
