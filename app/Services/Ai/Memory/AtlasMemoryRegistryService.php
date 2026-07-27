@@ -10,6 +10,7 @@ use App\Services\Ai\Brain\AtlasMemoryJournal;
 use App\Services\Ai\Cognition\CaptureHmacLineageService;
 use App\Services\Ai\Cognition\CognitiveImmunePromotionGateEvaluator;
 use App\Services\Ai\Cognition\FactPairPolarityContradictionDetector;
+use App\Services\Ai\Cognition\ImmuneVerdictLedger;
 use App\Services\Ai\Cognition\NumericRangeOverlapContradictionDetector;
 use App\Services\Ai\Memory\LocalAgentIngestion\LocalAgentSecretScanner;
 use App\Services\Ai\MemoryGovernance\AtlasMemoryGovernanceService;
@@ -250,12 +251,54 @@ class AtlasMemoryRegistryService
             throw new InvalidArgumentException('memory_admission_blocked:'.implode(',', (array) data_get($receipt, 'verdict.blocking_gate_ids', [])));
         }
 
+        $this->appendAdmissionVerdictToImmuneLedger($payload, $operation, $writer, $receipt);
+
         $metadata = is_array($payload['metadata'] ?? null) ? $payload['metadata'] : [];
         data_set($metadata, 'acos_max.asi_02.admission', $receipt);
         $metadata = $this->stampCaptureHmacLineageOnAdmission($metadata, $payload);
         $payload['metadata'] = $metadata;
 
         return $payload;
+    }
+
+    /**
+     * Append o veredito imune ao ImmuneVerdictLedger.
+     *
+     * O gate que roda de verdade era este: 31 entradas de memória carregam o receipt
+     * ASI-02 no metadata. Mas o ledger tinha 0 linhas, porque o único produtor era o
+     * CaptureService — que roda sobre `captures`, uma tabela com 0 linhas. Ou seja: o
+     * gate que decide não registrava, e o que registrava nunca decidia. Sem esta linha
+     * não há série para calibrar (true_block / false_block / missed_poison).
+     *
+     * Fail-open: um ledger indisponível nunca pode derrubar uma escrita de memória —
+     * recordVerdict() já devolve null em vez de lançar quando a tabela não existe.
+     *
+     * @param  array<string,mixed>  $payload
+     * @param  array<string,mixed>  $receipt
+     */
+    private function appendAdmissionVerdictToImmuneLedger(array $payload, string $operation, string $writer, array $receipt): void
+    {
+        try {
+            $candidateHash = hash('sha256', (string) ($payload['title'] ?? '').'|'.(string) ($payload['body'] ?? ''));
+
+            app(ImmuneVerdictLedger::class)->recordVerdict(
+                $candidateHash,
+                'memory_registry:'.$writer,
+                (array) ($receipt['verdict'] ?? []),
+                [
+                    'decided_at' => now()->toIso8601String(),
+                    'metadata' => [
+                        'operation' => $operation,
+                        'mode' => (string) ($receipt['mode'] ?? 'observe'),
+                        'blocks_write' => (bool) ($receipt['blocks_write'] ?? false),
+                        'memory_type' => (string) ($payload['memory_type'] ?? $payload['type'] ?? 'unknown'),
+                        'scope' => (string) ($payload['scope'] ?? 'global'),
+                    ],
+                ],
+            );
+        } catch (Throwable) {
+            // fail-open: registrar a decisão nunca pode custar a escrita da memória.
+        }
     }
 
     /**
