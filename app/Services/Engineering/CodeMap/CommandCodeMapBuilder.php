@@ -43,11 +43,18 @@ final class CommandCodeMapBuilder
             if ($name === null) {
                 continue;
             }
-            $rows[] = [
-                'name' => $name,
-                'description' => $this->description($source),
-                'file' => $relative,
-            ];
+            $description = $this->description($source);
+            $rows[] = ['name' => $name, 'description' => $description, 'file' => $relative];
+
+            // Deprecated names live in $aliases and are HIDDEN from `artisan list`,
+            // so the index is the only place an agent can still find them.
+            foreach ($this->aliases($source) as $alias) {
+                $rows[] = [
+                    'name' => $alias,
+                    'description' => "Alias of `{$name}`. ".$description,
+                    'file' => $relative,
+                ];
+            }
         }
 
         if ($rows === []) {
@@ -106,6 +113,20 @@ final class CommandCodeMapBuilder
         $name = trim(preg_split('/\s/', $name, 2)[0] ?? '');
 
         return $name === '' ? null : $name;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function aliases(string $source): array
+    {
+        if (preg_match('/\$aliases\s*=\s*\[(.*?)\]\s*;/s', $source, $m) !== 1) {
+            return [];
+        }
+
+        preg_match_all('/[\'"]([a-z][a-z0-9:_-]*)[\'"]/i', $m[1], $found);
+
+        return array_values($found[1] ?? []);
     }
 
     private function description(string $source): string

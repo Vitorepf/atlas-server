@@ -28,6 +28,12 @@ final class AtlasLearningProposalsCommand extends Command
 
     protected $description = 'Decide learning-proposal rules: evidence-gated admission, weak-signal hold, justification/risk/action output, and the critical-change no-auto-apply review gate. [was atlas:aaeos:*; TRI-HYGIENE rename]';
 
+    /**
+     * Deprecated name kept working natively. It used to need a whole forwarding
+     * command class; Laravel applies this in Command::__construct.
+     */
+    protected $aliases = ['atlas:aaeos:learning-proposals'];
+
     public function handle(AtlasLearningProposalDecisionService $service): int
     {
         try {

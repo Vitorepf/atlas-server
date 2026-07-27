@@ -43,6 +43,12 @@ class AtlasAaeosDepartmentStatusCommand extends Command
 
     protected $description = 'Show AAEOS per-department maturity (L0..L7) and numeric quality bar. [was atlas:aaeos:*; TRI-HYGIENE rename]';
 
+    /**
+     * Deprecated name kept working natively. It used to need a whole forwarding
+     * command class; Laravel applies this in Command::__construct.
+     */
+    protected $aliases = ['atlas:aaeos:department-status'];
+
     public function handle(
         AtlasDepartmentMaturityService $maturity,
         AtlasDepartmentQualityBarService $qualityBar,

@@ -36,6 +36,12 @@ class AtlasAaeosVerifyTestsCommand extends Command
 
     protected $description = 'Run the named test(s) of capabilities for REAL and record GREEN-RUN RECEIPTS that gate the verified tier. [was atlas:aaeos:*; TRI-HYGIENE rename]';
 
+    /**
+     * Deprecated name kept working natively. It used to need a whole forwarding
+     * command class; Laravel applies this in Command::__construct.
+     */
+    protected $aliases = ['atlas:aaeos:verify-tests'];
+
     public function handle(
         AtlasImplementationTruthService $truth,
         AtlasCapabilityTestExecutionService $execution,

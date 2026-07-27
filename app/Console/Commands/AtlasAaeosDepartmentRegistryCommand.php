@@ -24,6 +24,12 @@ class AtlasAaeosDepartmentRegistryCommand extends Command
 
     protected $description = 'Inspect and validate the AAEOS department registry (atlas.aaeos.department.v1). [was atlas:aaeos:*; TRI-HYGIENE rename]';
 
+    /**
+     * Deprecated name kept working natively. It used to need a whole forwarding
+     * command class; Laravel applies this in Command::__construct.
+     */
+    protected $aliases = ['atlas:aaeos:department-registry'];
+
     public function handle(AtlasDepartmentRegistryService $registry): int
     {
         $raw = $this->option('registry');

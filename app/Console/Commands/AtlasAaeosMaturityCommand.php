@@ -32,6 +32,12 @@ class AtlasAaeosMaturityCommand extends Command
 
     protected $description = 'Compute machine-verified implementation_state for docs declaring evidence_refs, from the code intelligence index. [was atlas:aaeos:*; TRI-HYGIENE rename]';
 
+    /**
+     * Deprecated name kept working natively. It used to need a whole forwarding
+     * command class; Laravel applies this in Command::__construct.
+     */
+    protected $aliases = ['atlas:aaeos:maturity'];
+
     public function handle(AtlasImplementationTruthService $truth, AtlasDebugRootCauseService $rootCause): int
     {
         if ((bool) $this->option('coverage')) {

@@ -35,6 +35,12 @@ class AtlasCodexReviewChainContractCommand extends Command
 
     protected $description = 'Atlas self-construction · codex review chain contract — read-only review/signature/merge-action chain that approves, signs and merges nothing. [was atlas:aaeos:*; TRI-HYGIENE rename]';
 
+    /**
+     * Deprecated name kept working natively. It used to need a whole forwarding
+     * command class; Laravel applies this in Command::__construct.
+     */
+    protected $aliases = ['atlas:aaeos:codex-review-chain-contract'];
+
     public function handle(AtlasSelfConstructionReadinessService $service): int
     {
         try {

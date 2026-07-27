@@ -25,6 +25,12 @@ class AtlasAaeosChoreographyStatusCommand extends Command
 
     protected $description = 'Inspect and evaluate the AAEOS cross-department choreography (veto/repair/handoff) runtime. [was atlas:aaeos:*; TRI-HYGIENE rename]';
 
+    /**
+     * Deprecated name kept working natively. It used to need a whole forwarding
+     * command class; Laravel applies this in Command::__construct.
+     */
+    protected $aliases = ['atlas:aaeos:choreography-status'];
+
     public function handle(AtlasCrossDepartmentChoreographyService $choreography): int
     {
         $veto = $this->option('veto');

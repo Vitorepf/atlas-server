@@ -36,6 +36,12 @@ final class AtlasAaeosAcosSimplifyCycleCommand extends Command
 
     protected $description = 'AAEOS+ACOS elite simplify lane — plan one Autônomos tick (brain→seed→prompts). [was atlas:aaeos:*; TRI-HYGIENE rename]';
 
+    /**
+     * Deprecated name kept working natively. It used to need a whole forwarding
+     * command class; Laravel applies this in Command::__construct.
+     */
+    protected $aliases = ['atlas:aaeos-acos:simplify-cycle'];
+
     public function handle(
         AtlasAaeosAcosSimplifyCyclePlanner $planner,
         AtlasAaeosAcosSimplificationLane $lane,

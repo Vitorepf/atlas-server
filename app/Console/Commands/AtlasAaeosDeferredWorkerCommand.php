@@ -46,6 +46,12 @@ final class AtlasAaeosDeferredWorkerCommand extends Command
 
     protected $description = 'Drain AAEOS deferred phase queue produced by the HTTP facade (AP-696..AP-699). [was atlas:aaeos:*; TRI-HYGIENE rename]';
 
+    /**
+     * Deprecated name kept working natively. It used to need a whole forwarding
+     * command class; Laravel applies this in Command::__construct.
+     */
+    protected $aliases = ['atlas:aaeos:deferred-worker'];
+
     public function handle(AaeosDeferredPhaseDispatcherService $dispatcher): int
     {
         $max = max(1, (int) $this->option('max'));

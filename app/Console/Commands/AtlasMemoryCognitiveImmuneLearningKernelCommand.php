@@ -32,6 +32,12 @@ class AtlasMemoryCognitiveImmuneLearningKernelCommand extends Command
 
     protected $description = 'Atlas Memory · cognitive immune gate (Input Class classify, G0-G8 promotion ladder, quarantine default, non-negotiable rules). [was atlas:aaeos:*; TRI-HYGIENE rename]';
 
+    /**
+     * Deprecated name kept working natively. It used to need a whole forwarding
+     * command class; Laravel applies this in Command::__construct.
+     */
+    protected $aliases = ['atlas:aaeos:memory-cognitive-immune-learning-kernel'];
+
     public function handle(AtlasMemoryCognitiveImmuneLearningKernelService $service): int
     {
         try {
