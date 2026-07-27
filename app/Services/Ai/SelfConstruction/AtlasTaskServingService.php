@@ -1839,6 +1839,12 @@ final class AtlasTaskServingService
             return null;
         }
 
+        // Origem-harness NÃO é recusada aqui: um harness de prova precisa poder
+        // exercitar este caminho inteiro, senão a única forma de prová-lo é não
+        // prová-lo. Ela é DECLARADA — e o cartório do AEMOR recusa a declaração
+        // como evidência, que é onde a recusa importa.
+        $synthetic = (bool) ($attestation['runner_injected'] ?? false);
+
         try {
             $receipt = AtlasAaeosTestRunReceipt::query()->create([
                 'capability_id' => 'autonomos.task.'.$taskPacketId,
@@ -1847,17 +1853,21 @@ final class AtlasTaskServingService
                 'passed' => true,
                 'tests_run' => (int) $attestation['n_tests'],
                 'exit_code' => 0,
-                'metadata' => [
+                'metadata' => array_filter([
                     // Server-side attribution: the suite is this task's OWN declared test
                     // files and the run is pinned to the tree hash of its changed files.
-                    'attribution_reviewed' => true,
+                    'attribution_reviewed' => ! $synthetic,
                     'attribution_basis' => 'task_owned_suite_pinned_to_tree_hash',
                     'source' => 'atlas_task_commit_verification_gate',
                     'runner' => (string) ($attestation['runner'] ?? ''),
                     'tree_hash' => (string) ($attestation['tree_hash'] ?? ''),
                     'assertions' => (int) ($attestation['n_assertions'] ?? 0),
                     'task_packet_id' => $taskPacketId,
-                ],
+                    'synthetic' => $synthetic ?: null,
+                    'synthetic_reason' => $synthetic
+                        ? 'runner injetado no gate de verificação: a suíte não foi executada, a saída foi ditada'
+                        : null,
+                ], static fn (mixed $v): bool => $v !== null),
                 'ran_at' => now(),
             ]);
 

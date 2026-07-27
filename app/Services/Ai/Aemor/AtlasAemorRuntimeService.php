@@ -668,6 +668,15 @@ final class AtlasAemorRuntimeService
             return null;
         }
 
+        // Um recibo que se declara sintético não é evidência. Ele existe para que
+        // um harness possa exercitar o caminho inteiro de produção sem mentir; o
+        // preço é que ele nunca conta. Sem esta linha, a marca `synthetic` seria o
+        // que era até aqui — convenção educada que ninguém consulta, e uma linha
+        // fabricada verificaria um outcome como se fosse entrega real.
+        if ((bool) data_get($receipt->metadata, 'synthetic', false)) {
+            return null;
+        }
+
         return [
             'tests_passed' => true,
             'attribution_reviewed' => (bool) data_get($receipt->metadata, 'attribution_reviewed'),

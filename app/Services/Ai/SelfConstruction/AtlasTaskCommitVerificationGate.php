@@ -31,11 +31,20 @@ final class AtlasTaskCommitVerificationGate
     /** @var callable(list<string>,string,float):array{ran:bool,ok:bool,out:string} */
     private $runner;
 
+    /**
+     * Um runner injetado é a marca de origem de um harness de prova: os comandos
+     * não rodaram, a saída foi ditada. Só este objeto sabe disso — ninguém
+     * downstream consegue distinguir "OK (7 tests)" verdadeiro de ditado —, então
+     * o fato viaja dentro do attestation em vez de se perder aqui.
+     */
+    private readonly bool $runnerInjected;
+
     public function __construct(
         private readonly ?string $repoRootOverride = null,
         ?callable $runner = null,
         private readonly ?AtlasTaskGovernancePolicyPlane $policyPlane = null,
     ) {
+        $this->runnerInjected = $runner !== null;
         $this->runner = $runner ?? fn (array $cmd, string $cwd, float $timeout): array => $this->realRun($cmd, $cwd, $timeout);
     }
 
@@ -140,7 +149,7 @@ final class AtlasTaskCommitVerificationGate
                     nAssertions: (int) ($executionEvidence['assertions_executed'] ?? 0),
                     exitCode: $t['ok'] ? 0 : 1,
                     treeHash: (new AtlasTestAttestationService)->stateHash($repo, $changed),
-                );
+                ) + ['runner_injected' => $this->runnerInjected];
             }
         } else {
             $checks['task_tests'] = 'skip';
