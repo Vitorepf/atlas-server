@@ -3,13 +3,13 @@
 namespace App\Console\Commands;
 
 use App\Console\Commands\Support\AtlasCliLimitInput;
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Models\AiToolEvent;
 use App\Models\AiTrace;
-use Illuminate\Console\Command;
 use App\Services\Ai\Support\DatabaseTableAvailability;
-use Illuminate\Support\Str;
 use App\Support\YesNo;
-use App\Console\Concerns\EmitsCanonicalJson;
+use Illuminate\Console\Command;
+use Illuminate\Support\Str;
 
 class AtlasCliTraceCommand extends Command
 {
@@ -18,7 +18,7 @@ class AtlasCliTraceCommand extends Command
     protected $signature = 'atlas:cli:trace
         {action=last : last, show, replay or list}
         {trace? : Trace id. Empty uses latest}
-        {--workspace= : Workspace path. Defaults to current directory}
+        {--workspace= : Accepted for bin/atlas compatibility; traces are NOT workspace-scoped (ai_traces has no workspace column)}
         {--limit=20}
         {--full : Show less-redacted payloads}
         {--json : Print machine-readable JSON}';

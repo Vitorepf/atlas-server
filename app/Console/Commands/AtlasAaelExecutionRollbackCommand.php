@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\AutonomousEvolution\Aael\Execution\Rollback\AtlasAaelExecutionPreImageSnapshotter;
 use App\Services\Ai\AutonomousEvolution\Aael\Execution\Rollback\AtlasAaelExecutionRollbackExecutor;
 use App\Services\Ai\AutonomousEvolution\Aael\Execution\Rollback\AtlasAaelExecutionRollbackReceiptLedger;
+use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
 use Illuminate\Console\Command;
 
 /**
@@ -69,7 +70,12 @@ final class AtlasAaelExecutionRollbackCommand extends Command
         $executionId = (string) ($this->option('execution-id') ?? '');
         $reason = (string) ($this->option('reason') ?? 'operator_request');
 
-        if (! (bool) (function_exists('config') ? config('atlas.loop.master_enabled', false) : false)) {
+        // The real master switch parses .env directly (preferring
+        // ATLAS_AUTONOMOS_MASTER_ENABLED) so an operator flip takes effect without
+        // a config-cache clear. config('atlas.loop.master_enabled') resolves to
+        // NULL — that key lives nowhere — so this refused on every run, master ON
+        // or OFF. Fail-closed, so never unsafe; just permanently unusable.
+        if (! AtlasLoopMasterSwitch::enabled()) {
             $this->getOutput()->writeln('master switch OFF: refusing execute');
 
             return self::EXIT_REFUSED;

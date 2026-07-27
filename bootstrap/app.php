@@ -21,11 +21,11 @@ use App\Console\Commands\AtlasAcosMSeriesCommand;
 use App\Console\Commands\AtlasAcosObraRetroCommand;
 use App\Console\Commands\AtlasAcosRec06BreakersCommand;
 use App\Console\Commands\AtlasAcosTeto10ReviewDigestCommand;
+use App\Console\Commands\AtlasAiAbstractionLadderCommand;
 use App\Console\Commands\AtlasAiArchitectureValidateCommand;
 use App\Console\Commands\AtlasAiAutoApplySafeCommand;
 use App\Console\Commands\AtlasAiAutomationDomainCommand;
 use App\Console\Commands\AtlasAiCaptureQualityAuditCommand;
-use App\Console\Commands\AtlasAiAbstractionLadderCommand;
 use App\Console\Commands\AtlasAiCounterfactualLiftCommand;
 use App\Console\Commands\AtlasAiCyberDomainCommand;
 use App\Console\Commands\AtlasAiDecideCommand;
@@ -44,8 +44,8 @@ use App\Console\Commands\AtlasAiMarketingDomainCommand;
 use App\Console\Commands\AtlasAiMemoryForgetCommand;
 use App\Console\Commands\AtlasAiOperationsDomainCommand;
 use App\Console\Commands\AtlasAiPersonalDevelopmentDomainCommand;
-use App\Console\Commands\AtlasAiProgrammingRuntimeControlPlaneCommand;
 use App\Console\Commands\AtlasAiProceduralSkillPromoterCommand;
+use App\Console\Commands\AtlasAiProgrammingRuntimeControlPlaneCommand;
 use App\Console\Commands\AtlasAiProviderPerformanceCommand;
 use App\Console\Commands\AtlasAiProviderReleaseSourcesCommand;
 use App\Console\Commands\AtlasAiQualitativeLevelsCommand;
@@ -69,7 +69,6 @@ use App\Console\Commands\AtlasBrainPredictedImpactCommand;
 use App\Console\Commands\AtlasBrainQueuedTargetsCommand;
 use App\Console\Commands\AtlasBrainSeedCommand;
 use App\Console\Commands\AtlasBrainWorkerPromptCommand;
-use App\Console\Commands\AtlasBridgeEvidenceCommand;
 use App\Console\Commands\AtlasCliBootstrapCommand;
 use App\Console\Commands\AtlasCliCheckpointCommand;
 use App\Console\Commands\AtlasCliCompareCommand;
@@ -313,7 +312,6 @@ return Application::configure(basePath: dirname(__DIR__))
         AtlasStrategicOperatingSystemCommand::class,
         AtlasAiWeeklyMemoryDigestCommand::class,
         AtlasApplyLearningCommand::class,
-        AtlasBridgeEvidenceCommand::class,
         AtlasBlogEditorialPlanCommand::class,
         AtlasBrainContractGapsCommand::class,
         AtlasBrainCycleCapsuleCommand::class,

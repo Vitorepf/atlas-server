@@ -2,18 +2,18 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Support\AtlasPhpBinary;
 use App\Support\AtlasSecurity;
 use Illuminate\Console\Command;
 use Symfony\Component\Process\Process;
-use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasCliUpdateCommand extends Command
 {
     use EmitsCanonicalJson;
 
     protected $signature = 'atlas:cli:update
-        {--channel=stable : stable or beta}
+        {--channel=stable : only `stable` is implemented; any other value refuses}
         {--allow-dirty}
         {--dry-run}
         {--strict}
@@ -23,6 +23,18 @@ class AtlasCliUpdateCommand extends Command
 
     public function handle(): int
     {
+        // --channel was declared and never read: `--channel=beta` silently pulled
+        // the current branch, so the operator believed they were on a channel that
+        // does not exist. Only `stable` is implemented; anything else refuses
+        // instead of quietly doing something different from what was asked.
+        $channel = (string) ($this->option('channel') ?? 'stable');
+        if ($channel !== 'stable') {
+            return $this->finish(false, 'unsupported_channel', [
+                'message' => "Canal [{$channel}] nao implementado: atlas:cli:update so atualiza o branch atual (stable).",
+                'channel' => $channel,
+            ]);
+        }
+
         $dirty = $this->runProcess(['git', 'status', '--short']);
         if ($dirty['stdout'] !== '' && ! (bool) $this->option('allow-dirty') && ! (bool) $this->option('dry-run')) {
             return $this->finish(false, 'worktree_dirty', [

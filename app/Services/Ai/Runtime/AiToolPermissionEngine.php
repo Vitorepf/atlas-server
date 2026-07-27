@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Runtime;
 
 use App\Models\AiPermissionSession;
+use App\Services\Ai\Governance\AiPermissionEngineSupport;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Support\AtlasSecurity;
 
@@ -163,27 +164,16 @@ class AiToolPermissionEngine
     }
 
     /**
+     * Byte-identical to AiPermissionEngineSupport::allowedRoots() — two live
+     * permission engines each owned a copy of the filesystem allow-list, so a
+     * root added to one left the other still refusing (or still allowing) it.
+     * One owner.
+     *
      * @return array<int,string>
      */
     private function allowedRoots(): array
     {
-        $configured = config('atlas.ai.tool_permissions.allowed_roots', []);
-        $configured = is_array($configured) ? $configured : [];
-        $roots = array_merge($configured, [
-            config('atlas.ai.workdir'),
-            base_path(),
-            dirname(base_path()),
-            dirname(dirname(base_path())),
-            dirname(dirname(dirname(base_path()))),
-        ]);
-
-        return collect($roots)
-            ->filter(fn (mixed $root): bool => is_string($root) && $root !== '')
-            ->map(fn (string $root): ?string => is_dir($root) ? AtlasSecurity::canonicalPath($root) : null)
-            ->filter(fn (?string $root): bool => is_string($root) && is_dir($root))
-            ->unique()
-            ->values()
-            ->all();
+        return (new AiPermissionEngineSupport)->allowedRoots();
     }
 
     private function resolvePath(string $workspace, string $path): string
