@@ -2,13 +2,12 @@
 
 namespace App\Services\Ai;
 
-use App\Services\Ai\Provider\ProviderCatalog;
-
 use App\Services\Ai\AtlasDecide\AtlasDecideMetaLearningService;
 use App\Services\Ai\Decide\DecideProviderNormalization;
 use App\Services\Ai\Decide\ForgeTopologySection;
 use App\Services\Ai\Decide\KernelContractSection;
 use App\Services\Ai\ExecutionAuthority\ForgeLiveDecideReceiptPort;
+use App\Services\Ai\Hermes\HermesNativeFcCapabilityAttestor;
 use App\Services\Ai\Hermes\HermesRuntimeRouter;
 use App\Services\Ai\Hermes\Mesh\HermesMeshRoutingAdvisor;
 use App\Services\Ai\Kernel\Decision\DecisionReceipt;
@@ -20,8 +19,10 @@ use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Provider\ProviderPreparedRequestValidator;
 use App\Services\Ai\Kernel\Slo\KernelSloProbe;
 use App\Services\Ai\Policy\AtlasAiPolicyService;
+use App\Services\Ai\Policy\AtlasAiRuntimeSettings;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\ProviderLock;
 use App\Services\Ai\Provider\Drivers\ProviderDriverRegistry;
+use App\Services\Ai\Provider\ProviderCatalog;
 use App\Services\Ai\Surface\SurfaceAdapterRegistry;
 use App\Services\Ai\ValueObjects\OperationalDecision;
 use Illuminate\Support\Str;
@@ -115,6 +116,45 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
         $payload = is_array($options['payload'] ?? null) ? $options['payload'] : [];
 
         return $this->cleanDecisionMode(data_get($payload, 'decision_mode')) ?? 'atlas_decide';
+    }
+
+    /**
+     * Which provider answers when the operator's manual choice is not allowed.
+     *
+     * Both AiDecisionController and AtlasAiDecideCommand carried a private copy
+     * of this and they DISAGREED on the last line: the CLI fell back to
+     * claude_cli/codex_cli, the API to hermes_cli/minimax_m27_cli. So asking
+     * "who would run this?" gave the operator two different answers for the same
+     * provider depending on the surface. hermes_cli is the configured default
+     * provider, so the CLI's pair was the stale one. One owner now.
+     */
+    public function manualFallbackProvider(string $provider, AtlasAiRuntimeSettings $settings): string
+    {
+        $default = $settings->defaultProvider();
+        if ($default !== $provider && $default !== 'claude_codex' && (bool) ($settings->providerConfig($default)['allow_manual'] ?? true)) {
+            return $default;
+        }
+
+        return $provider === 'hermes_cli' ? 'minimax_m27_cli' : 'hermes_cli';
+    }
+
+    /**
+     * Which provider answers on the automatic path. This one was already
+     * byte-identical in both copies; it is here so the pair stays together.
+     *
+     * @param  array<string,mixed>  $options
+     */
+    public function automaticFallbackProvider(AtlasAiRuntimeSettings $settings, array $options): string
+    {
+        $default = $settings->defaultProvider();
+        if ($default !== 'claude_codex'
+            && ! ($default === 'gemini_cli' && $this->isProgrammingLikeTask($options))
+            && (bool) ($settings->providerConfig($default)['allow_auto'] ?? true)
+        ) {
+            return $default;
+        }
+
+        return 'hermes_cli';
     }
 
     /**
@@ -648,11 +688,6 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
 
         return $this->slo->measure('decide.issue', function () use (
             $envelope,
-            $payload,
-            $domain,
-            $flow,
-            $selectedProvider,
-            $selectedModel,
             $decisionSeed,
             $forceLegacyV2Writer,
         ): array {
@@ -756,7 +791,7 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
         string $taskType,
         ?array $providerCapabilities = null,
     ): array {
-        $capabilities = $providerCapabilities ?? \App\Services\Ai\Hermes\HermesNativeFcCapabilityAttestor::capabilitiesFor(
+        $capabilities = $providerCapabilities ?? HermesNativeFcCapabilityAttestor::capabilitiesFor(
             $provider,
             $model,
         );
@@ -991,7 +1026,6 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
 
         return 74;
     }
-
 
     /**
      * @param  array<string,mixed>  $options
@@ -1497,7 +1531,6 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
         return array_values(array_unique($gates));
     }
 
-
     private function contextSource(array $payload, bool $hasVisual, bool $hasFile, int $attachmentCount): string
     {
         if ($hasVisual) {
@@ -1519,8 +1552,6 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
         return 'prompt';
     }
 
-
-
     private function manualOverrideProviderFromParts(
         ?string $decisionMode,
         ?string $operatorRequested,
@@ -1541,7 +1572,6 @@ class AtlasDecideService implements ForgeLiveDecideReceiptPort
 
         return $requestedProvider ?: $topLevelProvider;
     }
-
 
     private function providerOrCouncil(mixed $value): ?string
     {

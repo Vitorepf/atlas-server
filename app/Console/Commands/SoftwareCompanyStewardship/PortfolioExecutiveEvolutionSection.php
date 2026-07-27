@@ -18,6 +18,7 @@ use App\Services\Ai\SoftwareCompanyStewardship\SelfExpanding\SelfExpandingSoftwa
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipEvolutionDecisionLedgerService;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipEvolution\StewardshipEvolutionReadModelService;
 use App\Support\YesNo;
+use InvalidArgumentException;
 
 trait PortfolioExecutiveEvolutionSection
 {
@@ -856,5 +857,4 @@ trait PortfolioExecutiveEvolutionSection
 
         return self::SUCCESS;
     }
-
 }

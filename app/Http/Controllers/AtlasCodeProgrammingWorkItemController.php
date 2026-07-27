@@ -21,6 +21,7 @@ use App\Services\Ai\Support\AiStringListNormalizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Throwable;
 
 /**
  * Atlas Code -> Programming Governance WorkItem binding.

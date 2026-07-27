@@ -322,7 +322,7 @@ class AtlasAiDecideCommand extends Command
         if ($manualProvider !== null) {
             return (bool) ($settings->providerConfig($candidate)['allow_manual'] ?? true)
                 ? $candidate
-                : $this->manualFallbackProvider($candidate, $settings);
+                : $decide->manualFallbackProvider($candidate, $settings);
         }
 
         if ($candidate === 'gemini_cli' && $decide->isProgrammingLikeTask($options)) {
@@ -333,30 +333,7 @@ class AtlasAiDecideCommand extends Command
             return $candidate;
         }
 
-        return $this->automaticFallbackProvider($settings, $options, $decide);
-    }
-
-    private function manualFallbackProvider(string $provider, AtlasAiRuntimeSettings $settings): string
-    {
-        $default = $settings->defaultProvider();
-        if ($default !== $provider && $default !== 'claude_codex' && (bool) ($settings->providerConfig($default)['allow_manual'] ?? true)) {
-            return $default;
-        }
-
-        return $provider === 'claude_cli' ? 'codex_cli' : 'claude_cli';
-    }
-
-    private function automaticFallbackProvider(AtlasAiRuntimeSettings $settings, array $options, AtlasDecideService $decide): string
-    {
-        $default = $settings->defaultProvider();
-        if ($default !== 'claude_codex'
-            && ! ($default === 'gemini_cli' && $decide->isProgrammingLikeTask($options))
-            && (bool) ($settings->providerConfig($default)['allow_auto'] ?? true)
-        ) {
-            return $default;
-        }
-
-        return 'hermes_cli';
+        return $decide->automaticFallbackProvider($settings, $options);
     }
 
     /**

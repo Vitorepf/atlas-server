@@ -7,6 +7,7 @@ use App\Models\AtlasProgrammingWorkItem;
 use App\Services\Ai\Programming\Governance\Gates\ProgrammingGateContract;
 use App\Services\Ai\Programming\Governance\Gates\ProgrammingGateOutcome;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use Throwable;
 
 /**
  * Runs the gate pipeline for a work item, persisting each evaluation as an

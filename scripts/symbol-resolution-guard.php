@@ -190,7 +190,16 @@ foreach ($sources as $path => $source) {
         $isTypeBound = is_array($previous)
             && in_array($previous[0], [T_INSTANCEOF, T_EXTENDS, T_IMPLEMENTS], true);
 
-        if ($isStaticAccess || $isConstructed || $isTypeBound) {
+        // A parameter type-hint: `Foo $bar` / `?Foo $bar`. This shape was the gap
+        // — I introduced one myself moving a method between classes, and only a
+        // runtime TypeError caught it, because the class LOADS fine and the hint
+        // is only checked when the method is called. Same defect family as the
+        // rest: unimported name resolving into the file's own namespace.
+        $isParameterHint = is_array($next) && $next[0] === T_VARIABLE
+            && ($previous === '(' || $previous === ',' || $previous === '?'
+                || (is_array($previous) && $previous[0] === T_WHITESPACE));
+
+        if ($isStaticAccess || $isConstructed || $isTypeBound || $isParameterHint) {
             $references[$name] = true;
         }
     }

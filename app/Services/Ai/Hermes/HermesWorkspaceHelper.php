@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Hermes;
 
+use App\Models\AiJob;
+
 /**
  * Shared byte-identical helper de-duplicated across this family (workspace).
  */

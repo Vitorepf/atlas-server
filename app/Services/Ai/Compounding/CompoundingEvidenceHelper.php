@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Compounding;
 
+use App\Models\AiLearningCandidate;
+
 /**
  * Shared byte-identical helper(s) de-duplicated across this family (evidenceRefsOf).
  */
