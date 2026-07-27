@@ -40,11 +40,11 @@ final class AtlasSelfConstructionAutonomySoakPlanCompiler
      */
     public function compile(array $facts): array
     {
-        $queue  = is_array($facts['queue_health']  ?? null) ? $facts['queue_health']  : [];
+        $queue = is_array($facts['queue_health'] ?? null) ? $facts['queue_health'] : [];
         $worker = is_array($facts['worker_health'] ?? null) ? $facts['worker_health'] : [];
-        $merge  = is_array($facts['merge_health']  ?? null) ? $facts['merge_health']  : [];
+        $merge = is_array($facts['merge_health'] ?? null) ? $facts['merge_health'] : [];
 
-        $criteria      = [];
+        $criteria = [];
         $disqualifiers = [];
 
         // Standard criteria.
@@ -64,20 +64,20 @@ final class AtlasSelfConstructionAutonomySoakPlanCompiler
         // Collect standard failures into disqualifiers.
         foreach ($criteria as $c) {
             if ($c['status'] === 'fail') {
-                $disqualifiers[] = 'criterion_failed:' . $c['criterion'];
+                $disqualifiers[] = 'criterion_failed:'.$c['criterion'];
             }
         }
 
         // Custom criteria — AC2 human-dependency check.
         $failClosedReason = null;
         foreach ((array) ($facts['criteria_overrides'] ?? []) as $cc) {
-            $name         = strtolower(trim((string) ($cc['name'] ?? '')));
+            $name = strtolower(trim((string) ($cc['name'] ?? '')));
             $requiresHuman = $this->hasHumanDependency($name) || (bool) ($cc['requires_human'] ?? false);
 
             if ($requiresHuman) {
-                $disqualifiers[]  = 'criterion_requires_human_dependency:' . $name;
+                $disqualifiers[] = 'criterion_requires_human_dependency:'.$name;
                 $failClosedReason = $failClosedReason ?? "criterion '$name' requires human or external intervention";
-                $criteria[]       = ['criterion' => $name, 'status' => 'fail', 'requires_human' => true];
+                $criteria[] = ['criterion' => $name, 'status' => 'fail', 'requires_human' => true];
             } else {
                 $criteria[] = $this->crit($name, (bool) ($cc['passing'] ?? false));
             }
@@ -92,14 +92,14 @@ final class AtlasSelfConstructionAutonomySoakPlanCompiler
         $soakWindows = $this->compileSoakWindows($soakHours, $criteria, $failClosedReason);
 
         return [
-            'schema_version'               => self::SCHEMA,
-            'soak_duration_hours'          => $soakHours,
-            'required_green_streak_tasks'  => $greenStreak,
-            'steady_state_criteria'        => $criteria,
-            'disqualifiers'                => $disqualifiers,
-            'is_soak_ready'                => $failCount === 0 && $failClosedReason === null,
-            'fail_closed_reason'           => $failClosedReason,
-            'soak_windows'                 => $soakWindows,
+            'schema_version' => self::SCHEMA,
+            'soak_duration_hours' => $soakHours,
+            'required_green_streak_tasks' => $greenStreak,
+            'steady_state_criteria' => $criteria,
+            'disqualifiers' => $disqualifiers,
+            'is_soak_ready' => $failCount === 0 && $failClosedReason === null,
+            'fail_closed_reason' => $failClosedReason,
+            'soak_windows' => $soakWindows,
         ];
     }
 
@@ -174,7 +174,10 @@ final class AtlasSelfConstructionAutonomySoakPlanCompiler
             [
                 'window' => 'knowledge_sync',
                 'interval_hours' => round($interval, 1),
-                'verification_command' => 'php artisan atlas:knowledge:sync --status --json | jq .sync_status',
+                // atlas:knowledge:sync was never a registered command, and .sync_status was
+                // never a field. The real surface is atlas:engineering:knowledge with
+                // `status` as an ACTION, and its payload nests under summary.
+                'verification_command' => 'php artisan atlas:engineering:knowledge status --json | jq .summary.status',
                 'blocked_by' => $blockedBy,
             ],
         ];

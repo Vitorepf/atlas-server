@@ -45,32 +45,43 @@ final class AtlasExternalBrainEvidenceFreshnessBackfillPlanner
 
     public const DEFAULT_FRESHNESS_THRESHOLD = 86400;  // 24 hours
 
-    /** @var array<string, array{capture_task:string, proof_command:string}> */
+    /**
+     * Every entry here named an artisan command that does not exist, so the whole
+     * catalogue pointed at nothing: atlas:task:queue-health-snapshot,
+     * atlas:task:report and atlas:self-construction:smoke were never registered,
+     * and index-code / sync are ACTIONS of atlas:engineering:knowledge, not
+     * segments of a command name. Checked against Artisan::all().
+     *
+     * The proof commands also carried --dry-run, which only atlas:engineering:
+     * knowledge accepts; the others take --json for the same read-only intent.
+     *
+     * @var array<string, array{capture_task:string, proof_command:string}>
+     */
     private const KNOWN_STREAMS = [
         'queue_health' => [
-            'capture_task' => 'atlas:task:queue-health-snapshot',
-            'proof_command' => '/opt/homebrew/bin/php artisan atlas:task:queue-health-snapshot --dry-run',
+            'capture_task' => 'atlas:task:health',
+            'proof_command' => '/opt/homebrew/bin/php artisan atlas:task:health --json',
         ],
         'muscle_outcomes' => [
-            'capture_task' => 'atlas:task:report --outcome=probe',
-            'proof_command' => '/opt/homebrew/bin/php artisan atlas:task:report --client=brain-audit --dry-run',
+            'capture_task' => 'atlas:task report',
+            'proof_command' => '/opt/homebrew/bin/php artisan atlas:task report --json',
         ],
         'runtime_receipts' => [
-            'capture_task' => 'atlas:self-construction:smoke',
-            'proof_command' => '/opt/homebrew/bin/php artisan atlas:self-construction:smoke --dry-run',
+            'capture_task' => 'atlas:self-construction:final-smoke',
+            'proof_command' => '/opt/homebrew/bin/php artisan atlas:self-construction:final-smoke --json',
         ],
         'code_facts' => [
-            'capture_task' => 'atlas:engineering:knowledge:index-code',
-            'proof_command' => '/opt/homebrew/bin/php artisan atlas:engineering:knowledge:index-code --dry-run',
+            'capture_task' => 'atlas:engineering:knowledge index-code',
+            'proof_command' => '/opt/homebrew/bin/php artisan atlas:engineering:knowledge index-code --dry-run',
         ],
     ];
 
     /** Lower rank = higher priority. Missing outranks stale; contradictory/never_captured are unsafe. */
     private const REASON_RANK = [
-        'missing'        => 0,
-        'contradictory'  => 1,
+        'missing' => 0,
+        'contradictory' => 1,
         'never_captured' => 1,
-        'stale'          => 2,
+        'stale' => 2,
     ];
 
     /**
@@ -79,8 +90,8 @@ final class AtlasExternalBrainEvidenceFreshnessBackfillPlanner
      */
     public function plan(array $audit): array
     {
-        $streams    = (array) ($audit['evidence_streams'] ?? []);
-        $nowUnix    = max(0, (int) ($audit['now_unix'] ?? 0));
+        $streams = (array) ($audit['evidence_streams'] ?? []);
+        $nowUnix = max(0, (int) ($audit['now_unix'] ?? 0));
 
         $backfillTasks = [];
 
@@ -89,10 +100,10 @@ final class AtlasExternalBrainEvidenceFreshnessBackfillPlanner
                 continue;
             }
 
-            $streamId    = (string) $stream['stream_id'];
+            $streamId = (string) $stream['stream_id'];
             $hasEvidence = (bool) ($stream['has_evidence'] ?? false);
-            $lastAt      = max(0, (int) ($stream['last_captured_at_unix'] ?? 0));
-            $threshold   = max(1, (int) ($stream['freshness_threshold_seconds'] ?? self::DEFAULT_FRESHNESS_THRESHOLD));
+            $lastAt = max(0, (int) ($stream['last_captured_at_unix'] ?? 0));
+            $threshold = max(1, (int) ($stream['freshness_threshold_seconds'] ?? self::DEFAULT_FRESHNESS_THRESHOLD));
             $contradictory = (bool) ($stream['contradictory'] ?? false);
 
             $reason = null;
@@ -124,26 +135,26 @@ final class AtlasExternalBrainEvidenceFreshnessBackfillPlanner
 
             // Freshness risk: how stale the evidence is (0=fresh, 1=very stale/missing).
             $freshnessRisk = match ($reason) {
-                'missing'        => 1.0,
-                'contradictory'   => 0.9,
-                'never_captured'  => 0.9,
-                'stale'           => 0.5,
-                default           => 0.0,
+                'missing' => 1.0,
+                'contradictory' => 0.9,
+                'never_captured' => 0.9,
+                'stale' => 0.5,
+                default => 0.0,
             };
 
             // Capture cost: how expensive is the capture (0=cheap, 1=expensive).
             $captureCost = (float) ($stream['capture_cost'] ?? 0.5);
 
             $backfillTasks[] = [
-                'stream_id'                   => $streamId,
-                'capture_task'                => $captureTask,
+                'stream_id' => $streamId,
+                'capture_task' => $captureTask,
                 'freshness_threshold_seconds' => $threshold,
-                'proof_command'               => $proofCommand,
-                'reason'                      => $reason,
-                'priority'                    => $reason === 'missing' ? 'high' : (in_array($reason, ['contradictory', 'never_captured'], true) ? 'high' : 'medium'),
-                'leverage_impact'              => round($leverageImpact, 4),
-                'freshness_risk'              => round($freshnessRisk, 4),
-                'capture_cost'                 => round($captureCost, 4),
+                'proof_command' => $proofCommand,
+                'reason' => $reason,
+                'priority' => $reason === 'missing' ? 'high' : (in_array($reason, ['contradictory', 'never_captured'], true) ? 'high' : 'medium'),
+                'leverage_impact' => round($leverageImpact, 4),
+                'freshness_risk' => round($freshnessRisk, 4),
+                'capture_cost' => round($captureCost, 4),
             ];
         }
 
@@ -164,6 +175,7 @@ final class AtlasExternalBrainEvidenceFreshnessBackfillPlanner
             if ($riskCmp !== 0) {
                 return $riskCmp;
             }
+
             // Lower capture cost first.
             return ($a['capture_cost'] ?? 0.0) <=> ($b['capture_cost'] ?? 0.0);
         });
@@ -173,28 +185,28 @@ final class AtlasExternalBrainEvidenceFreshnessBackfillPlanner
             $groupedByReason[$task['reason']][] = $task['stream_id'];
         }
 
-        $isNeeded         = $backfillTasks !== [];
+        $isNeeded = $backfillTasks !== [];
         $nextProofCommand = $isNeeded ? $backfillTasks[0]['proof_command'] : 'none';
-        $priorityOrder    = array_column($backfillTasks, 'stream_id');
+        $priorityOrder = array_column($backfillTasks, 'stream_id');
 
         $freshnessSummary = [
-            'total_streams'        => count($streams),
+            'total_streams' => count($streams),
             'needs_backfill_count' => count($backfillTasks),
-            'missing_count'        => count($groupedByReason['missing'] ?? []),
-            'stale_count'          => count($groupedByReason['stale'] ?? []),
-            'contradictory_count'  => count($groupedByReason['contradictory'] ?? []),
+            'missing_count' => count($groupedByReason['missing'] ?? []),
+            'stale_count' => count($groupedByReason['stale'] ?? []),
+            'contradictory_count' => count($groupedByReason['contradictory'] ?? []),
             'never_captured_count' => count($groupedByReason['never_captured'] ?? []),
-            'is_backfill_needed'   => $isNeeded,
+            'is_backfill_needed' => $isNeeded,
         ];
 
         return [
-            'schema'              => self::SCHEMA,
-            'backfill_tasks'      => $backfillTasks,
-            'grouped_by_reason'   => $groupedByReason,
-            'priority_order'      => $priorityOrder,
-            'is_backfill_needed'  => $isNeeded,
-            'next_proof_command'  => $nextProofCommand,
-            'freshness_summary'   => $freshnessSummary,
+            'schema' => self::SCHEMA,
+            'backfill_tasks' => $backfillTasks,
+            'grouped_by_reason' => $groupedByReason,
+            'priority_order' => $priorityOrder,
+            'is_backfill_needed' => $isNeeded,
+            'next_proof_command' => $nextProofCommand,
+            'freshness_summary' => $freshnessSummary,
         ];
     }
 

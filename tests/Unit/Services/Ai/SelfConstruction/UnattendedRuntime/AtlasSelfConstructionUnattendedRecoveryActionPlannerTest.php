@@ -6,6 +6,7 @@ namespace Tests\Unit\Services\Ai\SelfConstruction\UnattendedRuntime;
 
 use App\Services\Ai\SelfConstruction\UnattendedRuntime\AtlasSelfConstructionUnattendedRecoveryActionPlanner;
 use App\Services\Ai\SelfConstruction\UnattendedRuntime\AtlasSelfConstructionUnattendedStallClassifier;
+use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 
 final class AtlasSelfConstructionUnattendedRecoveryActionPlannerTest extends TestCase
@@ -288,6 +289,36 @@ final class AtlasSelfConstructionUnattendedRecoveryActionPlannerTest extends Tes
 
         $this->assertNotNull($plan['recheck_command'],
             'lease_leak must include recheck_command');
-        $this->assertStringContainsString('lease-parity', $plan['recheck_command']);
+
+        // Was: assertStringContainsString('lease-parity', ...). That pinned an
+        // invented flag on atlas:unattended:health — a command that has never been
+        // registered — so the assertion passed while the operator could not run
+        // what it emitted. Assert the property that actually matters instead: the
+        // recheck names a REAL artisan command. This is strictly stronger, and it
+        // fails against the previous implementation.
+        $this->assertRecheckCommandIsRunnable($plan['recheck_command']);
+    }
+
+    public function test_every_recheck_command_names_a_registered_artisan_command(): void
+    {
+        foreach ([
+            AtlasSelfConstructionUnattendedStallClassifier::LEASE_LEAK,
+            AtlasSelfConstructionUnattendedStallClassifier::QUEUE_DRY,
+            AtlasSelfConstructionUnattendedStallClassifier::REPLENISHER_BLOCKED,
+        ] as $classification) {
+            $recheck = $this->planner()->plan($this->classification($classification))['recheck_command'] ?? null;
+            if ($recheck === null) {
+                continue;
+            }
+            $this->assertRecheckCommandIsRunnable($recheck, $classification);
+        }
+    }
+
+    private function assertRecheckCommandIsRunnable(string $recheck, string $context = ''): void
+    {
+        $this->assertSame(1, preg_match('/artisan\s+(\S+)/', $recheck, $m),
+            'recheck_command must invoke artisan: '.$recheck);
+        $this->assertArrayHasKey($m[1], Artisan::all(),
+            'recheck_command names an artisan command that is not registered: '.$m[1].' '.$context);
     }
 }

@@ -145,9 +145,17 @@ final class AtlasSelfConstructionUnattendedRecoveryActionPlanner implements Atla
             $classification === AtlasSelfConstructionUnattendedStallClassifier::LEASE_LEAK => 'medium',
             default => 'normal',
         };
+        // atlas:unattended:health does not exist — there is no atlas:unattended:*
+        // command at all, so both branches emitted a recheck the operator could
+        // never run, and the invented flags (--check-lease-parity, --replenish)
+        // had nowhere to land either. atlas:task:health --json is the real
+        // read-only surface, and it reports both lease parity and queue depth, so
+        // it answers both classifications. A recheck must not mutate: replenishing
+        // is a repair, not a re-measurement, so it is deliberately not called here.
         $recheckCommand = match ($classification) {
-            AtlasSelfConstructionUnattendedStallClassifier::LEASE_LEAK => 'php artisan atlas:unattended:health --check-lease-parity',
-            AtlasSelfConstructionUnattendedStallClassifier::QUEUE_DRY, AtlasSelfConstructionUnattendedStallClassifier::REPLENISHER_BLOCKED => 'php artisan atlas:unattended:health --replenish',
+            AtlasSelfConstructionUnattendedStallClassifier::LEASE_LEAK,
+            AtlasSelfConstructionUnattendedStallClassifier::QUEUE_DRY,
+            AtlasSelfConstructionUnattendedStallClassifier::REPLENISHER_BLOCKED => 'php artisan atlas:task:health --json',
             default => null,
         };
 
