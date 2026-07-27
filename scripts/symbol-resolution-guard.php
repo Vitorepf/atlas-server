@@ -75,7 +75,13 @@ foreach ($sources as $path => $source) {
         $short = $import[2] ?? substr((string) strrchr('\\'.$import[1], '\\'), 1);
         $importedShort[$short] = true;
 
-        if (str_starts_with($import[1], 'App\\') && ! isset($declared[$import[1]])) {
+        // `use App\X\Y;` where Y is a NAMESPACE, not a class, is legal PHP: the
+        // file then writes Y\Z to mean App\X\Y\Z. Those are not absent symbols.
+        $asDirectory = $root.'/app/'.str_replace('\\', '/', substr($import[1], strlen('App\\')));
+
+        if (str_starts_with($import[1], 'App\\')
+            && ! isset($declared[$import[1]])
+            && ! is_dir($asDirectory)) {
             $candidateImports[$import[1]][] = $relative;
         }
     }

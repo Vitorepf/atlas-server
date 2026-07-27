@@ -9,6 +9,7 @@ The target is the first public entry method — the door, not the whole surface.
 
 | Public façade | Concrete navigation target |
 | --- | --- |
+| AaelStepActor | `App\Services\Ai\AutonomousEvolution\Aael\Execution\TraceReplay\AaelStepActor::perform` |
 | AtlasAaelExecutionDebuggerReceiptLedger | `App\Services\Ai\AutonomousEvolution\Aael\Execution\Debugger\AtlasAaelExecutionDebuggerReceiptLedger::append` |
 | AtlasAaelExecutionEmergencyAbortGate | `App\Services\Ai\AutonomousEvolution\Aael\Execution\AtlasAaelExecutionEmergencyAbortGate::raise` |
 | AtlasAaelExecutionPlanInvariantChecker | `App\Services\Ai\AutonomousEvolution\Aael\Execution\AtlasAaelExecutionPlanInvariantChecker::check` |
@@ -26,6 +27,7 @@ The target is the first public entry method — the door, not the whole surface.
 | AtlasAaelInFlightStepValidator | `App\Services\Ai\AutonomousEvolution\Aael\Execution\InFlight\AtlasAaelInFlightStepValidator::validate` |
 | AtlasAaelLoopExecutionBridge | `App\Services\Ai\AutonomousEvolution\AtlasAaelLoopExecutionBridge::execute` |
 | AtlasAaelParallelExecutionReceiptLedger | `App\Services\Ai\AutonomousEvolution\Aael\Parallel\AtlasAaelParallelExecutionReceiptLedger::setRootForTesting` |
+| AtlasAaelParallelLockManager | `App\Services\Ai\AutonomousEvolution\Aael\Parallel\AtlasAaelParallelLockManager::acquire` |
 | AtlasAaelParallelStepScheduler | `App\Services\Ai\AutonomousEvolution\Aael\Parallel\AtlasAaelParallelStepScheduler::plan` |
 | AtlasAutonomousEvolutionCertificationService | `App\Services\Ai\AutonomousEvolution\AtlasAutonomousEvolutionCertificationService::certify` |
 | AtlasAutonomousEvolutionLoopService | `App\Services\Ai\AutonomousEvolution\AtlasAutonomousEvolutionLoopService::runCycle` |
@@ -127,4 +129,4 @@ The target is the first public entry method — the door, not the whole surface.
 | BroaderRegressionGateContract | `App\Services\Ai\AutonomousEvolution\Contracts\BroaderRegressionGateContract::evaluate` |
 | GitSubprocess | `App\Services\Ai\AutonomousEvolution\Support\GitSubprocess::run` |
 
-Façades: 117.
+Façades: 119.
