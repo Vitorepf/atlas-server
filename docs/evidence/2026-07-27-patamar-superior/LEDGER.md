@@ -50,8 +50,71 @@ php artisan atlas:ai:architecture-validate --json
 | Contrato de work-item | cópias privadas byte-idênticas em `ProgrammingWorkItemSpecPlanService` **e** `AtlasCodeProgrammingWorkItemController` (que nunca chamava o service) | `ProgrammingWorkItemContractSupport` | `goldens/programming-work-item-contract.php` |
 | Catálogo de modelos | `AiChatModelSection` era cópia verbatim de `AtlasCliModelCatalogService` | delegadores finos ao service | `goldens/model-catalog.php` |
 
-Grupos de método duplicado: **214 → 210**. Ambas as fusões provadas por golden
+Grupos de método duplicado: **214 → 203**. Toda fusão provada por golden
 standalone anti-vácuo (nunca phpunit, piso do Núcleo Essencial).
+
+---
+
+# FASE 1 — Navegabilidade + fusão de capability
+
+## 1.1 CODEMAP derivado (A1)
+
+| | Antes | Depois |
+|---|---|---|
+| Cobertura | 1 mapa manual, ~40 de 6.656 arquivos | **107 mapas de zona, 2.446 fachadas** |
+| Estado | verificador **exit 1** (mapa inválido) | `ok=true missing=0 drifted=0` |
+| Manutenção | à mão, apodrece | **derivado**, com gate de drift |
+
+```bash
+php artisan atlas:codemap --write     # reconstrói
+php artisan atlas:codemap --verify    # exit 1 em drift
+```
+
+Uma fachada de zona = classe que algum arquivo **fora** da zona realmente nomeia.
+Nada é autorado, então nada envelhece sem o verificador acusar.
+
+## 1.2 Fusão de capability — o contexto tem uma porta só
+
+`AtlasContextRuntime` se declara "single ACOS context facade for the 3 elite
+executors". Forge e Autônomos já passavam por ela; **Dev e a montagem de prompt
+não**. Faziam `build()`+`inject()` na mão — e por isso ficavam presos em
+retrieval `legacy`, fora do rollout unificado e fora da evidência shadow/canary
+que o rollout precisa para graduar.
+
+| Consumidor | Antes | Depois |
+|---|---|---|
+| `AtlasCliDevCommand` (Dev) | build+inject na mão | `AtlasContextRuntime::compose()` |
+| `AiPromptBuilder` (worker/chat/gateway) | build+inject na mão | `AtlasContextRuntime::compose()` |
+| `AtlasForgeLiveExecutionService` (Forge) | já pela fachada | — |
+| `AtlasTaskServingService` (Autônomos) | já pela fachada | — |
+
+Destravado por uma mudança aditiva: `ContextPackContract` passou a carregar o
+pack tipado que a fachada construiu (`source`), sem o qual quem precisa de
+`contextRefs()`/`toPromptSection()` era obrigado a reconstruir — que era
+exatamente o motivo do bypass.
+
+**Comportamento preservado hoje, capacidade amanhã:** com o default de produção
+(`unified_retrieval_enabled=false`) a fachada resolve para os mesmos argumentos
+de `inject()`, provado byte-a-byte. Quando o operador liga o flag, Dev e prompt
+ganham o core fundido de graça.
+
+## 1.3 Fusões com dono único
+
+| Capability | Antes | Depois | Bytes |
+|---|---|---|---|
+| Contrato de work-item (9 regras puras) | 3 cópias privadas: controller · spec-plan · binding | `ProgrammingWorkItemContractSupport` | **−22.347** |
+| Catálogo de modelos | `AiChatModelSection` era cópia verbatim do service | delegadores finos | **−7.137** |
+| Verifier context do recibo final | 2 cópias: human gate · closure pack | `CompletionVerifierContextSupport` | **−3.596** |
+
+## Balanço da sessão
+
+| | |
+|---|---|
+| Commits escopados na `main` | 18 |
+| PHP em `app/` | +1.430 −1.304 = **+126 líquido** (as fusões pagaram os helpers) |
+| Mapas de navegação gerados | +3.734 linhas |
+| Cobertura de teste restaurada | +4.689 linhas |
+| Grupos de método duplicado | 214 → **203** |
 
 ## Achados que não eram "gate velho"
 
