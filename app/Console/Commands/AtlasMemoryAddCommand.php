@@ -9,9 +9,12 @@ use Illuminate\Console\Command;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
+use App\Console\Commands\Concerns\ParsesKeyValueMetadataOption;
 
 class AtlasMemoryAddCommand extends Command
 {
+    use ParsesKeyValueMetadataOption;
+
     use ReadsNonEmptyStringOption;
 
     use EmitsCanonicalJson;

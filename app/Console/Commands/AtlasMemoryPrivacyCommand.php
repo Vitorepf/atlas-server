@@ -12,9 +12,12 @@ use Illuminate\Support\Str;
 use App\Support\YesNo;
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
+use App\Console\Commands\Concerns\ParsesKeyValueMetadataOption;
 
 class AtlasMemoryPrivacyCommand extends Command
 {
+    use ParsesKeyValueMetadataOption;
+
     use ReadsNonEmptyStringOption;
 
     use EmitsCanonicalJson;
