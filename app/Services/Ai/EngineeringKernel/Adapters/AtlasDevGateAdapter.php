@@ -161,7 +161,29 @@ final class AtlasDevGateAdapter implements AcceptanceGate
     public static function securityFromScan(array $scanResult): array
     {
         $status = (string) ($scanResult['status'] ?? 'blocked');
-        $ran = in_array($status, ['passed', 'failed'], true);
+
+        // The aggregate status is NOT enough to prove a security scan ran. A tool
+        // that is not installed becomes skippedTool(..., 'tool_missing') with
+        // status='skipped', and EngineeringQualityScanService computes
+        //   status = failed_count > 0 || timeout_count > 0 || blocking_finding_count > 0
+        // which never counts skipped. So a machine with no gitleaks / semgrep /
+        // trivy / osv-scanner / grype produces an all-skipped scan that reports
+        // 'passed', and reading only that gives ran=true, secret_free=true,
+        // critical_sast=0 — a green security invariant with zero scanners run.
+        // That is the case on this machine today: none of the five is installed.
+        //
+        // Require at least one SECURITY-category tool to have actually executed.
+        $securityToolRan = false;
+        foreach ((array) ($scanResult['tools'] ?? []) as $tool) {
+            if (! is_array($tool) || ($tool['category'] ?? '') !== 'security') {
+                continue;
+            }
+            if (in_array((string) ($tool['status'] ?? ''), ['passed', 'failed'], true)) {
+                $securityToolRan = true;
+                break;
+            }
+        }
+        $ran = in_array($status, ['passed', 'failed'], true) && $securityToolRan;
 
         $secretHits = 0;
         $sast = 0;

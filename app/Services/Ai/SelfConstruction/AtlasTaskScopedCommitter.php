@@ -391,12 +391,17 @@ final class AtlasTaskScopedCommitter
                 // critical_sast > 0 — so hardcoding them satisfied the invariant by
                 // assertion. No scanner had ever run on this path.
                 //
-                // The Dev path already derives this honestly from a real scan; use the
-                // same producer rather than inventing a second answer. Fail-closed by
-                // construction: if the scan cannot run (AWIS gate denies, tool missing,
-                // timeout) the result is status=blocked, securityFromScan reports
-                // ran=false, and the floor blocks with security_scan_did_not_run —
-                // which is the honest verdict, not a regression.
+                // The Dev path already derives this from a real scan; use the same
+                // producer rather than inventing a second answer.
+                //
+                // Fail-closed: securityFromScan requires at least one SECURITY-category
+                // tool to have actually executed, so an unavailable scanner yields
+                // ran=false and the floor blocks with security_scan_did_not_run. That
+                // requirement had to be ADDED — the aggregate scan status alone is not
+                // proof of a run, because a missing binary is recorded as 'skipped' and
+                // skipped tools are not counted when the status is computed. None of
+                // gitleaks / semgrep / trivy / osv-scanner / grype is installed on this
+                // machine, so today this path blocks instead of green-lighting.
                 'security_scan' => AtlasDevGateAdapter::securityFromScan(
                     app(EngineeringQualityScanService::class)->scan($this->repoRoot(), [
                         'profile' => 'auto',

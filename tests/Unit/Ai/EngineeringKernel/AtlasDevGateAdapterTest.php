@@ -36,7 +36,7 @@ final class AtlasDevGateAdapterTest extends TestCase
             ],
             'mutation_verdict' => MutationScoreVerdict::pass(0.81, 0.6),
             'mutants_generated' => 17,
-            'scan_result' => ['status' => 'passed', 'findings' => []],
+            'scan_result' => ['status' => 'passed', 'tools' => [['slug' => 'gitleaks', 'category' => 'security', 'status' => 'passed']], 'findings' => []],
             'judges' => [
                 ['name' => 'a', 'provider_family' => 'anthropic', 'approved' => true],
                 ['name' => 'b', 'provider_family' => 'openai', 'approved' => true],
@@ -101,12 +101,34 @@ final class AtlasDevGateAdapterTest extends TestCase
         self::assertFalse($blocked['ran']);
 
         // clean pass
-        $clean = AtlasDevGateAdapter::securityFromScan(['status' => 'passed', 'findings' => []]);
+        $clean = AtlasDevGateAdapter::securityFromScan(['status' => 'passed', 'tools' => [['slug' => 'gitleaks', 'category' => 'security', 'status' => 'passed']], 'findings' => []]);
         self::assertSame(['ran' => true, 'secret_free' => true, 'critical_sast' => 0, 'critical_cve' => 0], $clean);
+
+        // every security tool missing from PATH => all 'skipped'. The service does NOT
+        // count skipped when it computes the aggregate, so this reports 'passed' — the
+        // shape that made the whole invariant vacuous. It must read as: did not run.
+        $allSkipped = AtlasDevGateAdapter::securityFromScan([
+            'status' => 'passed',
+            'tools' => [
+                ['slug' => 'gitleaks', 'category' => 'security', 'status' => 'skipped', 'reason' => 'tool_missing'],
+                ['slug' => 'semgrep', 'category' => 'security', 'status' => 'skipped', 'reason' => 'tool_missing'],
+            ],
+            'findings' => [],
+        ]);
+        self::assertFalse($allSkipped['ran'], 'an all-skipped security scan must not certify as run');
+
+        // a quality tool running proves nothing about security
+        $qualityOnly = AtlasDevGateAdapter::securityFromScan([
+            'status' => 'passed',
+            'tools' => [['slug' => 'phpstan', 'category' => 'quality', 'status' => 'passed']],
+            'findings' => [],
+        ]);
+        self::assertFalse($qualityOnly['ran']);
 
         // gitleaks secret => not secret_free
         $secret = AtlasDevGateAdapter::securityFromScan([
             'status' => 'failed',
+            'tools' => [['slug' => 'gitleaks', 'category' => 'security', 'status' => 'failed']],
             'findings' => [['tool' => 'gitleaks', 'category' => 'security', 'blocks_resolved' => true]],
         ]);
         self::assertFalse($secret['secret_free']);
@@ -114,12 +136,14 @@ final class AtlasDevGateAdapterTest extends TestCase
         // semgrep => sast; osv_scanner => cve
         $sast = AtlasDevGateAdapter::securityFromScan([
             'status' => 'failed',
+            'tools' => [['slug' => 'semgrep', 'category' => 'security', 'status' => 'failed']],
             'findings' => [['tool' => 'semgrep', 'category' => 'security', 'blocks_resolved' => true]],
         ]);
         self::assertSame(1, $sast['critical_sast']);
 
         $cve = AtlasDevGateAdapter::securityFromScan([
             'status' => 'failed',
+            'tools' => [['slug' => 'osv_scanner', 'category' => 'security', 'status' => 'failed']],
             'findings' => [['tool' => 'osv_scanner', 'category' => 'security', 'blocks_resolved' => true]],
         ]);
         self::assertSame(1, $cve['critical_cve']);
@@ -127,6 +151,7 @@ final class AtlasDevGateAdapterTest extends TestCase
         // a non-blocking or non-security finding never trips the cut
         $noise = AtlasDevGateAdapter::securityFromScan([
             'status' => 'failed',
+            'tools' => [['slug' => 'gitleaks', 'category' => 'security', 'status' => 'passed'], ['slug' => 'phpstan', 'category' => 'quality', 'status' => 'failed']],
             'findings' => [['tool' => 'phpstan', 'category' => 'quality', 'blocks_resolved' => true]],
         ]);
         self::assertTrue($noise['secret_free']);
