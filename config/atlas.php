@@ -1134,6 +1134,23 @@ return [
 
     'ai' => [
         'enabled' => (bool) env('ATLAS_AI_ENABLED', true),
+
+        // Provider spend sentinel. All three keys were already read — enabled by
+        // AtlasSwarmServiceProvider, the two ceilings by AtlasProviderCostSentinel
+        // — and declared nowhere, so `atlas:cost:calibrate` told the operator to
+        // "enable atlas.ai.cost_sentinel.enabled" and to "set
+        // atlas.ai.cost_sentinel.hard_gate_units [...] to flip from observe to
+        // enforce" against keys that did not exist to be set.
+        //
+        // Defaults below are byte-identical to the inline ones: OFF, and both
+        // ceilings at 0.0 — the hard gate only bites above 0.0, so observe stays
+        // the behaviour until the operator chooses a ceiling.
+        'cost_sentinel' => [
+            'enabled' => (bool) env('ATLAS_AI_COST_SENTINEL_ENABLED', false),
+            'soft_warn_units' => (float) env('ATLAS_AI_COST_SENTINEL_SOFT_WARN_UNITS', 0.0),
+            'hard_gate_units' => (float) env('ATLAS_AI_COST_SENTINEL_HARD_GATE_UNITS', 0.0),
+        ],
+
         'default_provider' => env('ATLAS_AI_DEFAULT_PROVIDER', 'hermes_cli'),
         'default_tier' => env('ATLAS_AI_DEFAULT_TIER', 'daily'),
         'council_allow_auto' => (bool) env('ATLAS_AI_COUNCIL_ALLOW_AUTO', false),
