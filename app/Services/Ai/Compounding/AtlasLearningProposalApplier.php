@@ -167,6 +167,11 @@ final class AtlasLearningProposalApplier
 
         $this->routing->applyPreferred($route);
 
+        // O único dos quatro appliers que devolvia a mudança sem dizer como desfazê-la.
+        // Reversível via clearPreferred(task_category, role), que é o que o --reverse do
+        // comando chama — mesmo contrato de handle dos outros três.
+        $route['reverse_handle'] = 'php artisan atlas:ai:apply-learning '.$proposal->getKey().' --reverse';
+
         return $route;
     }
 
