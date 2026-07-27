@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Programming;
 
+use Illuminate\Support\Facades\File;
+
 /**
  * Shared byte-identical helper de-duplicated across this family (writeJson).
  */

@@ -104,6 +104,7 @@ The target is the first public entry method — the door, not the whole surface.
 | AtlasLoopEarnedAutonomyDecisionTrace | `App\Services\Ai\AutonomousEvolution\AtlasLoopEarnedAutonomyDecisionTrace::record` |
 | AtlasLoopGiveBackToReplenisherFeedback | `App\Services\Ai\AutonomousEvolution\Feedback\AtlasLoopGiveBackToReplenisherFeedback::enabled` |
 | AtlasLoopHarnessGuard | `App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard::isForbiddenSelfTarget` |
+| AtlasLoopIdeaTreeAccessor | `App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopIdeaTreeAccessor::pathToRootIds` |
 | AtlasLoopImpactReceiptService | `App\Services\Ai\AutonomousEvolution\AtlasLoopImpactReceiptService::build` |
 | AtlasLoopLossObserverService | `App\Services\Ai\AutonomousEvolution\AtlasLoopLossObserverService::observe` |
 | AtlasLoopMasterSwitch | `App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled` |
@@ -129,4 +130,4 @@ The target is the first public entry method — the door, not the whole surface.
 | BroaderRegressionGateContract | `App\Services\Ai\AutonomousEvolution\Contracts\BroaderRegressionGateContract::evaluate` |
 | GitSubprocess | `App\Services\Ai\AutonomousEvolution\Support\GitSubprocess::run` |
 
-Façades: 119.
+Façades: 120.

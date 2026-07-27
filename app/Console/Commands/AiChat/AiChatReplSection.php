@@ -19,6 +19,7 @@ use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
+use Symfony\Component\Console\Exception\RuntimeException as ConsoleRuntimeException;
 use Symfony\Component\Process\Process;
 
 /**
@@ -26,9 +27,7 @@ use Symfony\Component\Process\Process;
  */
 class AiChatReplSection
 {
-    public function __construct(private readonly AiChatCommand $command)
-    {
-    }
+    public function __construct(private readonly AiChatCommand $command) {}
 
     private ?\DateTimeImmutable $replSessionStartedAt = null;
 
