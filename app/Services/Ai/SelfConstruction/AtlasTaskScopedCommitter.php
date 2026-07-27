@@ -373,6 +373,17 @@ final class AtlasTaskScopedCommitter
                 'criteria_hash' => $criteriaHash,
                 'frozen_hash' => $criteriaHash,
                 'changed_files' => $allowedFiles,
+                // NOT MEASURED. An empty list makes SovereignHonestyFloor::
+                // changedPublicSymbolCensus() iterate nothing and pass, so a landing
+                // that adds untested public methods certifies clean. Unlike
+                // security_scan (fixed above), there is no producer for this on the
+                // Autônomos path: AtlasTaskServingService never puts
+                // changed_public_symbols in $verification. Reading the absent value
+                // would only swap a fabricated pass for a permanent refusal — the
+                // same defect pointing the other way. Closing this means BUILDING the
+                // producer (diff the scope, extract changed public signatures), which
+                // is new capability, not wiring. AtlasLoopAutoMergeService threads a
+                // real value from its grinder envelope and is the model to copy.
                 'changed_public_symbols' => [],
                 'execution' => [
                     'commands' => array_values(array_map('strval', (array) ($execution['commands'] ?? []))),
@@ -383,6 +394,13 @@ final class AtlasTaskScopedCommitter
                     'artifacts' => [],
                     'execution_order_hash' => $executionOrderBinding['order_hash'] ?? null,
                 ],
+                // NOT MEASURED, and load-bearing: mutationKillRatio() short-circuits
+                // on decision_surface_added === false with
+                // pass('no_decision_surface_added_mutation_waived'), so this literal
+                // waives mutation testing on every landing, including one that adds
+                // twenty new branches. Same reason as above for not flipping it to an
+                // honest absence: no producer exists here, and running mutation
+                // testing per landing is a cost decision, not a bug fix.
                 'mutation_report' => ['decision_surface_added' => false],
                 // These four values used to be literals, and they were the sovereign
                 // floor's ONLY view of security on every autonomous landing. The floor
@@ -411,6 +429,9 @@ final class AtlasTaskScopedCommitter
                         'run_context_id' => $taskPacketId,
                     ]),
                 ),
+                // NOT MEASURED — a constant sitting five points above
+                // SovereignHonestyFloor::SOVEREIGN_CONTEXT_FLOOR (80), so the
+                // invariant passes by arithmetic. Same treatment as the two above.
                 'context_sufficiency' => 85,
                 'judges' => [
                     ['name' => 'task-verify-gate', 'provider_family' => 'atlas_harness', 'approved' => true],
