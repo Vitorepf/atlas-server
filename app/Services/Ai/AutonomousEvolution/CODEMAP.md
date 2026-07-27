@@ -1,0 +1,130 @@
+# CODEMAP — AutonomousEvolution
+
+<!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
+     Rebuild: php artisan atlas:codemap --write
+     Verify:  php artisan atlas:codemap --verify -->
+
+Public façades of this zone: classes named by at least one file outside it.
+The target is the first public entry method — the door, not the whole surface.
+
+| Public façade | Concrete navigation target |
+| --- | --- |
+| AtlasAaelExecutionDebuggerReceiptLedger | `App\Services\Ai\AutonomousEvolution\Aael\Execution\Debugger\AtlasAaelExecutionDebuggerReceiptLedger::append` |
+| AtlasAaelExecutionEmergencyAbortGate | `App\Services\Ai\AutonomousEvolution\Aael\Execution\AtlasAaelExecutionEmergencyAbortGate::raise` |
+| AtlasAaelExecutionPlanInvariantChecker | `App\Services\Ai\AutonomousEvolution\Aael\Execution\AtlasAaelExecutionPlanInvariantChecker::check` |
+| AtlasAaelExecutionPlanSemanticProver | `App\Services\Ai\AutonomousEvolution\Aael\Execution\AtlasAaelExecutionPlanSemanticProver::prove` |
+| AtlasAaelExecutionPreImageSnapshotter | `App\Services\Ai\AutonomousEvolution\Aael\Execution\Rollback\AtlasAaelExecutionPreImageSnapshotter::snapshot` |
+| AtlasAaelExecutionReceiptLedger | `App\Services\Ai\AutonomousEvolution\Aael\AtlasAaelExecutionReceiptLedger::setClock` |
+| AtlasAaelExecutionRollbackExecutor | `App\Services\Ai\AutonomousEvolution\Aael\Execution\Rollback\AtlasAaelExecutionRollbackExecutor::execute` |
+| AtlasAaelExecutionRollbackReceiptLedger | `App\Services\Ai\AutonomousEvolution\Aael\Execution\Rollback\AtlasAaelExecutionRollbackReceiptLedger::append` |
+| AtlasAaelExecutionSafeStateRecoverer | `App\Services\Ai\AutonomousEvolution\Aael\Execution\AtlasAaelExecutionSafeStateRecoverer::snapshot` |
+| AtlasAaelExecutionStepwisePauseGate | `App\Services\Ai\AutonomousEvolution\Aael\Execution\Debugger\AtlasAaelExecutionStepwisePauseGate::arm` |
+| AtlasAaelExecutionTraceRecorder | `App\Services\Ai\AutonomousEvolution\Aael\Execution\TraceReplay\AtlasAaelExecutionTraceRecorder::begin` |
+| AtlasAaelExecutionTraceReplayer | `App\Services\Ai\AutonomousEvolution\Aael\Execution\TraceReplay\AtlasAaelExecutionTraceReplayer::replay` |
+| AtlasAaelInFlightDriftAuditor | `App\Services\Ai\AutonomousEvolution\Aael\Execution\InFlight\AtlasAaelInFlightDriftAuditor::audit` |
+| AtlasAaelInFlightReceiptLedger | `App\Services\Ai\AutonomousEvolution\Aael\Execution\InFlight\AtlasAaelInFlightReceiptLedger::appendValidation` |
+| AtlasAaelInFlightStepValidator | `App\Services\Ai\AutonomousEvolution\Aael\Execution\InFlight\AtlasAaelInFlightStepValidator::validate` |
+| AtlasAaelLoopExecutionBridge | `App\Services\Ai\AutonomousEvolution\AtlasAaelLoopExecutionBridge::execute` |
+| AtlasAaelParallelExecutionReceiptLedger | `App\Services\Ai\AutonomousEvolution\Aael\Parallel\AtlasAaelParallelExecutionReceiptLedger::setRootForTesting` |
+| AtlasAaelParallelStepScheduler | `App\Services\Ai\AutonomousEvolution\Aael\Parallel\AtlasAaelParallelStepScheduler::plan` |
+| AtlasAutonomousEvolutionCertificationService | `App\Services\Ai\AutonomousEvolution\AtlasAutonomousEvolutionCertificationService::certify` |
+| AtlasAutonomousEvolutionLoopService | `App\Services\Ai\AutonomousEvolution\AtlasAutonomousEvolutionLoopService::runCycle` |
+| AtlasBrainBriefHistogram | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainBriefHistogram::histogram` |
+| AtlasBrainCascadeRuleOutcomeAnalyzer | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCascadeRuleOutcomeAnalyzer::analyze` |
+| AtlasBrainCausalEffectGate | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCausalEffectGate::effect` |
+| AtlasBrainCohortScopeComparator | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCohortScopeComparator::compare` |
+| AtlasBrainCompoundingDigest | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCompoundingDigest::digest` |
+| AtlasBrainCycleCapsule | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCycleCapsule::capture` |
+| AtlasBrainCycleCapsuleLedger | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCycleCapsuleLedger::record` |
+| AtlasBrainCycleProgressVerdict | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCycleProgressVerdict::verdict` |
+| AtlasBrainDoneSetLedger | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainDoneSetLedger::record` |
+| AtlasBrainEvidenceFreshness | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainEvidenceFreshness::inspect` |
+| AtlasBrainEvolutionDocAuthor | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainEvolutionDocAuthor::append` |
+| AtlasBrainEvolutionLevelClassifier | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainEvolutionLevelClassifier::classify` |
+| AtlasBrainFrontierSourceRegistry | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainFrontierSourceRegistry::append` |
+| AtlasBrainGateAdversarialAuditor | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGateAdversarialAuditor::audit` |
+| AtlasBrainGovernedFrontierFetcher | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainGovernedFrontierFetcher::run` |
+| AtlasBrainHealthScore | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHealthScore::compute` |
+| AtlasBrainHealthScoreLedger | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHealthScoreLedger::append` |
+| AtlasBrainHeartbeatLedger | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHeartbeatLedger::record` |
+| AtlasBrainHintEntropy | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintEntropy::compute` |
+| AtlasBrainHintToPathTranslator | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintToPathTranslator::pathFor` |
+| AtlasBrainHintTransitionMatrix | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintTransitionMatrix::build` |
+| AtlasBrainInternalizationPipeline | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainInternalizationPipeline::candidatesFrom` |
+| AtlasBrainLeverageBrief | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainLeverageBrief::brief` |
+| AtlasBrainMasterSwitch | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch::enabled` |
+| AtlasBrainMetricSnapshot | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMetricSnapshot::snapshot` |
+| AtlasBrainNextPathSuggester | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainNextPathSuggester::suggest` |
+| AtlasBrainOrganDependencyGraph | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainOrganDependencyGraph::dependsOn` |
+| AtlasBrainOriginationGapDetector | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainOriginationGapDetector::inspect` |
+| AtlasBrainOrphanSpecDrafter | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainOrphanSpecDrafter::draftAll` |
+| AtlasBrainPathCatalog | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathCatalog::all` |
+| AtlasBrainPathStarvationDetector | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathStarvationDetector::detect` |
+| AtlasBrainPathYieldEwma | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathYieldEwma::compute` |
+| AtlasBrainPatternLearningLedger | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPatternLearningLedger::path` |
+| AtlasBrainPerceptionBundle | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPerceptionBundle::build` |
+| AtlasBrainPlanAdviser | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPlanAdviser::advise` |
+| AtlasBrainPortfolioRouter | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPortfolioRouter::route` |
+| AtlasBrainProvenanceAttributionAnalyzer | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainProvenanceAttributionAnalyzer::analyze` |
+| AtlasBrainProvenanceLedger | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainProvenanceLedger::append` |
+| AtlasBrainReflectionStream | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream::record` |
+| AtlasBrainResearchSourceRegistry | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainResearchSourceRegistry::sources` |
+| AtlasBrainResultKindHistogram | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainResultKindHistogram::histogram` |
+| AtlasBrainScopeCatalogSnapshot | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeCatalogSnapshot::snapshot` |
+| AtlasBrainScopeDryProbe | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeDryProbe::probe` |
+| AtlasBrainScopeRegistry | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainScopeRegistry::resolve` |
+| AtlasBrainSeedGateAdversarialAuditor | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedGateAdversarialAuditor::audit` |
+| AtlasBrainSeedQualityGate | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedQualityGate::evaluate` |
+| AtlasBrainSpecRepairHints | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSpecRepairHints::repair` |
+| AtlasBrainSpecSimulationTwin | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSpecSimulationTwin::simulate` |
+| AtlasBrainStaleScopeDetector | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainStaleScopeDetector::detect` |
+| AtlasBrainStructuralSignalDigest | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainStructuralSignalDigest::digest` |
+| AtlasBrainTaskSpecTranslator | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainTaskSpecTranslator::translate` |
+| AtlasBrainTopChurnHintDetector | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainTopChurnHintDetector::detect` |
+| AtlasBrainTrendAnalyzer | `App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainTrendAnalyzer::starvation` |
+| AtlasDeadCodeAnalyzer | `App\Services\Ai\AutonomousEvolution\Verify\AtlasDeadCodeAnalyzer::analyzeFile` |
+| AtlasDocClaimAnalyzer | `App\Services\Ai\AutonomousEvolution\Verify\AtlasDocClaimAnalyzer::useRegisteredCommands` |
+| AtlasDocStructureAnalyzer | `App\Services\Ai\AutonomousEvolution\Verify\AtlasDocStructureAnalyzer::analyzeFile` |
+| AtlasLoopAdversarialVerifierPool | `App\Services\Ai\AutonomousEvolution\AtlasLoopAdversarialVerifierPool::verify` |
+| AtlasLoopArmedCoverageReporter | `App\Services\Ai\AutonomousEvolution\AtlasLoopArmedCoverageReporter::report` |
+| AtlasLoopAutoMergeService | `App\Services\Ai\AutonomousEvolution\AtlasLoopAutoMergeService::drain` |
+| AtlasLoopBacklogManifestService | `App\Services\Ai\AutonomousEvolution\AtlasLoopBacklogManifestService::append` |
+| AtlasLoopBroaderRegressionGate | `App\Services\Ai\AutonomousEvolution\AtlasLoopBroaderRegressionGate::evaluate` |
+| AtlasLoopClarificationRouter | `App\Services\Ai\AutonomousEvolution\AtlasLoopClarificationRouter::route` |
+| AtlasLoopComprehensionCadenceService | `App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopComprehensionCadenceService::snapshotPath` |
+| AtlasLoopComprehensionGroundingGate | `App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopComprehensionGroundingGate::ground` |
+| AtlasLoopComprehensionOriginator | `App\Services\Ai\AutonomousEvolution\AtlasLoopComprehensionOriginator::originate` |
+| AtlasLoopConfidenceCalibrator | `App\Services\Ai\AutonomousEvolution\AtlasLoopConfidenceCalibrator::calibrate` |
+| AtlasLoopConstitutionResolveFlags | `App\Services\Ai\AutonomousEvolution\Constitution\AtlasLoopConstitutionResolveFlags::resolve` |
+| AtlasLoopContractGapScanner | `App\Services\Ai\AutonomousEvolution\AtlasLoopContractGapScanner::capabilityGaps` |
+| AtlasLoopCortexRoleTokenSemanticDisambiguator | `App\Services\Ai\AutonomousEvolution\AtlasLoopCortexRoleTokenSemanticDisambiguator::accepts` |
+| AtlasLoopDecompositionOutcomeRecorder | `App\Services\Ai\AutonomousEvolution\AtlasLoopDecompositionOutcomeRecorder::record` |
+| AtlasLoopEarnedAutonomyDecisionTrace | `App\Services\Ai\AutonomousEvolution\AtlasLoopEarnedAutonomyDecisionTrace::record` |
+| AtlasLoopGiveBackToReplenisherFeedback | `App\Services\Ai\AutonomousEvolution\Feedback\AtlasLoopGiveBackToReplenisherFeedback::enabled` |
+| AtlasLoopHarnessGuard | `App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard::isForbiddenSelfTarget` |
+| AtlasLoopImpactReceiptService | `App\Services\Ai\AutonomousEvolution\AtlasLoopImpactReceiptService::build` |
+| AtlasLoopLossObserverService | `App\Services\Ai\AutonomousEvolution\AtlasLoopLossObserverService::observe` |
+| AtlasLoopMasterSwitch | `App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled` |
+| AtlasLoopMergeActuator | `App\Services\Ai\AutonomousEvolution\Constitution\AtlasLoopMergeActuator::withMainMergeLock` |
+| AtlasLoopMorningDigestService | `App\Services\Ai\AutonomousEvolution\AtlasLoopMorningDigestService::digest` |
+| AtlasLoopMultiSiteWiringPlanner | `App\Services\Ai\AutonomousEvolution\AtlasLoopMultiSiteWiringPlanner::plan` |
+| AtlasLoopOperatorReviewQueueService | `App\Services\Ai\AutonomousEvolution\AtlasLoopOperatorReviewQueueService::queue` |
+| AtlasLoopOriginationPipeline | `App\Services\Ai\AutonomousEvolution\AtlasLoopOriginationPipeline::produce` |
+| AtlasLoopProjectionOutcomeLedger | `App\Services\Ai\AutonomousEvolution\AtlasLoopProjectionOutcomeLedger::record` |
+| AtlasLoopProposalMaterializer | `App\Services\Ai\AutonomousEvolution\AtlasLoopProposalMaterializer::materialize` |
+| AtlasLoopProposalPromotionGate | `App\Services\Ai\AutonomousEvolution\AtlasLoopProposalPromotionGate::promote` |
+| AtlasLoopRecursiveSelfImprovementGate | `App\Services\Ai\AutonomousEvolution\AtlasLoopRecursiveSelfImprovementGate::evaluate` |
+| AtlasLoopRefillerPayloadNormalizer | `App\Services\Ai\AutonomousEvolution\Discovery\Supply\AtlasLoopRefillerPayloadNormalizer::firstString` |
+| AtlasLoopRefillerSupplyLaneCoordinator | `App\Services\Ai\AutonomousEvolution\Consolidation\AtlasLoopRefillerSupplyLaneCoordinator::trySupply` |
+| AtlasLoopRefusalCriticPanel | `App\Services\Ai\AutonomousEvolution\AtlasLoopRefusalCriticPanel::deliberate` |
+| AtlasLoopScopeComprehensionModel | `App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel::isOrphan` |
+| AtlasLoopScopeComprehensionModelBuilder | `App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModelBuilder::build` |
+| AtlasLoopScopeComprehensionQuery | `App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionQuery::model` |
+| AtlasLoopSiblingTestResolver | `App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSiblingTestResolver::resolve` |
+| AtlasLoopTierPromotionChainService | `App\Services\Ai\AutonomousEvolution\AtlasLoopTierPromotionChainService::promote` |
+| AtlasLoopWeeklyAgendaProposalService | `App\Services\Ai\AutonomousEvolution\AtlasLoopWeeklyAgendaProposalService::propose` |
+| AtlasLoopWiredCallerService | `App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopWiredCallerService::withProgressCallback` |
+| BroaderRegressionGateContract | `App\Services\Ai\AutonomousEvolution\Contracts\BroaderRegressionGateContract::evaluate` |
+| GitSubprocess | `App\Services\Ai\AutonomousEvolution\Support\GitSubprocess::run` |
+
+Façades: 117.
