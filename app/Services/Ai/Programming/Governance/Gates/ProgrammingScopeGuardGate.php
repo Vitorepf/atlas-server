@@ -131,14 +131,27 @@ class ProgrammingScopeGuardGate implements ProgrammingGateContract
         }
 
         try {
-            $cmd = sprintf('git -C %s diff --name-only HEAD 2>/dev/null', escapeshellarg($workspace));
-            $output = @shell_exec($cmd);
-            if (! is_string($output)) {
-                return [];
+            // `git diff --name-only HEAD` reports TRACKED modifications only — an
+            // untracked file is never listed. So a run that CREATED a file outside
+            // its declared scope was invisible here, which is the case the guard most
+            // needs to catch: adding a new file is how scope is usually exceeded.
+            // `ls-files --others --exclude-standard` supplies exactly the missing set
+            // (untracked, minus anything .gitignore already excludes).
+            $lines = [];
+            foreach ([
+                'git -C %s diff --name-only HEAD 2>/dev/null',
+                'git -C %s ls-files --others --exclude-standard 2>/dev/null',
+            ] as $template) {
+                $output = @shell_exec(sprintf($template, escapeshellarg($workspace)));
+                if (! is_string($output)) {
+                    continue;
+                }
+                foreach (preg_split('/\r?\n/', $output, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $line) {
+                    $lines[] = $line;
+                }
             }
-            $lines = preg_split('/\r?\n/', $output, -1, PREG_SPLIT_NO_EMPTY) ?: [];
 
-            return AiStringListNormalizer::trimmedCastItemsToStrings($lines);
+            return AiStringListNormalizer::trimmedCastItemsToStrings(array_values(array_unique($lines)));
         } catch (Throwable) {
             return [];
         }

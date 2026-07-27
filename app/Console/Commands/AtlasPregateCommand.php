@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\Engineering\EngineeringQualityScanService;
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\SelfConstruction\AtlasArtisanBootSmokeGate;
+use App\Services\Engineering\EngineeringQualityScanService;
 use App\Support\AtlasPhpBinary;
 use Illuminate\Console\Command;
 use Symfony\Component\Process\Process;
-use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * P1 (Obra #19, Frente P) — `atlas:pregate <paths...>`, the ≤3s pre-gate a model
@@ -38,10 +38,29 @@ class AtlasPregateCommand extends Command
 
     public function handle(): int
     {
+        $requested = array_values(array_filter(array_map('trim', (array) $this->argument('paths')), static fn ($p) => $p !== ''));
         $php = array_values(array_filter(
-            array_map('trim', (array) $this->argument('paths')),
-            static fn ($p) => $p !== '' && str_ends_with(strtolower($p), '.php') && is_file($p),
+            $requested,
+            static fn ($p) => str_ends_with(strtolower($p), '.php') && is_file($p),
         ));
+        // A requested .php path that is not on disk is a typo, a stale path, or a
+        // wrong working directory — and it used to be dropped in silence, so the
+        // caller got "pregate OK" over a file that was never checked. Say so
+        // instead of passing.
+        //
+        // Non-.php paths stay a legitimate skip: callers routinely hand this command
+        // a whole changed-files list, and a commit touching only .md must not fail.
+        $missingPhp = array_values(array_filter(
+            $requested,
+            static fn ($p) => str_ends_with(strtolower($p), '.php') && ! is_file($p),
+        ));
+        if ($missingPhp !== []) {
+            return $this->render(false, [[
+                'tool' => 'targets',
+                'ok' => false,
+                'output' => 'requested .php path(s) do not exist: '.implode(', ', $missingPhp),
+            ]], 0.0, count($missingPhp).' requested .php path(s) missing — nothing was gated for them');
+        }
 
         if ($php === []) {
             return $this->render(true, [], 0.0, 'no php targets (nothing to gate)');

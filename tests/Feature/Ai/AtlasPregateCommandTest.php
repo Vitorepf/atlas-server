@@ -39,4 +39,14 @@ final class AtlasPregateCommandTest extends TestCase
             @unlink($txt);
         }
     }
+
+    public function test_fails_when_a_requested_php_path_does_not_exist(): void
+    {
+        // Regressao: um .php inexistente era descartado em silencio e o comando
+        // devolvia SUCCESS com "no php targets", ou seja verde sobre nada checado.
+        $this->artisan('atlas:pregate', [
+            'paths' => [sys_get_temp_dir().'/atlas-pregate-ausente-'.bin2hex(random_bytes(5)).'.php'],
+            '--skip-phpstan' => true,
+        ])->assertExitCode(1);
+    }
 }
