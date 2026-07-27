@@ -226,11 +226,86 @@ Dos 6 comandos que citam config inexistente em mensagem, **4 eram falso
 positivo** conferidos um a um: um nome de canal de log e três strings de schema
 `.v1`.
 
+---
+
+# FASE 4 — Sweep multi-agente: 27 achados, 27 fechados
+
+42 agentes, 6 lentes, refutação adversarial de cada candidato. **27 confirmados,
+8 refutados.** Todos fechados.
+
+## Fatais (10)
+
+O maior: `d9be5dcf0` ("tri-hygiene **10/10 final**") arrancou os corpos de observe
+do `AtlasUniversalGatesEvaluator` para um trait e deixou **as duas metades** —
+os 32 imports (77 nomes de classe resolvendo para o vazio) e 15 constantes. PHP
+resolve corpo de trait no escopo do **arquivo do trait**, então os imports do
+consumidor nunca valeram. O arquivo carregava; o fatal só disparava quando o
+método rodava.
+
+E a suíte que deveria ter pego não conseguia: a renomeação moveu a superfície de
+`atlas:aaeos` para `atlas:aeos:observe`, e **760 de 765** chamadas continuaram
+mirando o router, errando em "option does not exist" antes de qualquer assertion.
+
+| | antes | depois |
+|---|---:|---:|
+| `AtlasAaeosCommandTest` assertions | 767 | **1.527** |
+| erros | **760** | **0** |
+
+Mais: `File`/`Log` facades sem import (todo `writeJson` fatal; o guard de
+truncamento do Hermes estourava), `implements` de interface deletada, alias
+`ConsoleRuntimeException` perdido no peel, e **16 símbolos** restaurados por
+fixpoint em 3 iterações.
+
+## Silent-wrong (12)
+
+- **Auth invertida** em `atlas-code`: 20 GETs protegidos, ~140 rotas de escrita
+  abertas (`diffs/apply`, `decisions/sign`, `DELETE workspaces`). Agora 0 de 320
+  sem token.
+- **`patamar4`**: o comentário dizia que LIVE exige o resolver de produção — o
+  flag é `true` por default, e `mode`/`operator_approved` vêm do body. Gate
+  cirúrgico nos 2 POSTs.
+- **`YesNo::format` invertido em 4 sites**: `atlas:forge:l4-10-proof` nunca
+  imprimia Certified; `atlas:pressure:guard` dizia "recorded" sempre; e o
+  `VslAwarenessAlignmentAuditor` **nunca disparava** a correção de sofisticação.
+- **Worker fabricava prova**: uma string `"php artisan test"` virava
+  `tests_run=1, counts_parseable=true, claimed_status='passed'` e promovia a
+  `task_tests_proven`. A raiz era o `?? 'passed'`.
+- **Compounding**: `outcome_status ?? 'passed'` e 4 dimensões de qualidade
+  hardcoded persistidas como medição. Agora `unknown` + `quality_provenance`.
+- **Ledger do Rivals** aceitava ausência como tamper-evidence.
+- **2 gates que liam como armados e nunca bloqueavam** (budget do Maestro,
+  admission de memória).
+
+## Fusão (2)
+
+- **"Isto é segredo?"** tinha 4 donos, e o gate de export para provider usava a
+  tabela mais fraca (3 padrões vs 10). GitHub PAT, JWT, chave AWS e token Slack
+  passavam. `AtlasSecurity` é a autoridade única agora.
+- **Preview do provider-gate** tinha 2 donos que **discordavam**: CLI respondia
+  `claude_cli/codex_cli`, API `hermes_cli/minimax_m27_cli`.
+- **Vocabulário de palavra vaga** divergia: `'meio que'` só existia num lado.
+- **Allow-list de filesystem** duplicada byte-a-byte em 2 motores de permissão.
+
+## O guard aprendeu 3 vezes
+
+| Versão | Achados | O que mudou |
+|---|---:|---|
+| regex ingênuo | 321 | — |
+| + strip de comentário/string | 86 | docblocks e tabelas de string |
+| + confirmação no autoloader | 81 | `class_alias` não é quebra |
+| + **tokenizer** (`token_get_all`) | 16 | JS em heredoc, template PHP em string |
+| + type-hint de parâmetro | +8 | `catch (Throwable)` sem import |
+
+Duas vezes ele corrigiu **a mim**: julguei real um `new RuntimeException` que
+estava dentro de nowdoc, e introduzi um type-hint sem import ao mover um método
+entre classes — que só um TypeError de runtime pegaria, porque a classe carrega e
+o hint só é checado na chamada.
+
 ## Balanço da sessão
 
 | | |
 |---|---|
-| Commits escopados na `main` | 31 |
+| Commits escopados na `main` | 43 |
 | **PHP em `app/`** | +1.430 −3.736 = **−2.306 líquido** |
 | Arquivos PHP | 6.656 → 6.656 (7 deletados, 7 novos donos únicos) |
 | Mapas de navegação gerados | +3.734 linhas, sob gate de drift |
@@ -239,7 +314,9 @@ positivo** conferidos um a um: um nome de canal de log e três strings de schema
 | Gates de arquitetura | 8 falhas → **1** (o ratchet de docs) |
 | **Comandos mortos na chegada** | 5 → **0** (de 946) |
 | Símbolos ausentes restaurados | 4 |
-| Kill-switches que o operador não conseguia acionar | 2 → **0** |
+| Kill-switches que o operador não conseguia acionar | 4 → **0** |
+| Achados do sweep adversarial | 27 confirmados → **27 fechados** |
+| Superfícies de escrita sem auth | ~140 rotas → **0** |
 | Checks estáticos do kernel | 45 vermelhos → **0** |
 
 ## Achados que não eram "gate velho"
