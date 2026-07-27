@@ -45,6 +45,18 @@ use Illuminate\Support\Facades\Artisan;
 
 $root = dirname(__DIR__);
 
+// Fail closed on the guard's OWN death. Laravel's error handler boots partway
+// through this script and renders internal errors to stdout with exit 0 — a
+// broken guard would report success. The sentinel flips only on the last line.
+$guardCompleted = false;
+register_shutdown_function(static function () use (&$guardCompleted): void {
+    if ($guardCompleted) {
+        return;
+    }
+    fwrite(STDERR, "ATLAS_SYMBOL_RESOLUTION_ABORTED — guard died before reaching its verdict\n");
+    exit(1);
+});
+
 $sources = [];
 $iterator = new RecursiveIteratorIterator(
     new RecursiveDirectoryIterator($root.'/app', FilesystemIterator::SKIP_DOTS),
@@ -233,6 +245,9 @@ foreach ($sources as $path => $source) {
 $unresolved = [];
 $scannedFiles = count($sources);
 $scannedSymbols = count($declared);
+// Names only — the autoload check below still needs them after the corpus is
+// dropped, and the names are a rounding error next to the file bodies.
+$declaredNames = array_keys($declared);
 // Booting the app discovers every command; holding the whole corpus in memory
 // at the same time exhausts the default limit. The static pass is done — drop it.
 unset($sources, $declared);
@@ -276,6 +291,54 @@ if ($candidateRefs !== []) {
         }
     }
 }
+
+// BLOCKING: a class that cannot survive its own autoload. On 2026-07-13 the
+// scheduler died on exactly this — AtlasCliCockpitCommand narrowed Command::line()
+// to protected, and the resulting fatal in discoverCommands() killed every artisan
+// invocation. The Autônomos stayed down 14 days before anyone noticed.
+//
+// The app boot below only proves the EAGERLY discovered classes load (commands).
+// Services autoload lazily, so a service with the same defect stays invisible
+// until the path that needs it runs. This loads every declared symbol.
+//
+// Runs in a subprocess on purpose: a fatal kills the process that hits it, so the
+// process that must report it cannot be the same one. memory_limit is raised
+// because loading ~6.6k classes in one process exhausts the 128M default — that
+// exhaustion looks exactly like a code defect if you don't rule it out.
+$symbolListFile = tempnam(sys_get_temp_dir(), 'atlas-symbols-');
+file_put_contents($symbolListFile, json_encode($declaredNames));
+$loadProbe = <<<'PHP'
+$symbols = json_decode(file_get_contents($argv[1]), true);
+$progressFile = $argv[2];
+foreach ($symbols as $index => $symbol) {
+    file_put_contents($progressFile, (string) $index);
+    try {
+        class_exists($symbol) || interface_exists($symbol) || trait_exists($symbol) || enum_exists($symbol);
+    } catch (Throwable $e) {
+        // A throwable is recoverable and not what this check is for.
+    }
+}
+file_put_contents($progressFile, 'done');
+PHP;
+$loadProbeFile = tempnam(sys_get_temp_dir(), 'atlas-loadprobe-');
+file_put_contents($loadProbeFile, "<?php\nrequire '".$root."/vendor/autoload.php';\n".$loadProbe);
+$progressFile = tempnam(sys_get_temp_dir(), 'atlas-loadprog-');
+exec(
+    escapeshellarg(PHP_BINARY).' -d memory_limit=2G '.escapeshellarg($loadProbeFile)
+        .' '.escapeshellarg($symbolListFile).' '.escapeshellarg($progressFile).' 2>&1',
+    $loadOutput,
+    $loadExit,
+);
+if ($loadExit !== 0) {
+    $stalled = trim((string) @file_get_contents($progressFile));
+    $symbolNames = $declaredNames;
+    $culprit = ctype_digit($stalled) ? ($symbolNames[(int) $stalled] ?? '?') : '?';
+    $fatals[] = 'unloadable_class '.$culprit.' — fatal during autoload (exit '.$loadExit.'): '
+        .trim(implode(' | ', array_slice($loadOutput, 0, 2)));
+}
+@unlink($symbolListFile);
+@unlink($loadProbeFile);
+@unlink($progressFile);
 
 // BLOCKING: a registered command whose handle() dependencies the container
 // cannot build is dead on arrival — the operator sees it in `artisan list` and
@@ -334,9 +397,11 @@ if ($fatals !== []) {
     foreach ($fatals as $fatal) {
         fwrite(STDERR, '  '.$fatal."\n");
     }
+    $guardCompleted = true;
     exit(1);
 }
 
 echo 'ATLAS_SYMBOL_RESOLUTION_OK files='.$scannedFiles.' symbols='.$scannedSymbols
     .' commands='.$commandCount.' advisory='.count($unresolved)."\n";
+$guardCompleted = true;
 exit(0);
