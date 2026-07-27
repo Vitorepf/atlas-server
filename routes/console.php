@@ -549,6 +549,14 @@ Schedule::command('atlas:engineering:refactor-census app/Services/Ai --json')
     ->appendOutputTo(storage_path('logs/acos-refactor-census.log'))
     ->when(static fn (): bool => (bool) config('atlas.acos.cadence_enabled', true));
 
+// ROL-01 — gatilhos de rollback no relógio. Sem isto, "é reversível" é literatura:
+// o comando existia e nunca era chamado por ninguém. Read-only/append-only.
+Schedule::command('atlas:acos:rollback-triggers --json')
+    ->hourly()
+    ->withoutOverlapping()
+    ->appendOutputTo(storage_path('logs/acos-rollback-triggers.log'))
+    ->when(static fn (): bool => (bool) config('atlas.acos.cadence_enabled', true));
+
 // H2.1b — harvester de lições de obra: varre os docs de obra e colhe refutações/NÃO-FAZER
 // para a quarentena G0 (dedupe por claim hash ⇒ idempotente; NUNCA auto-promove — a
 // promoção é decisão explícita do ciclo H2.3).
