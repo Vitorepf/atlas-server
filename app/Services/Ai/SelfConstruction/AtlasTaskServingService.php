@@ -774,17 +774,24 @@ final class AtlasTaskServingService
         $muscleEvidence = (array) ($payload['evidence'] ?? []);
         $testsRun = (int) ($muscleEvidence['tests_run'] ?? 0);
         $assertions = (int) ($muscleEvidence['assertions_executed'] ?? 0);
-        if ($testsRun < 1) {
-            // Best-effort parse from commands_run when the muscle ran phpunit but
-            // forgot structured counters (common CLI report path).
-            foreach ((array) ($muscleEvidence['commands_run'] ?? []) as $cmd) {
-                $cmd = (string) $cmd;
-                if (str_contains($cmd, 'phpunit') || str_contains($cmd, 'artisan test')) {
-                    $testsRun = max($testsRun, 1);
-                }
+        // A command STRING is a claim that tests ran — never a count of them. This
+        // used to set $testsRun = 1 from `commands_run` containing "artisan test",
+        // then persist assertions_executed = 1, counts_parseable = true and
+        // claimed_status = 'passed', and promote proof_strength to
+        // task_tests_proven. A worker reporting nothing but a command string was
+        // handed a proven-tests landing. Counts now come only from the muscle's
+        // structured counters; the command list is still recorded as evidence.
+        $countsReported = $testsRun > 0;
+        $testCommandSeen = false;
+        foreach ((array) ($muscleEvidence['commands_run'] ?? []) as $cmd) {
+            $cmd = (string) $cmd;
+            if (str_contains($cmd, 'phpunit') || str_contains($cmd, 'artisan test')) {
+                $testCommandSeen = true;
+                break;
             }
         }
-        if ($testsRun > 0) {
+
+        if ($countsReported || $testCommandSeen) {
             $selected = array_values(array_filter(
                 array_map('strval', (array) ($muscleEvidence['selected_tests'] ?? $scope['allowed_files'] ?? [])),
                 static fn (string $p): bool => str_ends_with($p, 'Test.php') || str_contains($p, '/tests/'),
@@ -793,14 +800,21 @@ final class AtlasTaskServingService
                 (array) ($verification['execution_evidence'] ?? []),
                 [
                     'commands' => array_values(array_map('strval', (array) ($muscleEvidence['commands_run'] ?? []))),
-                    'claimed_status' => (string) ($muscleEvidence['tests_or_gates_result'] ?? 'passed'),
-                    'tests_run' => $testsRun,
-                    'assertions_executed' => max($assertions, $testsRun),
+                    // No 'passed' default: if the muscle did not say it passed, we
+                    // do not say it for them. That default is what turned a bare
+                    // command string into a claimed pass.
+                    'claimed_status' => (string) ($muscleEvidence['tests_or_gates_result'] ?? 'unknown'),
+                    'tests_run' => $countsReported ? $testsRun : 0,
+                    'assertions_executed' => $countsReported ? max($assertions, $testsRun) : 0,
                     'selected_tests' => $selected,
-                    'counts_parseable' => true,
+                    'counts_parseable' => $countsReported,
                 ],
             );
-            $verification['proof_strength'] = $verification['proof_strength'] ?? 'task_tests_proven';
+            if ($countsReported) {
+                // Only real counters prove tests. A command that merely ran is
+                // evidence of an attempt, never of a proven suite.
+                $verification['proof_strength'] = $verification['proof_strength'] ?? 'task_tests_proven';
+            }
         }
 
         $commit = $this->committer->commitScope(
