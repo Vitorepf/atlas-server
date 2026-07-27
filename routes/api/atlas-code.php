@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\AtlasCodeWorkCompanyController;
 use App\Http\Controllers\Ai\AgenticEngineeringOs\AtlasMissionControlCockpitController;
 use App\Http\Controllers\Ai\AtlasObraReplayController;
 use App\Http\Controllers\Ai\Programming\AtlasDevPlanVisibleController;
@@ -42,6 +40,7 @@ use App\Http\Controllers\AtlasCodeSelfImprovementProposalBacklogController;
 use App\Http\Controllers\AtlasCodeSelfImprovementResultLedgerController;
 use App\Http\Controllers\AtlasCodeSessionController;
 use App\Http\Controllers\AtlasCodeThreadController;
+use App\Http\Controllers\AtlasCodeWorkCompanyController;
 use App\Http\Controllers\AtlasCodeWorkController;
 use App\Http\Controllers\AtlasCodeWorkPacketController;
 use App\Http\Controllers\AtlasCodeWorkspaceController;
@@ -51,12 +50,19 @@ use App\Http\Controllers\AtlasSddAgentRoleController;
 use App\Http\Controllers\AtlasSddController;
 use App\Http\Controllers\AtlasSddMcpResourceController;
 use App\Http\Controllers\AtlasWorkspaceIntelligenceController;
+use Illuminate\Support\Facades\Route;
 
 /**
  * Atlas Code HTTP surface (full-pass routes density split from api.php).
  */
 return static function (): void {
-    Route::prefix('atlas-code')->group(function () {
+    // Auth was INVERTED here: only the 20 read-only /programming and /sdd GETs
+    // sat behind atlas.token, while the ~140 others — including
+    // POST /diffs/{patch}/apply, POST /decisions/{decision}/sign and
+    // DELETE /projects/workspaces/{slug} — had no middleware at all. The
+    // whole prefix is token-gated now; callers already send X-Atlas-Token
+    // (the 20 gated routes and every feature test prove it).
+    Route::prefix('atlas-code')->middleware('atlas.token')->group(function () {
         // BOOT · unified contract for the Desktop topbar
         Route::get('/boot', AtlasCodeBootController::class);
 
@@ -165,7 +171,7 @@ return static function (): void {
         // Gap3 F2 — Engineering Company Runtime HTTP entry.
         // Flag-gated via ATLAS_HTTP_COMPANY_RUNTIME / config(atlas.http_company_runtime.mode).
         // Canon: docs/engineering-knowledge-base/atlas-engineering-company-runtime-http-promotion.md
-        Route::post('/work/company', [\App\Http\Controllers\AtlasCodeWorkCompanyController::class, 'store']);
+        Route::post('/work/company', [AtlasCodeWorkCompanyController::class, 'store']);
         Route::get('/certification', [AtlasCodeEnterpriseCertificationController::class, 'show']);
         Route::post('/certification', [AtlasCodeEnterpriseCertificationController::class, 'store']);
         Route::get('/works/{project}', [AtlasCodeWorkController::class, 'show']);

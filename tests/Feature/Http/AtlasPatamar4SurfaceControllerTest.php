@@ -71,7 +71,7 @@ class AtlasPatamar4SurfaceControllerTest extends TestCase
 
     public function test_decompose_post_endpoint_returns_six_axis_vector(): void
     {
-        $r = $this->postJson('/atlas/patamar4/decompose', [
+        $r = $this->withHeaders(['X-Atlas-Token' => (string) config('atlas.token')])->postJson('/atlas/patamar4/decompose', [
             'input' => 'refatore o controller e escreva testes',
             'role' => 'engineer',
             'framework' => 'programming',
@@ -106,7 +106,7 @@ class AtlasPatamar4SurfaceControllerTest extends TestCase
 
     public function test_conduct_post_returns_governed_engineering_run_envelope(): void
     {
-        $r = $this->postJson('/atlas/patamar4/conduct', [
+        $r = $this->withHeaders(['X-Atlas-Token' => (string) config('atlas.token')])->postJson('/atlas/patamar4/conduct', [
             'task' => 'code_generation',
             'role' => 'primary',
             'mode' => 'shadow',
@@ -122,7 +122,7 @@ class AtlasPatamar4SurfaceControllerTest extends TestCase
 
     public function test_conduct_requires_a_task(): void
     {
-        $r = $this->postJson('/atlas/patamar4/conduct', ['task' => '']);
+        $r = $this->withHeaders(['X-Atlas-Token' => (string) config('atlas.token')])->postJson('/atlas/patamar4/conduct', ['task' => '']);
         $r->assertStatus(422);
         $this->assertSame('task_required', $r->json()['error']);
     }
@@ -134,7 +134,7 @@ class AtlasPatamar4SurfaceControllerTest extends TestCase
         // input alone can never trigger real provider spend over HTTP.
         config(['atlas.patamar4.swarm_production_resolver_enabled' => false]);
 
-        $r = $this->postJson('/atlas/patamar4/conduct', [
+        $r = $this->withHeaders(['X-Atlas-Token' => (string) config('atlas.token')])->postJson('/atlas/patamar4/conduct', [
             'task' => 'code_generation',
             'role' => 'primary',
             'mode' => 'live',
@@ -153,7 +153,7 @@ class AtlasPatamar4SurfaceControllerTest extends TestCase
 
     public function test_conduct_sdd_gate_blocks_an_ambiguous_spec_over_http(): void
     {
-        $r = $this->postJson('/atlas/patamar4/conduct', [
+        $r = $this->withHeaders(['X-Atlas-Token' => (string) config('atlas.token')])->postJson('/atlas/patamar4/conduct', [
             'task' => 'code_generation',
             'mode' => 'shadow',
             'spec' => ['objective' => 'do something'],

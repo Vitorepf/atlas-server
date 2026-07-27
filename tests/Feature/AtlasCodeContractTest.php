@@ -279,7 +279,10 @@ class AtlasCodeContractTest extends TestCase
 
     public function test_diff_apply_requires_awis_workspace_before_queueing_run(): void
     {
-        $response = $this->postJson('/atlas-code/diffs/patch-missing/apply', [
+        // Token required: /diffs/{patch}/apply mutates the workspace. It used to
+        // sit outside the atlas.token group, so this call was written without
+        // headers — the surrounding tests already send them.
+        $response = $this->withHeaders($this->headers())->postJson('/atlas-code/diffs/patch-missing/apply', [
             'confirm' => true,
         ]);
 
