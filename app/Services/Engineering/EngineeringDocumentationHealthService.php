@@ -53,6 +53,9 @@ class EngineeringDocumentationHealthService
      */
     private const NON_CANONICAL_ARTIFACT_PATH_MARKERS = [
         'memory/diagrams/',
+        // Parking lot for unapplied .patch files plus its README — a recovery
+        // artifact of the same nature as /archive/, never a module contract.
+        '/_recovery/',
     ];
 
     /**
