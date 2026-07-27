@@ -40,6 +40,18 @@ php artisan atlas:ai:architecture-validate --json
 | `01d5908d0` | guards fail-closed dos Autônomos restaurados |
 | `1e4ffe883` | gate de docs pula `/_recovery/` |
 | `7ec14fd0b` | CODEMAP verifier verde (71 alvos) |
+| `5ec1f68cf` | fusão: regras de contrato de work-item com dono único (−9.856 bytes) |
+| `c06520655` | fusão: um catálogo de modelos, não dois (−7.137 bytes) |
+
+## Fusão de capability — iniciada
+
+| Capability | Antes | Depois | Golden |
+|---|---|---|---|
+| Contrato de work-item | cópias privadas byte-idênticas em `ProgrammingWorkItemSpecPlanService` **e** `AtlasCodeProgrammingWorkItemController` (que nunca chamava o service) | `ProgrammingWorkItemContractSupport` | `goldens/programming-work-item-contract.php` |
+| Catálogo de modelos | `AiChatModelSection` era cópia verbatim de `AtlasCliModelCatalogService` | delegadores finos ao service | `goldens/model-catalog.php` |
+
+Grupos de método duplicado: **214 → 210**. Ambas as fusões provadas por golden
+standalone anti-vácuo (nunca phpunit, piso do Núcleo Essencial).
 
 ## Achados que não eram "gate velho"
 
