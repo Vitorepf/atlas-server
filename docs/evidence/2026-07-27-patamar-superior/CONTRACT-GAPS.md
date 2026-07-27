@@ -14,12 +14,19 @@ degrada quando ausente (dormente por design). `required` seria fatal latente.
 | `DistillerAuthorAdapter` | 2 | `?Nullable = null` | não |
 | `ObraNodeGate` | 1 | `?Nullable = null` + `instanceof` guard | sim |
 | `ProductIntentUncertaintyProbe` | 1 | `?Nullable = null` + `instanceof` guard | sim |
-| `RepairAttemptEvaluator` | 2 | **required type-hint** | sim |
+| `RepairAttemptEvaluator` | 2 | required — mas **parâmetro de método**, não do construtor (ver nota) | sim |
 | `RepairDiagnosisAdvisor` | 1 | `?Nullable = null` | sim |
 | `ScopeRuntimeFacts` | 1 | `?Nullable = null` + `instanceof` guard | não |
 | `SymbolLookup` | 2 | `?Nullable = null` | sim |
 
 ## Leitura
+
+**Nota sobre `RepairAttemptEvaluator`** — é o único `required`, e mesmo assim não
+é fatal: entra como **parâmetro de `RepairOrchestrator::run()`**, não do
+construtor, então quem chama fornece. E `AtlasDev\Repair\RepairOrchestrator` não
+tem caller de produção — o orquestrador vivo é `Kernel\Repair\
+AtlasRepairOrchestrator`, outra classe. Ou seja: porta sem dono, dentro de um
+orquestrador sem caller.
 
 Nenhum é fatal latente: todos os consumidores degradam. O custo real é que a
 capacidade prometida pela porta não existe em produção — o caso mais pesado é
