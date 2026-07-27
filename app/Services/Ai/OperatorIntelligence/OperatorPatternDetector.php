@@ -84,7 +84,7 @@ final class OperatorPatternDetector
         usort($patterns, static fn (array $a, array $b): int => ($b['confidence'] * $b['occurrence_count']) <=> ($a['confidence'] * $a['occurrence_count']));
         $patterns = array_slice($patterns, 0, $cap);
 
-        $fresh = [];
+        $eligible = [];
         foreach ($patterns as $pattern) {
             $existing = OperatorPatternDetection::query()
                 ->where('operator_id', $operatorId)
@@ -99,16 +99,25 @@ final class OperatorPatternDetector
                     'evidence' => $pattern['evidence'],
                 ])->save();
 
+                // A detection persisted but NEVER proposed is still eligible. Returning only
+                // rows created in THIS call made the row itself the dead end: a --dry-run, a
+                // crash between detect and propose, or any run predating the bridges wrote
+                // status=detected, and every later run then found it existing and skipped it
+                // forever. Status is the authority on "already proposed", not row age.
+                if ($existing->status === OperatorPatternDetection::STATUS_DETECTED) {
+                    $eligible[] = $existing;
+                }
+
                 continue;
             }
 
-            $fresh[] = OperatorPatternDetection::query()->create(array_merge($pattern, [
+            $eligible[] = OperatorPatternDetection::query()->create(array_merge($pattern, [
                 'operator_id' => $operatorId,
                 'status' => OperatorPatternDetection::STATUS_DETECTED,
             ]));
         }
 
-        return $fresh;
+        return $eligible;
     }
 
     /**
