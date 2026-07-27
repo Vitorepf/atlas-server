@@ -8,6 +8,7 @@ use App\Services\Ai\Kernel\Architecture\AtlasProviderReleaseSourceRegistry;
 use App\Services\Ai\Kernel\Architecture\KernelArchitectureStaticScanner;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Kernel\Evidence\LedgerProjectionRegistry;
+use App\Support\PeeledSource;
 use Tests\TestCase;
 
 class KernelBypassRegressionTest extends TestCase
@@ -153,7 +154,7 @@ PHP, function () use ($path): void {
 
     public function test_curator_graph_rag_promotion_remains_proposal_only_and_fail_closed(): void
     {
-        $runtime = file_get_contents(app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php'));
+        $runtime = PeeledSource::read(app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php'));
         $ap = file_get_contents(base_path('docs/ap/AP-683-local-rag-graph-promotion-review.md'));
 
         $this->assertSame([], $this->violationsFor('ap683_local_rag_graph_promotion_review'));
@@ -166,8 +167,8 @@ PHP, function () use ($path): void {
 
     public function test_curator_voice_production_promotion_remains_human_review_only(): void
     {
-        $runtime = file_get_contents(app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php'));
-        $scanner = file_get_contents(app_path('Services/Ai/Kernel/Architecture/KernelArchitectureStaticScanner.php'));
+        $runtime = PeeledSource::read(app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php'));
+        $scanner = PeeledSource::read(app_path('Services/Ai/Kernel/Architecture/KernelArchitectureStaticScanner.php'));
         $ap = file_get_contents(base_path('docs/ap/AP-687-voice-realtime-production-promotion-gate.md'));
 
         $this->assertSame([], $this->violationsFor('ap687_voice_realtime_production_promotion_gate'));
@@ -181,8 +182,8 @@ PHP, function () use ($path): void {
 
     public function test_predictive_failure_governance_requires_explicit_target_and_partial_boundary(): void
     {
-        $flow = file_get_contents(app_path('Services/Ai/Learning/PredictiveFailure/PredictiveFailureFlow.php'));
-        $command = file_get_contents(app_path('Console/Commands/AtlasPredictCommand.php'));
+        $flow = PeeledSource::read(app_path('Services/Ai/Learning/PredictiveFailure/PredictiveFailureFlow.php'));
+        $command = PeeledSource::read(app_path('Console/Commands/AtlasPredictCommand.php'));
         $ap = file_get_contents(base_path('docs/ap/AP-170-cognitive-predictive-failure-insertion.md'));
 
         $this->assertSame([], $this->violationsFor('ap170_predictive_failure_governance_contract'));
@@ -212,7 +213,7 @@ PHP, function () use ($path): void {
 
     public function test_agent_behavior_curator_governance_cannot_auto_apply_behavior_changes(): void
     {
-        $runtime = file_get_contents(app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php'));
+        $runtime = PeeledSource::read(app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php'));
         $ap = file_get_contents(base_path('docs/ap/AP-162-agent-behavior-proposal-governance.md'));
 
         $this->assertSame([], $this->violationsFor('ap162_agent_behavior_proposal_governance'));
@@ -243,8 +244,8 @@ PHP, function () use ($path): void {
 
     public function test_ledger_projection_curator_and_inbox_actions_remain_reviewable(): void
     {
-        $runtime = file_get_contents(app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php'));
-        $mcp = file_get_contents(app_path('Services/Ai/AtlasOpenBrainMcpService.php'));
+        $runtime = PeeledSource::read(app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php'));
+        $mcp = PeeledSource::read(app_path('Services/Ai/AtlasOpenBrainMcpService.php'));
 
         $this->assertSame([], $this->violationsFor('ap142_ledger_projection_inbox_action'));
         $this->assertSame([], $this->violationsFor('ap143_ledger_projection_curator_action_emission'));
@@ -255,8 +256,8 @@ PHP, function () use ($path): void {
 
     public function test_inbox_action_evidence_replay_and_mcp_report_stay_ledger_backed(): void
     {
-        $replay = file_get_contents(app_path('Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php'));
-        $mcp = file_get_contents(app_path('Services/Ai/AtlasOpenBrainMcpService.php'));
+        $replay = PeeledSource::read(app_path('Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php'));
+        $mcp = PeeledSource::read(app_path('Services/Ai/AtlasOpenBrainMcpService.php'));
 
         $this->assertSame([], $this->violationsFor('ap120_inbox_action_evidence_ledger_contract'));
         $this->assertSame([], $this->violationsFor('ap121_inbox_action_replay_read_model'));
@@ -433,7 +434,7 @@ PHP,
 
     public function test_self_improvement_curator_flows_stay_review_only_without_auto_apply(): void
     {
-        $runtime = file_get_contents(app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php'));
+        $runtime = PeeledSource::read(app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php'));
         $runtimeTest = file_get_contents(base_path('tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php'));
         $ap = file_get_contents(base_path('docs/ap/AP-162-agent-behavior-proposal-governance.md'));
 
@@ -454,8 +455,8 @@ PHP,
 
     public function test_inbox_action_replay_and_mcp_surfaces_stay_evidence_ledger_backed(): void
     {
-        $replay = file_get_contents(app_path('Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php'));
-        $mcp = file_get_contents(app_path('Services/Ai/AtlasOpenBrainMcpService.php'));
+        $replay = PeeledSource::read(app_path('Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php'));
+        $mcp = PeeledSource::read(app_path('Services/Ai/AtlasOpenBrainMcpService.php'));
         $mcpTest = file_get_contents(base_path('tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php'));
 
         $this->assertSame([], $this->violationsFor('ap120_inbox_action_evidence_ledger_contract'));
@@ -475,8 +476,8 @@ PHP,
 
     public function test_inbox_action_report_cli_and_api_surfaces_use_shared_replay_contract(): void
     {
-        $command = file_get_contents(app_path('Console/Commands/AtlasAiInboxActionReportCommand.php'));
-        $controller = file_get_contents(app_path('Http/Controllers/AtlasAiInboxActionReportController.php'));
+        $command = PeeledSource::read(app_path('Console/Commands/AtlasAiInboxActionReportCommand.php'));
+        $controller = PeeledSource::read(app_path('Http/Controllers/AtlasAiInboxActionReportController.php'));
         $routes = file_get_contents(base_path('routes/api.php'));
         $commandTest = file_get_contents(base_path('tests/Feature/Ai/AtlasAiInboxActionReportCommandTest.php'));
         $apiTest = file_get_contents(base_path('tests/Feature/Ai/AtlasAiInboxActionReportApiTest.php'));
@@ -495,9 +496,9 @@ PHP,
 
     public function test_provider_cost_rate_inbox_replay_stays_human_applied_and_ledger_backed(): void
     {
-        $inboxActions = file_get_contents(app_path('Services/Ai/Mobile/InboxActionRegistry.php'));
-        $replay = file_get_contents(app_path('Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php'));
-        $selfImprovement = file_get_contents(app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php'));
+        $inboxActions = PeeledSource::read(app_path('Services/Ai/Mobile/InboxActionRegistry.php'));
+        $replay = PeeledSource::read(app_path('Services/Ai/Kernel/Evidence/AtlasLedgerReplayService.php'));
+        $selfImprovement = PeeledSource::read(app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php'));
         $ledgerReplayTest = file_get_contents(base_path('tests/Unit/Ai/Kernel/LedgerReplayServiceTest.php'));
         $inboxActionTest = file_get_contents(base_path('tests/Feature/Ai/InboxLedgerProjectionActionTest.php'));
         $mcpTest = file_get_contents(base_path('tests/Feature/Ai/AtlasOpenBrainMcpServiceTest.php'));
@@ -525,8 +526,8 @@ PHP,
 
     public function test_ledger_projection_inbox_action_stays_reviewable_and_dry_run_safe(): void
     {
-        $registry = file_get_contents(app_path('Services/Ai/Mobile/InboxActionRegistry.php'));
-        $cli = file_get_contents(app_path('Console/Commands/AtlasCliInboxCommand.php'));
+        $registry = PeeledSource::read(app_path('Services/Ai/Mobile/InboxActionRegistry.php'));
+        $cli = PeeledSource::read(app_path('Console/Commands/AtlasCliInboxCommand.php'));
         $test = file_get_contents(base_path('tests/Feature/Ai/InboxLedgerProjectionActionTest.php'));
         $ap = file_get_contents(base_path('docs/ap/AP-142-ledger-projection-inbox-action.md'));
 
@@ -550,8 +551,8 @@ PHP,
 
     public function test_ledger_projection_curator_action_emission_preserves_assisted_action_payload(): void
     {
-        $runtime = file_get_contents(app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php'));
-        $emitter = file_get_contents(app_path('Services/Ai/Mobile/ProposalInboxEmitter.php'));
+        $runtime = PeeledSource::read(app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php'));
+        $emitter = PeeledSource::read(app_path('Services/Ai/Mobile/ProposalInboxEmitter.php'));
         $runtimeTest = file_get_contents(base_path('tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php'));
         $emitterTest = file_get_contents(base_path('tests/Unit/Ai/ProposalInboxEmitterTest.php'));
         $ap = file_get_contents(base_path('docs/ap/AP-143-ledger-projection-curator-action-emission.md'));
@@ -577,7 +578,7 @@ PHP,
 
     public function test_documentation_health_curator_review_stays_proposal_only(): void
     {
-        $runtime = file_get_contents(app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php'));
+        $runtime = PeeledSource::read(app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php'));
         $test = file_get_contents(base_path('tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php'));
         $docOs = file_get_contents(base_path('docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md'));
         $ap = file_get_contents(base_path('docs/ap/AP-145-documentation-health-curator-review.md'));
@@ -600,7 +601,7 @@ PHP,
 
     public function test_self_improvement_replay_review_stays_evidence_ledger_backed(): void
     {
-        $runtime = file_get_contents(app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php'));
+        $runtime = PeeledSource::read(app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php'));
         $test = file_get_contents(base_path('tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php'));
         $ap = file_get_contents(base_path('docs/ap/AP-123-self-improvement-inbox-action-replay-review.md'));
 
@@ -620,7 +621,7 @@ PHP,
 
     public function test_observability_replay_surface_stays_evidence_ledger_backed(): void
     {
-        $controller = file_get_contents(app_path('Http/Controllers/AiObservabilityController.php'));
+        $controller = PeeledSource::read(app_path('Http/Controllers/AiObservabilityController.php'));
         $test = file_get_contents(base_path('tests/Feature/Ai/AiObservabilityKernelSloTest.php'));
         $ap = file_get_contents(base_path('docs/ap/AP-124-observability-inbox-action-replay.md'));
 
