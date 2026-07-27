@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Architecture\Scanner;
 
+use App\Support\PeeledSource;
 use Illuminate\Support\Facades\File;
 
 class SurfaceGuardAudit
@@ -85,8 +86,8 @@ class SurfaceGuardAudit
             $violations[] = "missing tool policy engine [{$policyPath}]";
         }
 
-        $gateway = File::exists($gatewayPath) ? File::get($gatewayPath) : '';
-        $policy = File::exists($policyPath) ? File::get($policyPath) : '';
+        $gateway = PeeledSource::read($gatewayPath);
+        $policy = PeeledSource::read($policyPath);
 
         $gatewayChecks = [
             'gateway records requested tool execution tier' => 'requested_execution_tier',
@@ -128,7 +129,7 @@ class SurfaceGuardAudit
         $testPath = base_path('tests/Unit/Ai/Surface/SurfaceAdaptersTest.php');
         $validateTestPath = base_path('tests/Feature/Ai/AtlasAiArchitectureValidateCommandTest.php');
 
-        $registry = File::exists($registryPath) ? File::get($registryPath) : '';
+        $registry = PeeledSource::read($registryPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $validateTest = File::exists($validateTestPath) ? File::get($validateTestPath) : '';
 

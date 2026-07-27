@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\Kernel\Architecture\Scanner;
 
+use App\Support\PeeledSource;
+use App\Support\RoutesApiSource;
 use Illuminate\Support\Facades\File;
 
 class ArchitectureOperationsAudit
@@ -39,10 +41,10 @@ class ArchitectureOperationsAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-133-architecture-operations-filter-contract.md');
 
-        $catalog = File::exists($catalogPath) ? File::get($catalogPath) : '';
-        $command = File::exists($commandPath) ? File::get($commandPath) : '';
-        $controller = File::exists($controllerPath) ? File::get($controllerPath) : '';
-        $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
+        $catalog = PeeledSource::read($catalogPath);
+        $command = PeeledSource::read($commandPath);
+        $controller = PeeledSource::read($controllerPath);
+        $mcp = PeeledSource::read($mcpPath);
         $architectureTools = File::exists(app_path('Services/Ai/OpenBrainMcp/ArchitectureTools.php')) ? File::get(app_path('Services/Ai/OpenBrainMcp/ArchitectureTools.php')) : '';
         $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
@@ -197,7 +199,7 @@ class ArchitectureOperationsAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-132-architecture-operations-metadata-contract.md');
 
-        $catalog = File::exists($catalogPath) ? File::get($catalogPath) : '';
+        $catalog = PeeledSource::read($catalogPath);
         $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
@@ -290,16 +292,15 @@ class ArchitectureOperationsAudit
         $commandPath = app_path('Console/Commands/AtlasAiArchitectureOperationsCommand.php');
         $controllerPath = app_path('Http/Controllers/AtlasAiArchitectureOperationsController.php');
         $governanceControllerPath = app_path('Http/Controllers/AtlasAiGovernanceController.php');
-        $routesPath = base_path('routes/api.php');
         $commandTestPath = base_path('tests/Feature/Ai/AtlasAiArchitectureOperationsCommandTest.php');
         $apiTestPath = base_path('tests/Feature/Ai/AtlasAiArchitectureOperationsApiTest.php');
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-130-architecture-operations-direct-surfaces.md');
 
-        $command = File::exists($commandPath) ? File::get($commandPath) : '';
-        $controller = File::exists($controllerPath) ? File::get($controllerPath) : '';
-        $governanceController = File::exists($governanceControllerPath) ? File::get($governanceControllerPath) : '';
-        $routes = File::exists($routesPath) ? File::get($routesPath) : '';
+        $command = PeeledSource::read($commandPath);
+        $controller = PeeledSource::read($controllerPath);
+        $governanceController = PeeledSource::read($governanceControllerPath);
+        $routes = RoutesApiSource::read();
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
@@ -404,9 +405,9 @@ class ArchitectureOperationsAudit
 
         $architectureToolsPath = app_path('Services/Ai/OpenBrainMcp/ArchitectureTools.php');
 
-        $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
-        $architectureTools = File::exists($architectureToolsPath) ? File::get($architectureToolsPath) : '';
-        $gate = File::exists($gatePath) ? File::get($gatePath) : '';
+        $mcp = PeeledSource::read($mcpPath);
+        $architectureTools = PeeledSource::read($architectureToolsPath);
+        $gate = PeeledSource::read($gatePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
@@ -527,9 +528,9 @@ class ArchitectureOperationsAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-128-architecture-operations-shared-catalog.md');
 
-        $catalog = File::exists($catalogPath) ? File::get($catalogPath) : '';
-        $help = File::exists($helpPath) ? File::get($helpPath) : '';
-        $observability = File::exists($observabilityPath) ? File::get($observabilityPath) : '';
+        $catalog = PeeledSource::read($catalogPath);
+        $help = PeeledSource::read($helpPath);
+        $observability = PeeledSource::read($observabilityPath);
         $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
         $observabilityTest = File::exists($observabilityTestPath) ? File::get($observabilityTestPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();

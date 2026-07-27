@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\Kernel\Architecture\Scanner;
 
+use App\Support\PeeledSource;
+use App\Support\RoutesApiSource;
 use Illuminate\Support\Facades\File;
 
 class RepairLoopAudit
@@ -88,10 +90,9 @@ class RepairLoopAudit
 
         $commandPath = app_path('Console/Commands/AtlasAiRepairCommand.php');
         $controllerPath = app_path('Http/Controllers/AtlasAiRepairController.php');
-        $routesPath = base_path('routes/api.php');
-        $command = $this->primitives->fileContents($commandPath);
-        $controller = $this->primitives->fileContents($controllerPath);
-        $routes = $this->primitives->fileContents($routesPath);
+        $command = PeeledSource::read($commandPath);
+        $controller = PeeledSource::read($controllerPath);
+        $routes = RoutesApiSource::read();
 
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($command, [
             'AtlasRepairOrchestrator',
@@ -140,7 +141,7 @@ class RepairLoopAudit
         ], 'app/Services/Ai/AiWorker.php: native programming repair must pass through kernel repair contract'));
 
         $programmingPath = app_path('Services/Ai/Programming/AtlasProgrammingOrchestrator.php');
-        $programming = $this->primitives->fileContents($programmingPath);
+        $programming = PeeledSource::read($programmingPath);
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($programming, [
             'RepairStrategy',
             "\$plan['repair_execution_contract'] = \$this->repairExecutionContract(\$plan);",
@@ -154,7 +155,7 @@ class RepairLoopAudit
         ], 'app/Services/Ai/Programming/AtlasProgrammingOrchestrator.php: programming repair contract must declare kernel repair policy'));
 
         $harnessPath = app_path('Services/Engineering/EngineeringHarnessExecutionService.php');
-        $harness = $this->primitives->fileContents($harnessPath);
+        $harness = PeeledSource::read($harnessPath);
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($harness, [
             'AtlasRepairOrchestrator',
             'RepairRequestFactory',
@@ -171,7 +172,7 @@ class RepairLoopAudit
         ], 'app/Services/Engineering/EngineeringHarnessExecutionService.php: engineering harness failures must attach kernel repair decisions'));
 
         $ledgerPath = app_path('Services/Ai/Kernel/Evidence/AtlasEvidenceLedger.php');
-        $ledger = $this->primitives->fileContents($ledgerPath);
+        $ledger = PeeledSource::read($ledgerPath);
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($ledger, [
             'public function recordRepairDecision(RepairDecision $decision',
             'public function recordRepairResult(RepairResult $result',
@@ -193,16 +194,16 @@ class RepairLoopAudit
         $selfImprovementScheduleControllerPath = app_path('Http/Controllers/AtlasAiSelfImprovementScheduleController.php');
         $selfImprovementScheduleHealthControllerPath = app_path('Http/Controllers/AtlasAiSelfImprovementScheduleHealthController.php');
         $bootstrapPath = base_path('bootstrap/app.php');
-        $replay = $this->primitives->fileContents($replayPath);
-        $ledgerCommand = $this->primitives->fileContents($ledgerCommandPath);
-        $ledgerController = $this->primitives->fileContents($ledgerControllerPath);
-        $ledgerReport = $this->primitives->fileContents($ledgerReportPath);
-        $repairReportCommand = $this->primitives->fileContents($repairReportCommandPath);
-        $repairReportController = $this->primitives->fileContents($repairReportControllerPath);
-        $selfImprovementCommand = $this->primitives->fileContents($selfImprovementCommandPath);
-        $selfImprovementSchedule = $this->primitives->fileContents($selfImprovementSchedulePath);
-        $selfImprovementScheduleController = $this->primitives->fileContents($selfImprovementScheduleControllerPath);
-        $selfImprovementScheduleHealthController = $this->primitives->fileContents($selfImprovementScheduleHealthControllerPath);
+        $replay = PeeledSource::read($replayPath);
+        $ledgerCommand = PeeledSource::read($ledgerCommandPath);
+        $ledgerController = PeeledSource::read($ledgerControllerPath);
+        $ledgerReport = PeeledSource::read($ledgerReportPath);
+        $repairReportCommand = PeeledSource::read($repairReportCommandPath);
+        $repairReportController = PeeledSource::read($repairReportControllerPath);
+        $selfImprovementCommand = PeeledSource::read($selfImprovementCommandPath);
+        $selfImprovementSchedule = PeeledSource::read($selfImprovementSchedulePath);
+        $selfImprovementScheduleController = PeeledSource::read($selfImprovementScheduleControllerPath);
+        $selfImprovementScheduleHealthController = PeeledSource::read($selfImprovementScheduleHealthControllerPath);
         $bootstrap = $this->primitives->fileContents($bootstrapPath);
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($replay, [
             'public function repairReportForEnvelope(string $envelopeId): array',
@@ -316,7 +317,7 @@ class RepairLoopAudit
         ], 'bootstrap/app.php: recurring Self-Improvement scheduler registration must use the centralized schedule contract'));
 
         $selfImprovementPath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php');
-        $selfImprovement = $this->primitives->fileContents($selfImprovementPath);
+        $selfImprovement = PeeledSource::read($selfImprovementPath);
         $violations = array_merge($violations, $this->primitives->missingTokenViolations($selfImprovement, [
             'repairLoopFindings(',
             'repairReportForWindow(',
@@ -363,10 +364,10 @@ class RepairLoopAudit
         $kernelDocsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $replay = File::exists($replayPath) ? File::get($replayPath) : '';
-        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
-        $reportCommand = File::exists($reportCommandPath) ? File::get($reportCommandPath) : '';
-        $ledgerCommand = File::exists($ledgerCommandPath) ? File::get($ledgerCommandPath) : '';
+        $replay = PeeledSource::read($replayPath);
+        $runtime = PeeledSource::read($runtimePath);
+        $reportCommand = PeeledSource::read($reportCommandPath);
+        $ledgerCommand = PeeledSource::read($ledgerCommandPath);
         $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
         $runtimeTest = File::exists($runtimeTestPath) ? File::get($runtimeTestPath) : '';
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
@@ -478,8 +479,8 @@ class RepairLoopAudit
 
         $reportToolsPath = app_path('Services/Ai/OpenBrainMcp/ReportTools.php');
 
-        $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
-        $reportTools = File::exists($reportToolsPath) ? File::get($reportToolsPath) : '';
+        $mcp = PeeledSource::read($mcpPath);
+        $reportTools = PeeledSource::read($reportToolsPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
         $memoryDocs = File::exists($memoryDocsPath) ? File::get($memoryDocsPath) : '';
@@ -540,7 +541,7 @@ class RepairLoopAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $replay = File::exists($replayPath) ? File::get($replayPath) : '';
+        $replay = PeeledSource::read($replayPath);
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();

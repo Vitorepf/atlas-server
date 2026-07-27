@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Architecture\Scanner;
 
+use App\Support\PeeledSource;
 use Illuminate\Support\Facades\File;
 
 class SloAudit
@@ -44,18 +45,18 @@ class SloAudit
             $violations[] = 'app/Services/Ai/Kernel/Slo/KernelSloProbe.php: missing SLO probe service';
         }
 
-        $probe = File::exists($probePath) ? File::get($probePath) : '';
-        $ledger = File::exists($ledgerPath) ? File::get($ledgerPath) : '';
-        $eventType = File::exists($eventTypePath) ? File::get($eventTypePath) : '';
-        $decide = File::exists($decidePath) ? File::get($decidePath) : '';
-        $kernelContract = File::exists($kernelContractPath) ? File::get($kernelContractPath) : '';
-        $context = File::exists($contextPath) ? File::get($contextPath) : '';
-        $toolGate = File::exists($toolGatePath) ? File::get($toolGatePath) : '';
-        $worker = File::exists($workerPath) ? File::get($workerPath) : '';
-        $surfaceAdapter = File::exists($surfaceAdapterPath) ? File::get($surfaceAdapterPath) : '';
-        $learningPromotion = File::exists($learningPromotionPath) ? File::get($learningPromotionPath) : '';
-        $replay = File::exists($replayPath) ? File::get($replayPath) : '';
-        $observability = File::exists($observabilityPath) ? File::get($observabilityPath) : '';
+        $probe = PeeledSource::read($probePath);
+        $ledger = PeeledSource::read($ledgerPath);
+        $eventType = PeeledSource::read($eventTypePath);
+        $decide = PeeledSource::read($decidePath);
+        $kernelContract = PeeledSource::read($kernelContractPath);
+        $context = PeeledSource::read($contextPath);
+        $toolGate = PeeledSource::read($toolGatePath);
+        $worker = PeeledSource::read($workerPath);
+        $surfaceAdapter = PeeledSource::read($surfaceAdapterPath);
+        $learningPromotion = PeeledSource::read($learningPromotionPath);
+        $replay = PeeledSource::read($replayPath);
+        $observability = PeeledSource::read($observabilityPath);
 
         $probeChecks = [
             'probe assesses stage through KernelSloTargets' => 'targets->assess($stage, $durationMs, $success)',
@@ -153,9 +154,9 @@ class SloAudit
         $kernelDocsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $replay = File::exists($replayPath) ? File::get($replayPath) : '';
-        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
-        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $replay = PeeledSource::read($replayPath);
+        $runtime = PeeledSource::read($runtimePath);
+        $command = PeeledSource::read($commandPath);
         $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
         $runtimeTest = File::exists($runtimeTestPath) ? File::get($runtimeTestPath) : '';
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
@@ -270,8 +271,8 @@ class SloAudit
 
         $reportToolsPath = app_path('Services/Ai/OpenBrainMcp/ReportTools.php');
 
-        $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
-        $reportTools = File::exists($reportToolsPath) ? File::get($reportToolsPath) : '';
+        $mcp = PeeledSource::read($mcpPath);
+        $reportTools = PeeledSource::read($reportToolsPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
         $memoryDocs = File::exists($memoryDocsPath) ? File::get($memoryDocsPath) : '';
@@ -332,7 +333,7 @@ class SloAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $replay = File::exists($replayPath) ? File::get($replayPath) : '';
+        $replay = PeeledSource::read($replayPath);
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();

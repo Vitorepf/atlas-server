@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\Kernel\Architecture\Scanner;
 
+use App\Support\PeeledSource;
+use App\Support\RoutesApiSource;
 use Illuminate\Support\Facades\File;
 
 class InboxActionAudit
@@ -29,15 +31,14 @@ class InboxActionAudit
         $violations = [];
         $commandPath = app_path('Console/Commands/AtlasAiInboxActionReportCommand.php');
         $controllerPath = app_path('Http/Controllers/AtlasAiInboxActionReportController.php');
-        $routesPath = base_path('routes/api.php');
         $commandTestPath = base_path('tests/Feature/Ai/AtlasAiInboxActionReportCommandTest.php');
         $apiTestPath = base_path('tests/Feature/Ai/AtlasAiInboxActionReportApiTest.php');
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-125-inbox-action-report-surfaces.md');
 
-        $command = File::exists($commandPath) ? File::get($commandPath) : '';
-        $controller = File::exists($controllerPath) ? File::get($controllerPath) : '';
-        $routes = File::exists($routesPath) ? File::get($routesPath) : '';
+        $command = PeeledSource::read($commandPath);
+        $controller = PeeledSource::read($controllerPath);
+        $routes = RoutesApiSource::read();
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
@@ -133,8 +134,8 @@ class InboxActionAudit
 
         $reportToolsPath = app_path('Services/Ai/OpenBrainMcp/ReportTools.php');
 
-        $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
-        $reportTools = File::exists($reportToolsPath) ? File::get($reportToolsPath) : '';
+        $mcp = PeeledSource::read($mcpPath);
+        $reportTools = PeeledSource::read($reportToolsPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
@@ -205,7 +206,7 @@ class InboxActionAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-121-inbox-action-replay-read-model.md');
 
-        $replay = File::exists($replayPath) ? File::get($replayPath) : '';
+        $replay = PeeledSource::read($replayPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
@@ -269,8 +270,8 @@ class InboxActionAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-120-inbox-action-evidence-ledger-contract.md');
 
-        $eventType = File::exists($eventTypePath) ? File::get($eventTypePath) : '';
-        $actions = File::exists($actionsPath) ? File::get($actionsPath) : '';
+        $eventType = PeeledSource::read($eventTypePath);
+        $actions = PeeledSource::read($actionsPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';

@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\Kernel\Architecture\Scanner;
 
+use App\Support\PeeledSource;
+use App\Support\RoutesApiSource;
 use Illuminate\Support\Facades\File;
 
 class SelfImprovementAudit
@@ -49,7 +51,7 @@ class SelfImprovementAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-131-self-improvement-architecture-operations-review.md');
 
-        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $runtime = PeeledSource::read($runtimePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
@@ -118,7 +120,7 @@ class SelfImprovementAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-123-self-improvement-inbox-action-replay-review.md');
 
-        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $runtime = PeeledSource::read($runtimePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
@@ -137,7 +139,7 @@ class SelfImprovementAudit
         // the AP-123 replay-gap invariant is unchanged, only the file moved (the facade keeps a
         // same-signature delegator).
         $inboxActionReplaySectionPath = app_path('Services/Ai/SelfImprovement/Runtime/InboxActionReplaySection.php');
-        $inboxActionReplaySection = File::exists($inboxActionReplaySectionPath) ? File::get($inboxActionReplaySectionPath) : '';
+        $inboxActionReplaySection = PeeledSource::read($inboxActionReplaySectionPath);
         foreach ([
             'inboxActionReportForWindow(',
             'atlas.self_improvement.inbox_action_replay_gap.v1',
@@ -194,7 +196,7 @@ class SelfImprovementAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-116-self-improvement-schedule-replay-inbox-gap-emission-contract.md');
 
-        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $runtime = PeeledSource::read($runtimePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
@@ -252,7 +254,7 @@ class SelfImprovementAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-115-self-improvement-schedule-replay-inbox-gap-finding-contract.md');
 
-        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $runtime = PeeledSource::read($runtimePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
@@ -309,7 +311,7 @@ class SelfImprovementAudit
         $kernelDocsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $runtime = PeeledSource::read($runtimePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $domainDocs = $this->primitives->selfImprovementDomainDocumentationCorpus();
         $kernelDocs = $this->primitives->kernelDocumentationCorpus();
@@ -367,7 +369,7 @@ class SelfImprovementAudit
         $violations = [];
 
         $config = File::exists($configPath) ? File::get($configPath) : '';
-        $schedule = File::exists($schedulePath) ? File::get($schedulePath) : '';
+        $schedule = PeeledSource::read($schedulePath);
         $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
         $featureTest = File::exists($featureTestPath) ? File::get($featureTestPath) : '';
         $observabilityTest = File::exists($observabilityTestPath) ? File::get($observabilityTestPath) : '';
@@ -424,7 +426,7 @@ class SelfImprovementAudit
         $kernelDocsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $schedule = File::exists($schedulePath) ? File::get($schedulePath) : '';
+        $schedule = PeeledSource::read($schedulePath);
         $bootstrap = File::exists($bootstrapPath) ? File::get($bootstrapPath) : '';
         $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
         $featureTest = File::exists($featureTestPath) ? File::get($featureTestPath) : '';
@@ -433,12 +435,12 @@ class SelfImprovementAudit
         $kernelDocs = $this->primitives->kernelDocumentationCorpus();
 
         foreach ([
-            "'cadence' => \$this->cadenceForFlow(\$flow)",
-            "'week_day' => \$this->weekDayForFlow(\$flow)",
-            'private function cadenceForFlow(string $flow): string',
+            '$cadence = SelfImprovementScheduleMath::cadenceForFlow($flow)',
+            '$weekDay = SelfImprovementScheduleMath::weekDayForFlow($flow)',
+            'public static function cadenceForFlow(string $flow): string',
             "return \$flow === 'weekly_architecture_audit' ? 'weekly' : 'daily';",
-            'private function weekDayForFlow(string $flow): ?int',
-            "'cadence_counts' => \$this->cadenceCounts(\$commands)",
+            'public static function weekDayForFlow(string $flow): ?int',
+            "'cadence_counts' => SelfImprovementScheduleMath::cadenceCounts(\$commands)",
         ] as $token) {
             if (! str_contains($schedule, $token)) {
                 $violations[] = "app/Services/Ai/SelfImprovement/AtlasSelfImprovementScheduleService.php: flow cadence contract must be explicit [{$token}]";
@@ -492,17 +494,17 @@ class SelfImprovementAudit
         $kernelDocsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $schedule = File::exists($schedulePath) ? File::get($schedulePath) : '';
+        $schedule = PeeledSource::read($schedulePath);
         $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
         $domainDocs = $this->primitives->selfImprovementDomainDocumentationCorpus();
         $kernelDocs = $this->primitives->kernelDocumentationCorpus();
 
         foreach ([
-            "'next_run_at' => \$this->nextRunAtForCommand(",
+            "'next_run_at' => SelfImprovementScheduleMath::nextRunAtForCommand(",
             "'next_run_at' => \$command['next_run_at']",
-            'private function nextRunAtForCommand(string $time, string $timezone, string $cadence, ?int $weekDay): ?string',
+            'public static function nextRunAtForCommand(',
             'while ((int) $next->dayOfWeek !== $targetWeekDay || $next->lessThanOrEqualTo($now))',
-            'private function hashableCommands(array $commands): array',
+            'public static function hashableCommands(array $commands): array',
             "unset(\$command['next_run_at']);",
         ] as $token) {
             if (! str_contains($schedule, $token)) {
@@ -545,8 +547,8 @@ class SelfImprovementAudit
 
         $reportToolsPath = app_path('Services/Ai/OpenBrainMcp/ReportTools.php');
 
-        $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
-        $reportTools = File::exists($reportToolsPath) ? File::get($reportToolsPath) : '';
+        $mcp = PeeledSource::read($mcpPath);
+        $reportTools = PeeledSource::read($reportToolsPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $domainDocs = $this->primitives->selfImprovementDomainDocumentationCorpus();
         $kernelDocs = $this->primitives->kernelDocumentationCorpus();
@@ -607,7 +609,7 @@ class SelfImprovementAudit
         $kernelDocsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $runtime = PeeledSource::read($runtimePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $domainDocs = $this->primitives->selfImprovementDomainDocumentationCorpus();
         $kernelDocs = $this->primitives->kernelDocumentationCorpus();
@@ -661,8 +663,8 @@ class SelfImprovementAudit
         $kernelDocsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $eventType = File::exists($eventTypePath) ? File::get($eventTypePath) : '';
-        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $eventType = PeeledSource::read($eventTypePath);
+        $runtime = PeeledSource::read($runtimePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $domainDocs = $this->primitives->selfImprovementDomainDocumentationCorpus();
         $kernelDocs = $this->primitives->kernelDocumentationCorpus();
@@ -718,8 +720,8 @@ class SelfImprovementAudit
         $kernelDocsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $replay = File::exists($replayPath) ? File::get($replayPath) : '';
-        $observability = File::exists($observabilityPath) ? File::get($observabilityPath) : '';
+        $replay = PeeledSource::read($replayPath);
+        $observability = PeeledSource::read($observabilityPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $observabilityTest = File::exists($observabilityTestPath) ? File::get($observabilityTestPath) : '';
         $domainDocs = $this->primitives->selfImprovementDomainDocumentationCorpus();
@@ -785,16 +787,15 @@ class SelfImprovementAudit
     {
         $commandPath = app_path('Console/Commands/AtlasAiSelfImprovementScheduleReportCommand.php');
         $controllerPath = app_path('Http/Controllers/AtlasAiSelfImprovementScheduleReportController.php');
-        $routesPath = base_path('routes/api.php');
         $commandTestPath = base_path('tests/Feature/Ai/AtlasAiSelfImprovementScheduleReportCommandTest.php');
         $apiTestPath = base_path('tests/Feature/Ai/AtlasAiSelfImprovementScheduleReportApiTest.php');
         $domainDocsPath = base_path('docs/engineering-knowledge-base/domains/self-improvement.md');
         $kernelDocsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $command = File::exists($commandPath) ? File::get($commandPath) : '';
-        $controller = File::exists($controllerPath) ? File::get($controllerPath) : '';
-        $routes = File::exists($routesPath) ? File::get($routesPath) : '';
+        $command = PeeledSource::read($commandPath);
+        $controller = PeeledSource::read($controllerPath);
+        $routes = RoutesApiSource::read();
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
         $domainDocs = $this->primitives->selfImprovementDomainDocumentationCorpus();
@@ -875,8 +876,8 @@ class SelfImprovementAudit
 
         $reportToolsPath = app_path('Services/Ai/OpenBrainMcp/ReportTools.php');
 
-        $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
-        $reportTools = File::exists($reportToolsPath) ? File::get($reportToolsPath) : '';
+        $mcp = PeeledSource::read($mcpPath);
+        $reportTools = PeeledSource::read($reportToolsPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $domainDocs = $this->primitives->selfImprovementDomainDocumentationCorpus();
         $kernelDocs = $this->primitives->kernelDocumentationCorpus();
@@ -937,7 +938,7 @@ class SelfImprovementAudit
         $kernelDocsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $runtime = PeeledSource::read($runtimePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $domainDocs = $this->primitives->selfImprovementDomainDocumentationCorpus();
         $kernelDocs = $this->primitives->kernelDocumentationCorpus();
@@ -992,8 +993,8 @@ class SelfImprovementAudit
         $kernelDocsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $replay = File::exists($replayPath) ? File::get($replayPath) : '';
-        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $replay = PeeledSource::read($replayPath);
+        $runtime = PeeledSource::read($runtimePath);
         $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
         $runtimeTest = File::exists($runtimeTestPath) ? File::get($runtimeTestPath) : '';
         $domainDocs = $this->primitives->selfImprovementDomainDocumentationCorpus();
@@ -1066,7 +1067,7 @@ class SelfImprovementAudit
         $kernelDocsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $command = PeeledSource::read($commandPath);
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
         $observabilityTest = File::exists($observabilityTestPath) ? File::get($observabilityTestPath) : '';
@@ -1148,7 +1149,7 @@ class SelfImprovementAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $input = File::exists($inputPath) ? File::get($inputPath) : '';
+        $input = PeeledSource::read($inputPath);
         $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
@@ -1325,11 +1326,11 @@ class SelfImprovementAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $input = File::exists($inputPath) ? File::get($inputPath) : '';
+        $input = PeeledSource::read($inputPath);
         $command = File::exists($commandPath) ? File::get($commandPath) : '';
-        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
-        $orchestrator = File::exists($orchestratorPath) ? File::get($orchestratorPath) : '';
-        $schedule = File::exists($schedulePath) ? File::get($schedulePath) : '';
+        $runtime = PeeledSource::read($runtimePath);
+        $orchestrator = PeeledSource::read($orchestratorPath);
+        $schedule = PeeledSource::read($schedulePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $runtimeTest = File::exists($runtimeTestPath) ? File::get($runtimeTestPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();

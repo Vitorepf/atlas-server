@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\Kernel\Architecture\Scanner;
 
+use App\Support\PeeledSource;
+use App\Support\RoutesApiSource;
 use Illuminate\Support\Facades\File;
 
 class KernelAudit
@@ -108,7 +110,6 @@ class KernelAudit
         $pipelineReportControllerPath = app_path('Http/Controllers/AtlasAiKernelPipelineReportController.php');
         $observabilityPath = app_path('Http/Controllers/AiObservabilityController.php');
         $selfImprovementPath = app_path('Services/Ai/SelfImprovement/AtlasSelfImprovementRuntime.php');
-        $routesPath = base_path('routes/api.php');
         $stageContents = File::exists($stagePath) ? File::get($stagePath) : '';
         $pipelineContents = File::exists($pipelinePathname) ? File::get($pipelinePathname) : '';
         $auditContents = File::exists($auditPath) ? File::get($auditPath) : '';
@@ -116,20 +117,20 @@ class KernelAudit
         $contractContents = File::exists($contractPath) ? File::get($contractPath) : '';
         $guardContents = File::exists($guardPath) ? File::get($guardPath) : '';
         $runtimeGuardContents = File::exists($runtimeGuardPath) ? File::get($runtimeGuardPath) : '';
-        $ledgerContents = File::exists($ledgerPath) ? File::get($ledgerPath) : '';
-        $replayContents = File::exists($replayPath) ? File::get($replayPath) : '';
-        $atlasCliDevCommandContents = File::exists($atlasCliDevCommandPath) ? File::get($atlasCliDevCommandPath) : '';
-        $aiChatCommandContents = File::exists($aiChatCommandPath) ? File::get($aiChatCommandPath) : '';
-        $pipelineCommandContents = File::exists($pipelineCommandPath) ? File::get($pipelineCommandPath) : '';
-        $pipelineControllerContents = File::exists($pipelineControllerPath) ? File::get($pipelineControllerPath) : '';
-        $ledgerCommandContents = File::exists($ledgerCommandPath) ? File::get($ledgerCommandPath) : '';
-        $ledgerControllerContents = File::exists($ledgerControllerPath) ? File::get($ledgerControllerPath) : '';
-        $ledgerReportContents = File::exists($ledgerReportPath) ? File::get($ledgerReportPath) : '';
-        $pipelineReportCommandContents = File::exists($pipelineReportCommandPath) ? File::get($pipelineReportCommandPath) : '';
-        $pipelineReportControllerContents = File::exists($pipelineReportControllerPath) ? File::get($pipelineReportControllerPath) : '';
-        $observabilityContents = File::exists($observabilityPath) ? File::get($observabilityPath) : '';
-        $selfImprovementContents = File::exists($selfImprovementPath) ? File::get($selfImprovementPath) : '';
-        $routesContents = File::exists($routesPath) ? File::get($routesPath) : '';
+        $ledgerContents = PeeledSource::read($ledgerPath);
+        $replayContents = PeeledSource::read($replayPath);
+        $atlasCliDevCommandContents = PeeledSource::read($atlasCliDevCommandPath);
+        $aiChatCommandContents = PeeledSource::read($aiChatCommandPath);
+        $pipelineCommandContents = PeeledSource::read($pipelineCommandPath);
+        $pipelineControllerContents = PeeledSource::read($pipelineControllerPath);
+        $ledgerCommandContents = PeeledSource::read($ledgerCommandPath);
+        $ledgerControllerContents = PeeledSource::read($ledgerControllerPath);
+        $ledgerReportContents = PeeledSource::read($ledgerReportPath);
+        $pipelineReportCommandContents = PeeledSource::read($pipelineReportCommandPath);
+        $pipelineReportControllerContents = PeeledSource::read($pipelineReportControllerPath);
+        $observabilityContents = PeeledSource::read($observabilityPath);
+        $selfImprovementContents = PeeledSource::read($selfImprovementPath);
+        $routesContents = RoutesApiSource::read();
 
         foreach (['Input', 'OperationEnvelope', 'Intent', 'Decide', 'DecisionReceipt', 'Domain', 'Context', 'Policy', 'Runtime', 'Gate', 'Repair', 'Evidence', 'Learning', 'Output'] as $case) {
             if (! str_contains($stageContents, "case {$case}")) {
@@ -435,10 +436,10 @@ class KernelAudit
         $devPath = app_path('Console/Commands/AtlasCliDevCommand.php');
         $chatPath = app_path('Console/Commands/AiChatCommand.php');
 
-        $factory = File::exists($factoryPath) ? File::get($factoryPath) : '';
+        $factory = PeeledSource::read($factoryPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $dev = File::exists($devPath) ? File::get($devPath) : '';
-        $chat = File::exists($chatPath) ? File::get($chatPath) : '';
+        $chat = PeeledSource::read($chatPath);
 
         $violations = [];
 
@@ -506,11 +507,11 @@ class KernelAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $replay = File::exists($replayPath) ? File::get($replayPath) : '';
-        $ledgerCommand = File::exists($ledgerCommandPath) ? File::get($ledgerCommandPath) : '';
-        $pipelineReportCommand = File::exists($pipelineReportCommandPath) ? File::get($pipelineReportCommandPath) : '';
+        $replay = PeeledSource::read($replayPath);
+        $ledgerCommand = PeeledSource::read($ledgerCommandPath);
+        $pipelineReportCommand = PeeledSource::read($pipelineReportCommandPath);
         $observabilityTest = File::exists($observabilityTestPath) ? File::get($observabilityTestPath) : '';
-        $selfImprovement = File::exists($selfImprovementPath) ? File::get($selfImprovementPath) : '';
+        $selfImprovement = PeeledSource::read($selfImprovementPath);
         $selfImprovementTest = File::exists($selfImprovementTestPath) ? File::get($selfImprovementTestPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 
@@ -600,9 +601,9 @@ class KernelAudit
         $kernelDocsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $replay = File::exists($replayPath) ? File::get($replayPath) : '';
-        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
-        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $replay = PeeledSource::read($replayPath);
+        $runtime = PeeledSource::read($runtimePath);
+        $command = PeeledSource::read($commandPath);
         $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
         $runtimeTest = File::exists($runtimeTestPath) ? File::get($runtimeTestPath) : '';
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
@@ -704,8 +705,8 @@ class KernelAudit
 
         $reportToolsPath = app_path('Services/Ai/OpenBrainMcp/ReportTools.php');
 
-        $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
-        $reportTools = File::exists($reportToolsPath) ? File::get($reportToolsPath) : '';
+        $mcp = PeeledSource::read($mcpPath);
+        $reportTools = PeeledSource::read($reportToolsPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
         $memoryDocs = File::exists($memoryDocsPath) ? File::get($memoryDocsPath) : '';

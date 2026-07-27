@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Architecture\Scanner;
 
+use App\Support\PeeledSource;
 use Illuminate\Support\Facades\File;
 
 class McpAudit
@@ -32,8 +33,8 @@ class McpAudit
 
         $architectureToolsPath = app_path('Services/Ai/OpenBrainMcp/ArchitectureTools.php');
 
-        $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
-        $architectureTools = File::exists($architectureToolsPath) ? File::get($architectureToolsPath) : '';
+        $mcp = PeeledSource::read($mcpPath);
+        $architectureTools = PeeledSource::read($architectureToolsPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = File::exists($docsPath) ? File::get($docsPath) : '';
 
@@ -132,8 +133,8 @@ class McpAudit
 
         $reportToolsPath = app_path('Services/Ai/OpenBrainMcp/ReportTools.php');
 
-        $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
-        $reportTools = File::exists($reportToolsPath) ? File::get($reportToolsPath) : '';
+        $mcp = PeeledSource::read($mcpPath);
+        $reportTools = PeeledSource::read($reportToolsPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 
@@ -185,8 +186,8 @@ class McpAudit
 
         $reportToolsPath = app_path('Services/Ai/OpenBrainMcp/ReportTools.php');
 
-        $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
-        $reportTools = File::exists($reportToolsPath) ? File::get($reportToolsPath) : '';
+        $mcp = PeeledSource::read($mcpPath);
+        $reportTools = PeeledSource::read($reportToolsPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 

@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Architecture\Scanner;
 
+use App\Support\PeeledSource;
 use Illuminate\Support\Facades\File;
 
 class MemoryLearningAudit
@@ -46,22 +47,22 @@ class MemoryLearningAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $input = File::exists($inputPath) ? File::get($inputPath) : '';
-        $registry = File::exists($registryPath) ? File::get($registryPath) : '';
-        $verbatim = File::exists($verbatimPath) ? File::get($verbatimPath) : '';
-        $governance = File::exists($governancePath) ? File::get($governancePath) : '';
-        $privacy = File::exists($privacyPath) ? File::get($privacyPath) : '';
-        $deltaPromotion = File::exists($deltaPromotionPath) ? File::get($deltaPromotionPath) : '';
-        $learningPromotion = File::exists($learningPromotionPath) ? File::get($learningPromotionPath) : '';
-        $maintenance = File::exists($maintenancePath) ? File::get($maintenancePath) : '';
-        $reviewQueue = File::exists($reviewQueuePath) ? File::get($reviewQueuePath) : '';
-        $quality = File::exists($qualityPath) ? File::get($qualityPath) : '';
-        $listCommand = File::exists($listCommandPath) ? File::get($listCommandPath) : '';
-        $verbatimCommand = File::exists($verbatimCommandPath) ? File::get($verbatimCommandPath) : '';
-        $relationsCommand = File::exists($relationsCommandPath) ? File::get($relationsCommandPath) : '';
-        $reviewQueueCommand = File::exists($reviewQueueCommandPath) ? File::get($reviewQueueCommandPath) : '';
-        $governanceCommand = File::exists($governanceCommandPath) ? File::get($governanceCommandPath) : '';
-        $privacyCommand = File::exists($privacyCommandPath) ? File::get($privacyCommandPath) : '';
+        $input = PeeledSource::read($inputPath);
+        $registry = PeeledSource::read($registryPath);
+        $verbatim = PeeledSource::read($verbatimPath);
+        $governance = PeeledSource::read($governancePath);
+        $privacy = PeeledSource::read($privacyPath);
+        $deltaPromotion = PeeledSource::read($deltaPromotionPath);
+        $learningPromotion = PeeledSource::read($learningPromotionPath);
+        $maintenance = PeeledSource::read($maintenancePath);
+        $reviewQueue = PeeledSource::read($reviewQueuePath);
+        $quality = PeeledSource::read($qualityPath);
+        $listCommand = PeeledSource::read($listCommandPath);
+        $verbatimCommand = PeeledSource::read($verbatimCommandPath);
+        $relationsCommand = PeeledSource::read($relationsCommandPath);
+        $reviewQueueCommand = PeeledSource::read($reviewQueueCommandPath);
+        $governanceCommand = PeeledSource::read($governanceCommandPath);
+        $privacyCommand = PeeledSource::read($privacyCommandPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 
@@ -271,9 +272,9 @@ class MemoryLearningAudit
         $memoryDocsPath = base_path('docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md');
         $violations = [];
 
-        $input = File::exists($inputPath) ? File::get($inputPath) : '';
-        $retrieval = File::exists($retrievalPath) ? File::get($retrievalPath) : '';
-        $composer = File::exists($composerPath) ? File::get($composerPath) : '';
+        $input = PeeledSource::read($inputPath);
+        $retrieval = PeeledSource::read($retrievalPath);
+        $composer = PeeledSource::read($composerPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $kernelDocs = $this->primitives->kernelDocumentationCorpus();
         $memoryDocs = File::exists($memoryDocsPath) ? File::get($memoryDocsPath) : '';
@@ -364,7 +365,7 @@ class MemoryLearningAudit
         $testPath = base_path('tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php');
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
 
-        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $runtime = PeeledSource::read($runtimePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 
@@ -413,7 +414,7 @@ class MemoryLearningAudit
         $testPath = base_path('tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php');
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
 
-        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $runtime = PeeledSource::read($runtimePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 

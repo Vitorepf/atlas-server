@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\Kernel\Architecture\Scanner;
 
+use App\Support\PeeledSource;
+use App\Support\RoutesApiSource;
 use Illuminate\Support\Facades\File;
 
 class AgentBehaviorAudit
@@ -41,8 +43,8 @@ class AgentBehaviorAudit
         $contractDocPath = base_path('docs/engineering-knowledge-base/atlas-ai-agent-behavior-contract.md');
         $apDocPath = base_path('docs/ap/AP-148-agent-behavior-identity-fragment.md');
 
-        $contract = File::exists($contractPath) ? File::get($contractPath) : '';
-        $projector = File::exists($projectorPath) ? File::get($projectorPath) : '';
+        $contract = PeeledSource::read($contractPath);
+        $projector = PeeledSource::read($projectorPath);
         $providerTest = File::exists($providerTestPath) ? File::get($providerTestPath) : '';
         $contractDoc = File::exists($contractDocPath) ? File::get($contractDocPath) : '';
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
@@ -123,7 +125,7 @@ class AgentBehaviorAudit
         $contractDocPath = base_path('docs/engineering-knowledge-base/atlas-ai-agent-behavior-contract.md');
         $apDocPath = base_path('docs/ap/AP-149-agent-behavior-execution-plan.md');
 
-        $executionPlan = File::exists($executionPlanPath) ? File::get($executionPlanPath) : '';
+        $executionPlan = PeeledSource::read($executionPlanPath);
         $harnessTest = File::exists($harnessTestPath) ? File::get($harnessTestPath) : '';
         $contractDoc = File::exists($contractDocPath) ? File::get($contractDocPath) : '';
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
@@ -192,8 +194,8 @@ class AgentBehaviorAudit
         $contractDocPath = base_path('docs/engineering-knowledge-base/atlas-ai-agent-behavior-contract.md');
         $apDocPath = base_path('docs/ap/AP-150-agent-behavior-quality-gate.md');
 
-        $gate = File::exists($gatePath) ? File::get($gatePath) : '';
-        $evaluator = File::exists($evaluatorPath) ? File::get($evaluatorPath) : '';
+        $gate = PeeledSource::read($gatePath);
+        $evaluator = PeeledSource::read($evaluatorPath);
         $gateTest = File::exists($gateTestPath) ? File::get($gateTestPath) : '';
         $qualityTest = File::exists($qualityTestPath) ? File::get($qualityTestPath) : '';
         $contractDoc = File::exists($contractDocPath) ? File::get($contractDocPath) : '';
@@ -286,7 +288,7 @@ class AgentBehaviorAudit
         $contractDocPath = base_path('docs/engineering-knowledge-base/atlas-ai-agent-behavior-contract.md');
         $apDocPath = base_path('docs/ap/AP-151-agent-behavior-review-action-surface.md');
 
-        $actionService = File::exists($actionServicePath) ? File::get($actionServicePath) : '';
+        $actionService = PeeledSource::read($actionServicePath);
         $actionTest = File::exists($actionTestPath) ? File::get($actionTestPath) : '';
         $contractDoc = File::exists($contractDocPath) ? File::get($contractDocPath) : '';
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
@@ -352,8 +354,8 @@ class AgentBehaviorAudit
         $contractDocPath = base_path('docs/engineering-knowledge-base/atlas-ai-agent-behavior-contract.md');
         $apDocPath = base_path('docs/ap/AP-154-agent-behavior-evidence-ledger.md');
 
-        $ledger = File::exists($ledgerPath) ? File::get($ledgerPath) : '';
-        $evaluator = File::exists($evaluatorPath) ? File::get($evaluatorPath) : '';
+        $ledger = PeeledSource::read($ledgerPath);
+        $evaluator = PeeledSource::read($evaluatorPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $contractDoc = File::exists($contractDocPath) ? File::get($contractDocPath) : '';
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
@@ -432,7 +434,7 @@ class AgentBehaviorAudit
         $contractDocPath = base_path('docs/engineering-knowledge-base/atlas-ai-agent-behavior-contract.md');
         $apDocPath = base_path('docs/ap/AP-155-agent-behavior-replay-read-model.md');
 
-        $replay = File::exists($replayPath) ? File::get($replayPath) : '';
+        $replay = PeeledSource::read($replayPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $contractDoc = File::exists($contractDocPath) ? File::get($contractDocPath) : '';
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
@@ -503,8 +505,8 @@ class AgentBehaviorAudit
 
         $reportToolsPath = app_path('Services/Ai/OpenBrainMcp/ReportTools.php');
 
-        $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
-        $reportTools = File::exists($reportToolsPath) ? File::get($reportToolsPath) : '';
+        $mcp = PeeledSource::read($mcpPath);
+        $reportTools = PeeledSource::read($reportToolsPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $contractDoc = File::exists($contractDocPath) ? File::get($contractDocPath) : '';
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
@@ -579,7 +581,7 @@ class AgentBehaviorAudit
         $contractDocPath = base_path('docs/engineering-knowledge-base/atlas-ai-agent-behavior-contract.md');
         $apDocPath = base_path('docs/ap/AP-157-agent-behavior-self-improvement-review.md');
 
-        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $runtime = PeeledSource::read($runtimePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $contractDoc = File::exists($contractDocPath) ? File::get($contractDocPath) : '';
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
@@ -643,17 +645,16 @@ class AgentBehaviorAudit
     {
         $commandPath = app_path('Console/Commands/AtlasAiAgentBehaviorReportCommand.php');
         $controllerPath = app_path('Http/Controllers/AtlasAiAgentBehaviorReportController.php');
-        $routesPath = base_path('routes/api.php');
         $catalogPath = app_path('Services/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalog.php');
         $commandTestPath = base_path('tests/Feature/Ai/AtlasAiAgentBehaviorReportCommandTest.php');
         $apiTestPath = base_path('tests/Feature/Ai/AtlasAiAgentBehaviorReportApiTest.php');
         $contractDocPath = base_path('docs/engineering-knowledge-base/atlas-ai-agent-behavior-contract.md');
         $apDocPath = base_path('docs/ap/AP-158-agent-behavior-direct-surfaces.md');
 
-        $command = File::exists($commandPath) ? File::get($commandPath) : '';
-        $controller = File::exists($controllerPath) ? File::get($controllerPath) : '';
-        $routes = File::exists($routesPath) ? File::get($routesPath) : '';
-        $catalog = File::exists($catalogPath) ? File::get($catalogPath) : '';
+        $command = PeeledSource::read($commandPath);
+        $controller = PeeledSource::read($controllerPath);
+        $routes = RoutesApiSource::read();
+        $catalog = PeeledSource::read($catalogPath);
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
         $contractDoc = File::exists($contractDocPath) ? File::get($contractDocPath) : '';
@@ -771,11 +772,11 @@ class AgentBehaviorAudit
         $kernelDocPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-159-agent-behavior-dedicated-curator-flow.md');
 
-        $orchestrator = File::exists($orchestratorPath) ? File::get($orchestratorPath) : '';
-        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
-        $profileRegistry = File::exists($profileRegistryPath) ? File::get($profileRegistryPath) : '';
+        $orchestrator = PeeledSource::read($orchestratorPath);
+        $runtime = PeeledSource::read($runtimePath);
+        $profileRegistry = PeeledSource::read($profileRegistryPath);
         $config = File::exists($configPath) ? File::get($configPath) : '';
-        $catalog = File::exists($catalogPath) ? File::get($catalogPath) : '';
+        $catalog = PeeledSource::read($catalogPath);
         $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
         $helpTest = File::exists($helpTestPath) ? File::get($helpTestPath) : '';
         $orchestratorTest = File::exists($orchestratorTestPath) ? File::get($orchestratorTestPath) : '';
@@ -897,9 +898,9 @@ class AgentBehaviorAudit
         $apDocPath = base_path('docs/ap/AP-160-agent-behavior-curator-filter-surface.md');
         $ap159DocPath = base_path('docs/ap/AP-159-agent-behavior-dedicated-curator-flow.md');
 
-        $command = File::exists($commandPath) ? File::get($commandPath) : '';
-        $orchestrator = File::exists($orchestratorPath) ? File::get($orchestratorPath) : '';
-        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $command = PeeledSource::read($commandPath);
+        $orchestrator = PeeledSource::read($orchestratorPath);
+        $runtime = PeeledSource::read($runtimePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
         $ap159Doc = File::exists($ap159DocPath) ? File::get($ap159DocPath) : '';
@@ -998,7 +999,7 @@ class AgentBehaviorAudit
         $apDocPath = base_path('docs/ap/AP-161-agent-behavior-recurring-schedule.md');
 
         $config = File::exists($configPath) ? File::get($configPath) : '';
-        $schedule = File::exists($schedulePath) ? File::get($schedulePath) : '';
+        $schedule = PeeledSource::read($schedulePath);
         $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
         $featureTest = File::exists($featureTestPath) ? File::get($featureTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
@@ -1071,7 +1072,7 @@ class AgentBehaviorAudit
         $behaviorDocsPath = base_path('docs/engineering-knowledge-base/atlas-ai-agent-behavior-contract.md');
         $apDocPath = base_path('docs/ap/AP-162-agent-behavior-proposal-governance.md');
 
-        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $runtime = PeeledSource::read($runtimePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $kernelDocs = $this->primitives->kernelDocumentationCorpus();
         $behaviorDocs = File::exists($behaviorDocsPath) ? File::get($behaviorDocsPath) : '';

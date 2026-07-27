@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Architecture\Scanner;
 
+use App\Support\PeeledSource;
 use Illuminate\Support\Facades\File;
 
 class RetrievalAudit
@@ -33,10 +34,10 @@ class RetrievalAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $input = File::exists($inputPath) ? File::get($inputPath) : '';
-        $search = File::exists($searchPath) ? File::get($searchPath) : '';
-        $prompt = File::exists($promptPath) ? File::get($promptPath) : '';
-        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $input = PeeledSource::read($inputPath);
+        $search = PeeledSource::read($searchPath);
+        $prompt = PeeledSource::read($promptPath);
+        $runtime = PeeledSource::read($runtimePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 
@@ -114,7 +115,7 @@ class RetrievalAudit
         $testPath = base_path('tests/Unit/Ai/AtlasOpenBrainContextInjectionServiceTest.php');
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
 
-        $service = File::exists($servicePath) ? File::get($servicePath) : '';
+        $service = PeeledSource::read($servicePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 
@@ -172,8 +173,8 @@ class RetrievalAudit
         $testPath = base_path('tests/Unit/Ai/AtlasOpenBrainContextInjectionServiceTest.php');
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
 
-        $section = File::exists($sectionPath) ? File::get($sectionPath) : '';
-        $service = File::exists($servicePath) ? File::get($servicePath) : '';
+        $section = PeeledSource::read($sectionPath);
+        $service = PeeledSource::read($servicePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 
@@ -190,7 +191,7 @@ class RetrievalAudit
         }
 
         foreach ([
-            'private function nextActions(array $warnings, array $summary = []): array',
+            'public static function nextActions(array $warnings, array $summary = []): array',
             "data_get(\$summary, 'retrieval_plan.review_signal.recommended_action')",
             'Refresh evidence replay or attach trace/envelope evidence before retrying.',
         ] as $token) {

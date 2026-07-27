@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Architecture\Scanner;
 
+use App\Support\PeeledSource;
 use Illuminate\Support\Facades\File;
 
 class SessionAudit
@@ -35,8 +36,8 @@ class SessionAudit
         $sessionDocPath = base_path('docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md');
         $apDocPath = base_path('docs/ap/AP-173-session-bootstrap-docs-split-plan-contract.md');
 
-        $service = File::exists($servicePath) ? File::get($servicePath) : '';
-        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $service = PeeledSource::read($servicePath);
+        $command = PeeledSource::read($commandPath);
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
@@ -75,7 +76,7 @@ class SessionAudit
         }
 
         $operationsCatalogPath = app_path('Services/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalog.php');
-        $operationsCatalog = File::exists($operationsCatalogPath) ? File::get($operationsCatalogPath) : '';
+        $operationsCatalog = PeeledSource::read($operationsCatalogPath);
         foreach ([
             "'id' => 'session_bootstrap'",
             "'output_contract' => [",
@@ -152,7 +153,7 @@ class SessionAudit
         $sessionDocPath = base_path('docs/engineering-knowledge-base/atlas-ai-session-bootstrap.md');
         $apDocPath = base_path('docs/ap/AP-174-session-bootstrap-architecture-operations-contract.md');
 
-        $service = File::exists($servicePath) ? File::get($servicePath) : '';
+        $service = PeeledSource::read($servicePath);
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
@@ -256,7 +257,7 @@ class SessionAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-175-feature-placement-architecture-operations-contract.md');
 
-        $service = File::exists($servicePath) ? File::get($servicePath) : '';
+        $service = PeeledSource::read($servicePath);
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';

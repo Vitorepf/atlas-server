@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Architecture\Scanner;
 
+use App\Support\PeeledSource;
 use Illuminate\Support\Facades\File;
 
 class ProposalAudit
@@ -30,7 +31,7 @@ class ProposalAudit
         $testPath = base_path('tests/Unit/Ai/ProposalInboxEmitterTest.php');
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
 
-        $emitter = File::exists($emitterPath) ? File::get($emitterPath) : '';
+        $emitter = PeeledSource::read($emitterPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 
@@ -81,7 +82,7 @@ class ProposalAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-117-proposal-inbox-review-signal-severity-contract.md');
 
-        $emitter = File::exists($emitterPath) ? File::get($emitterPath) : '';
+        $emitter = PeeledSource::read($emitterPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
@@ -139,7 +140,7 @@ class ProposalAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-118-proposal-review-action-contract.md');
 
-        $actions = File::exists($actionsPath) ? File::get($actionsPath) : '';
+        $actions = PeeledSource::read($actionsPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';

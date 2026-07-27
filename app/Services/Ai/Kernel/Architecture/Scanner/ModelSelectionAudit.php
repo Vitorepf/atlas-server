@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Architecture\Scanner;
 
+use App\Support\PeeledSource;
 use Illuminate\Support\Facades\File;
 
 class ModelSelectionAudit
@@ -29,7 +30,7 @@ class ModelSelectionAudit
         $testPath = base_path('tests/Unit/Ai/AtlasDecideReceiptIntegrationTest.php');
         $cliTestPath = base_path('tests/Feature/AiAtlasDecideContractTest.php');
 
-        $decide = File::exists($decidePath) ? File::get($decidePath) : '';
+        $decide = PeeledSource::read($decidePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $cliTest = File::exists($cliTestPath) ? File::get($cliTestPath) : '';
 
@@ -86,7 +87,7 @@ class ModelSelectionAudit
         $testPath = base_path('tests/Unit/Ai/Programming/ProgrammingSurfaceContractFactoryTest.php');
         $continuePath = app_path('Console/Commands/AtlasCliContinueCommand.php');
 
-        $factory = File::exists($factoryPath) ? File::get($factoryPath) : '';
+        $factory = PeeledSource::read($factoryPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $continue = File::exists($continuePath) ? File::get($continuePath) : '';
 
@@ -148,9 +149,9 @@ class ModelSelectionAudit
         $testPath = base_path('tests/Unit/Ai/Programming/ProgrammingSurfaceContractFactoryTest.php');
         $fixTestPath = base_path('tests/Feature/AtlasCliFixCommandTest.php');
 
-        $factory = File::exists($factoryPath) ? File::get($factoryPath) : '';
-        $builder = File::exists($builderPath) ? File::get($builderPath) : '';
-        $dev = File::exists($devPath) ? File::get($devPath) : '';
+        $factory = PeeledSource::read($factoryPath);
+        $builder = PeeledSource::read($builderPath);
+        $dev = PeeledSource::read($devPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $fixTest = File::exists($fixTestPath) ? File::get($fixTestPath) : '';
 

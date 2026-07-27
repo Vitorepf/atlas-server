@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\Kernel\Architecture\Scanner;
 
+use App\Support\PeeledSource;
+use App\Support\RoutesApiSource;
 use Illuminate\Support\Facades\File;
 
 class DecisionReceiptAudit
@@ -36,10 +38,10 @@ class DecisionReceiptAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-134-decision-receipt-hash-runtime-guard.md');
 
-        $guard = File::exists($guardPath) ? File::get($guardPath) : '';
-        $hash = File::exists($hashPath) ? File::get($hashPath) : '';
-        $issuer = File::exists($issuerPath) ? File::get($issuerPath) : '';
-        $worker = File::exists($workerPath) ? File::get($workerPath) : '';
+        $guard = PeeledSource::read($guardPath);
+        $hash = PeeledSource::read($hashPath);
+        $issuer = PeeledSource::read($issuerPath);
+        $worker = PeeledSource::read($workerPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
@@ -169,8 +171,8 @@ class DecisionReceiptAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-136-decision-receipt-chain-replay.md');
 
-        $ledger = File::exists($ledgerPath) ? File::get($ledgerPath) : '';
-        $replay = File::exists($replayPath) ? File::get($replayPath) : '';
+        $ledger = PeeledSource::read($ledgerPath);
+        $replay = PeeledSource::read($replayPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
@@ -236,7 +238,6 @@ class DecisionReceiptAudit
     {
         $commandPath = app_path('Console/Commands/AtlasAiDecisionReceiptReportCommand.php');
         $controllerPath = app_path('Http/Controllers/AtlasAiDecisionReceiptReportController.php');
-        $routesPath = base_path('routes/api.php');
         $mcpPath = app_path('Services/Ai/AtlasOpenBrainMcpService.php');
         $catalogPath = app_path('Services/Ai/Kernel/Architecture/AtlasArchitectureOperationsCatalog.php');
         $commandTestPath = base_path('tests/Feature/Ai/AtlasAiDecisionReceiptReportCommandTest.php');
@@ -245,13 +246,13 @@ class DecisionReceiptAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-137-decision-receipt-replay-surfaces.md');
 
-        $command = File::exists($commandPath) ? File::get($commandPath) : '';
-        $controller = File::exists($controllerPath) ? File::get($controllerPath) : '';
-        $routes = File::exists($routesPath) ? File::get($routesPath) : '';
-        $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
+        $command = PeeledSource::read($commandPath);
+        $controller = PeeledSource::read($controllerPath);
+        $routes = RoutesApiSource::read();
+        $mcp = PeeledSource::read($mcpPath);
         $reportToolsPath = app_path('Services/Ai/OpenBrainMcp/ReportTools.php');
-        $reportTools = File::exists($reportToolsPath) ? File::get($reportToolsPath) : '';
-        $catalog = File::exists($catalogPath) ? File::get($catalogPath) : '';
+        $reportTools = PeeledSource::read($reportToolsPath);
+        $catalog = PeeledSource::read($catalogPath);
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
         $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
@@ -380,7 +381,7 @@ class DecisionReceiptAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-138-decision-receipt-replay-curator-review.md');
 
-        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $runtime = PeeledSource::read($runtimePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
@@ -440,7 +441,7 @@ class DecisionReceiptAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-139-decision-receipt-replay-inbox-emission.md');
 
-        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $runtime = PeeledSource::read($runtimePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';

@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Architecture\Scanner;
 
+use App\Support\PeeledSource;
 use Illuminate\Support\Facades\File;
 
 class TelemetryRuntimeAudit
@@ -34,10 +35,10 @@ class TelemetryRuntimeAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $input = File::exists($inputPath) ? File::get($inputPath) : '';
-        $controller = File::exists($controllerPath) ? File::get($controllerPath) : '';
-        $healthCommand = File::exists($healthCommandPath) ? File::get($healthCommandPath) : '';
-        $rollupCommand = File::exists($rollupCommandPath) ? File::get($rollupCommandPath) : '';
+        $input = PeeledSource::read($inputPath);
+        $controller = PeeledSource::read($controllerPath);
+        $healthCommand = PeeledSource::read($healthCommandPath);
+        $rollupCommand = PeeledSource::read($rollupCommandPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 
@@ -111,8 +112,8 @@ class TelemetryRuntimeAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $input = File::exists($inputPath) ? File::get($inputPath) : '';
-        $controller = File::exists($controllerPath) ? File::get($controllerPath) : '';
+        $input = PeeledSource::read($inputPath);
+        $controller = PeeledSource::read($controllerPath);
         $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
         $featureTest = File::exists($featureTestPath) ? File::get($featureTestPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
@@ -192,8 +193,8 @@ class TelemetryRuntimeAudit
         $violations = [];
 
         $settings = File::exists($settingsPath) ? File::get($settingsPath) : '';
-        $budgetService = File::exists($budgetServicePath) ? File::get($budgetServicePath) : '';
-        $policyService = File::exists($policyServicePath) ? File::get($policyServicePath) : '';
+        $budgetService = PeeledSource::read($budgetServicePath);
+        $policyService = PeeledSource::read($policyServicePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 
@@ -279,15 +280,15 @@ class TelemetryRuntimeAudit
         $runtimeDoc = File::exists($runtimeDocPath) ? File::get($runtimeDocPath) : '';
         $staticScansDoc = File::exists($staticScansDocPath) ? File::get($staticScansDocPath) : '';
         $architectureTest = File::exists($architectureTestPath) ? File::get($architectureTestPath) : '';
-        $runtimeReport = File::exists($runtimeReportPath) ? File::get($runtimeReportPath) : '';
+        $runtimeReport = PeeledSource::read($runtimeReportPath);
         $runtimeCommandTest = File::exists($runtimeCommandTestPath) ? File::get($runtimeCommandTestPath) : '';
         $runtimeApiTest = File::exists($runtimeApiTestPath) ? File::get($runtimeApiTestPath) : '';
         $mcpTest = File::exists($mcpTestPath) ? File::get($mcpTestPath) : '';
-        $architectureOperationsCatalog = File::exists($architectureOperationsCatalogPath) ? File::get($architectureOperationsCatalogPath) : '';
+        $architectureOperationsCatalog = PeeledSource::read($architectureOperationsCatalogPath);
         $architectureOperationsCommandTest = File::exists($architectureOperationsCommandTestPath) ? File::get($architectureOperationsCommandTestPath) : '';
         $architectureOperationsApiTest = File::exists($architectureOperationsApiTestPath) ? File::get($architectureOperationsApiTestPath) : '';
         $architectureOperationsCatalogTest = File::exists($architectureOperationsCatalogTestPath) ? File::get($architectureOperationsCatalogTestPath) : '';
-        $featurePlacement = File::exists($featurePlacementPath) ? File::get($featurePlacementPath) : '';
+        $featurePlacement = PeeledSource::read($featurePlacementPath);
         $featurePlacementTest = File::exists($featurePlacementTestPath) ? File::get($featurePlacementTestPath) : '';
 
         foreach ([

@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Architecture\Scanner;
 
+use App\Support\PeeledSource;
 use Illuminate\Support\Facades\File;
 
 class ProgrammingAudit
@@ -30,7 +31,7 @@ class ProgrammingAudit
         $testPath = base_path('tests/Unit/Ai/Programming/ProgrammingSurfaceContractFactoryTest.php');
         $devPath = app_path('Console/Commands/AtlasCliDevCommand.php');
 
-        $factory = File::exists($factoryPath) ? File::get($factoryPath) : '';
+        $factory = PeeledSource::read($factoryPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $dev = File::exists($devPath) ? File::get($devPath) : '';
 
@@ -105,16 +106,16 @@ class ProgrammingAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $policy = File::exists($policyPath) ? File::get($policyPath) : '';
-        $cli = File::exists($cliPath) ? File::get($cliPath) : '';
-        $workflow = File::exists($workflowPath) ? File::get($workflowPath) : '';
-        $orchestrator = File::exists($orchestratorPath) ? File::get($orchestratorPath) : '';
-        $surfaceFactory = File::exists($surfaceFactoryPath) ? File::get($surfaceFactoryPath) : '';
-        $surfaceBuilder = File::exists($surfaceBuilderPath) ? File::get($surfaceBuilderPath) : '';
-        $policyService = File::exists($policyServicePath) ? File::get($policyServicePath) : '';
-        $worker = File::exists($workerPath) ? File::get($workerPath) : '';
-        $executionRequest = File::exists($executionRequestPath) ? File::get($executionRequestPath) : '';
-        $chatCommand = File::exists($chatCommandPath) ? File::get($chatCommandPath) : '';
+        $policy = PeeledSource::read($policyPath);
+        $cli = PeeledSource::read($cliPath);
+        $workflow = PeeledSource::read($workflowPath);
+        $orchestrator = PeeledSource::read($orchestratorPath);
+        $surfaceFactory = PeeledSource::read($surfaceFactoryPath);
+        $surfaceBuilder = PeeledSource::read($surfaceBuilderPath);
+        $policyService = PeeledSource::read($policyServicePath);
+        $worker = PeeledSource::read($workerPath);
+        $executionRequest = PeeledSource::read($executionRequestPath);
+        $chatCommand = PeeledSource::read($chatCommandPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 
@@ -187,7 +188,7 @@ class ProgrammingAudit
         $programmingDocPath = base_path('docs/engineering-knowledge-base/domains/programming.md');
         $apDocPath = base_path('docs/ap/AP-152-programming-plan-agent-behavior-contract.md');
 
-        $orchestrator = File::exists($orchestratorPath) ? File::get($orchestratorPath) : '';
+        $orchestrator = PeeledSource::read($orchestratorPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $contractDoc = File::exists($contractDocPath) ? File::get($contractDocPath) : '';
         $programmingDoc = $this->programmingDomainDocumentationCorpus();
@@ -267,8 +268,8 @@ class ProgrammingAudit
         $programmingDocPath = base_path('docs/engineering-knowledge-base/domains/programming.md');
         $apDocPath = base_path('docs/ap/AP-153-programming-harness-agent-behavior-contract.md');
 
-        $request = File::exists($requestPath) ? File::get($requestPath) : '';
-        $harness = File::exists($harnessPath) ? File::get($harnessPath) : '';
+        $request = PeeledSource::read($requestPath);
+        $harness = PeeledSource::read($harnessPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $contractDoc = File::exists($contractDocPath) ? File::get($contractDocPath) : '';
         $programmingDoc = $this->programmingDomainDocumentationCorpus();

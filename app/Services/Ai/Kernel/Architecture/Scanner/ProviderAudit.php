@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\Kernel\Architecture\Scanner;
 
+use App\Support\PeeledSource;
+use App\Support\RoutesApiSource;
 use Illuminate\Support\Facades\File;
 
 class ProviderAudit
@@ -35,8 +37,8 @@ class ProviderAudit
         $docPath = base_path('docs/engineering-knowledge-base/atlas-ai-provider-evolution-intelligence.md');
         $matrixPath = base_path('docs/engineering-knowledge-base/architecture-audit/implemented-vs-scaffold-matrix.md');
 
-        $service = File::exists($servicePath) ? File::get($servicePath) : '';
-        $sourceRegistry = File::exists($sourceRegistryPath) ? File::get($sourceRegistryPath) : '';
+        $service = PeeledSource::read($servicePath);
+        $sourceRegistry = PeeledSource::read($sourceRegistryPath);
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $doc = File::exists($docPath) ? File::get($docPath) : '';
         $matrix = File::exists($matrixPath) ? File::get($matrixPath) : '';
@@ -173,7 +175,6 @@ class ProviderAudit
         $mcpPath = app_path('Services/Ai/AtlasOpenBrainMcpService.php');
         $apiPath = app_path('Http/Controllers/AtlasAiProviderPerformanceController.php');
         $observabilityPath = app_path('Http/Controllers/AiObservabilityController.php');
-        $routesPath = base_path('routes/api.php');
         $bootstrapPath = base_path('bootstrap/app.php');
         $projectionTestPath = base_path('tests/Unit/Ai/ProviderPerformanceProjectionTest.php');
         $workerTestPath = base_path('tests/Feature/Ai/AiWorkerProviderChoiceTest.php');
@@ -191,25 +192,25 @@ class ProviderAudit
         $modelSelectionDocPath = base_path('docs/engineering-knowledge-base/atlas-ai-model-selection-strategy.md');
         $dynamicComputeMarketApPath = base_path('docs/ap/AP-147-dynamic-compute-market-shadow-surface.md');
 
-        $payload = $this->primitives->fileContents($payloadPath);
-        $projection = $this->primitives->fileContents($projectionPath);
-        $worker = $this->primitives->fileContents($workerPath);
-        $strategy = $this->primitives->fileContents($strategyPath);
-        $dynamicComputeMarket = $this->primitives->fileContents($dynamicComputeMarketPath);
-        $dynamicComputeMarketReport = $this->primitives->fileContents($dynamicComputeMarketReportPath);
-        $dynamicComputeMarketCommand = $this->primitives->fileContents($dynamicComputeMarketCommandPath);
-        $dynamicComputeMarketApi = $this->primitives->fileContents($dynamicComputeMarketApiPath);
-        $selfImprovement = $this->primitives->fileContents($selfImprovementPath);
-        $inboxActions = $this->primitives->fileContents($inboxActionsPath);
-        $costRateService = $this->primitives->fileContents($costRateServicePath);
-        $costRateCommand = $this->primitives->fileContents($costRateCommandPath);
-        $replayService = $this->primitives->fileContents($replayServicePath);
-        $command = $this->primitives->fileContents($commandPath);
-        $mcp = $this->primitives->fileContents($mcpPath);
+        $payload = PeeledSource::read($payloadPath);
+        $projection = PeeledSource::read($projectionPath);
+        $worker = PeeledSource::read($workerPath);
+        $strategy = PeeledSource::read($strategyPath);
+        $dynamicComputeMarket = PeeledSource::read($dynamicComputeMarketPath);
+        $dynamicComputeMarketReport = PeeledSource::read($dynamicComputeMarketReportPath);
+        $dynamicComputeMarketCommand = PeeledSource::read($dynamicComputeMarketCommandPath);
+        $dynamicComputeMarketApi = PeeledSource::read($dynamicComputeMarketApiPath);
+        $selfImprovement = PeeledSource::read($selfImprovementPath);
+        $inboxActions = PeeledSource::read($inboxActionsPath);
+        $costRateService = PeeledSource::read($costRateServicePath);
+        $costRateCommand = PeeledSource::read($costRateCommandPath);
+        $replayService = PeeledSource::read($replayServicePath);
+        $command = PeeledSource::read($commandPath);
+        $mcp = PeeledSource::read($mcpPath);
         $reportTools = $this->primitives->fileContents(app_path('Services/Ai/OpenBrainMcp/ReportTools.php'));
-        $api = $this->primitives->fileContents($apiPath);
-        $observability = $this->primitives->fileContents($observabilityPath);
-        $routes = $this->primitives->fileContents($routesPath);
+        $api = PeeledSource::read($apiPath);
+        $observability = PeeledSource::read($observabilityPath);
+        $routes = RoutesApiSource::read();
         $bootstrap = $this->primitives->fileContents($bootstrapPath);
         $projectionTest = $this->primitives->fileContents($projectionTestPath);
         $workerTest = $this->primitives->fileContents($workerTestPath);
@@ -606,8 +607,8 @@ class ProviderAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $input = File::exists($inputPath) ? File::get($inputPath) : '';
-        $service = File::exists($servicePath) ? File::get($servicePath) : '';
+        $input = PeeledSource::read($inputPath);
+        $service = PeeledSource::read($servicePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 
@@ -672,8 +673,8 @@ class ProviderAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $input = File::exists($inputPath) ? File::get($inputPath) : '';
-        $service = File::exists($servicePath) ? File::get($servicePath) : '';
+        $input = PeeledSource::read($inputPath);
+        $service = PeeledSource::read($servicePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 
@@ -745,8 +746,8 @@ class ProviderAudit
         }
 
         $privacy = File::get($privacyPath);
-        $projection = File::exists($projectionPath) ? File::get($projectionPath) : '';
-        $openBrain = File::exists($openBrainPath) ? File::get($openBrainPath) : '';
+        $projection = PeeledSource::read($projectionPath);
+        $openBrain = PeeledSource::read($openBrainPath);
 
         $checks = [
             'providerDecision exposes auditable privacy decision' => 'providerDecision(AtlasMemoryEntry $entry)',
@@ -787,13 +788,13 @@ class ProviderAudit
         }
 
         $mcpPath = app_path('Services/Ai/AtlasOpenBrainMcpService.php');
-        $mcp = File::exists($mcpPath) ? File::get($mcpPath) : '';
+        $mcp = PeeledSource::read($mcpPath);
         if (! str_contains($mcp, 'providerDecision($entry)') || ! str_contains($mcp, "recordProviderMemoryBlocked(\$entry, \$privacyDecision, 'open_brain_mcp'")) {
             $violations[] = 'app/Services/Ai/AtlasOpenBrainMcpService.php: atlas_memory_get must record blocked provider memory decisions to the Evidence Ledger';
         }
 
         $ledgerPath = app_path('Services/Ai/Kernel/Evidence/AtlasEvidenceLedger.php');
-        $ledger = File::exists($ledgerPath) ? File::get($ledgerPath) : '';
+        $ledger = PeeledSource::read($ledgerPath);
         if (! str_contains($ledger, 'recordProviderMemoryBlocked(') || ! str_contains($ledger, 'atlas.memory_provider_privacy')) {
             $violations[] = 'app/Services/Ai/Kernel/Evidence/AtlasEvidenceLedger.php: missing provider memory privacy block event recorder';
         }
@@ -819,10 +820,10 @@ class ProviderAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-146-provider-cost-rate-inbox-replay.md');
 
-        $inboxActions = File::exists($inboxActionsPath) ? File::get($inboxActionsPath) : '';
-        $replay = File::exists($replayPath) ? File::get($replayPath) : '';
-        $selfImprovement = File::exists($selfImprovementPath) ? File::get($selfImprovementPath) : '';
-        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $inboxActions = PeeledSource::read($inboxActionsPath);
+        $replay = PeeledSource::read($replayPath);
+        $selfImprovement = PeeledSource::read($selfImprovementPath);
+        $command = PeeledSource::read($commandPath);
         $ledgerReplayTest = File::exists($ledgerReplayTestPath) ? File::get($ledgerReplayTestPath) : '';
         $inboxActionTest = File::exists($inboxActionTestPath) ? File::get($inboxActionTestPath) : '';
         $selfImprovementTest = File::exists($selfImprovementTestPath) ? File::get($selfImprovementTestPath) : '';
@@ -875,7 +876,7 @@ class ProviderAudit
         // from AtlasSelfImprovementRuntime into the Runtime/InboxActionReplaySection family class;
         // the AP-146 previewed-cost-rate reopen invariant is unchanged, only the file moved.
         $inboxActionReplaySectionPath = app_path('Services/Ai/SelfImprovement/Runtime/InboxActionReplaySection.php');
-        $inboxActionReplaySection = File::exists($inboxActionReplaySectionPath) ? File::get($inboxActionReplaySectionPath) : '';
+        $inboxActionReplaySection = PeeledSource::read($inboxActionReplaySectionPath);
         foreach ([
             'configure_provider_cost_rates_action_without_applied_rate',
             'Completar rates de custo dos providers no Inbox',

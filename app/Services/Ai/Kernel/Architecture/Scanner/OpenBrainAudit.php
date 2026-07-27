@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Architecture\Scanner;
 
+use App\Support\PeeledSource;
 use Illuminate\Support\Facades\File;
 
 class OpenBrainAudit
@@ -33,9 +34,9 @@ class OpenBrainAudit
 
         $navToolsPath = app_path('Services/Ai/OpenBrainMcp/NavigationTools.php');
 
-        $input = File::exists($inputPath) ? File::get($inputPath) : '';
-        $service = File::exists($servicePath) ? File::get($servicePath) : '';
-        $navTools = File::exists($navToolsPath) ? File::get($navToolsPath) : '';
+        $input = PeeledSource::read($inputPath);
+        $service = PeeledSource::read($servicePath);
+        $navTools = PeeledSource::read($navToolsPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 
@@ -129,8 +130,8 @@ class OpenBrainAudit
         $testPath = base_path('tests/Unit/Ai/AtlasOpenBrainContextInjectionServiceTest.php');
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
 
-        $section = File::exists($sectionPath) ? File::get($sectionPath) : '';
-        $service = File::exists($servicePath) ? File::get($servicePath) : '';
+        $section = PeeledSource::read($sectionPath);
+        $service = PeeledSource::read($servicePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 
@@ -189,7 +190,7 @@ class OpenBrainAudit
         $testPath = base_path('tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php');
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
 
-        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $runtime = PeeledSource::read($runtimePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 

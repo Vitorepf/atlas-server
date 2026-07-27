@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Architecture\Scanner;
 
+use App\Support\PeeledSource;
 use Illuminate\Support\Facades\File;
 
 class MiscGuardAudit
@@ -65,7 +66,7 @@ class MiscGuardAudit
 
         $contents = File::get($path);
         $guardPath = app_path('Services/Ai/Kernel/Decision/DecisionReceiptRuntimeGuard.php');
-        $guardContents = File::exists($guardPath) ? File::get($guardPath) : '';
+        $guardContents = PeeledSource::read($guardPath);
         $checks = [
             'worker delegates receipt validation to the kernel guard' => 'DecisionReceiptRuntimeGuard',
             'worker evaluates receipt before provider lookup' => 'violationForJob($job, $providerKey, $job->model)',
@@ -112,7 +113,7 @@ class MiscGuardAudit
         $apDocPath = base_path('docs/ap/AP-145-documentation-health-curator-review.md');
         $docOsPath = base_path('docs/engineering-knowledge-base/atlas-ai-documentation-operating-system.md');
 
-        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $runtime = PeeledSource::read($runtimePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';

@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Architecture\Scanner;
 
+use App\Support\PeeledSource;
 use Illuminate\Support\Facades\File;
 
 class LedgerAudit
@@ -37,9 +38,9 @@ class LedgerAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $input = File::exists($inputPath) ? File::get($inputPath) : '';
-        $report = File::exists($reportPath) ? File::get($reportPath) : '';
-        $controller = File::exists($controllerPath) ? File::get($controllerPath) : '';
+        $input = PeeledSource::read($inputPath);
+        $report = PeeledSource::read($reportPath);
+        $controller = PeeledSource::read($controllerPath);
         $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
@@ -126,9 +127,9 @@ class LedgerAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $report = File::exists($reportPath) ? File::get($reportPath) : '';
-        $command = File::exists($commandPath) ? File::get($commandPath) : '';
-        $controller = File::exists($controllerPath) ? File::get($controllerPath) : '';
+        $report = PeeledSource::read($reportPath);
+        $command = PeeledSource::read($commandPath);
+        $controller = PeeledSource::read($controllerPath);
         $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 
@@ -202,9 +203,9 @@ class LedgerAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-140-ledger-replay-command-surface.md');
 
-        $command = File::exists($commandPath) ? File::get($commandPath) : '';
-        $catalog = File::exists($catalogPath) ? File::get($catalogPath) : '';
-        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $command = PeeledSource::read($commandPath);
+        $catalog = PeeledSource::read($catalogPath);
+        $runtime = PeeledSource::read($runtimePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $catalogTest = File::exists($catalogTestPath) ? File::get($catalogTestPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
@@ -290,8 +291,8 @@ class LedgerAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-141-ledger-projection-registry-contract.md');
 
-        $registry = File::exists($registryPath) ? File::get($registryPath) : '';
-        $validation = File::exists($validationPath) ? File::get($validationPath) : '';
+        $registry = PeeledSource::read($registryPath);
+        $validation = PeeledSource::read($validationPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
@@ -383,8 +384,8 @@ class LedgerAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-142-ledger-projection-inbox-action.md');
 
-        $registry = File::exists($registryPath) ? File::get($registryPath) : '';
-        $cli = File::exists($cliPath) ? File::get($cliPath) : '';
+        $registry = PeeledSource::read($registryPath);
+        $cli = PeeledSource::read($cliPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
@@ -459,8 +460,8 @@ class LedgerAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-143-ledger-projection-curator-action-emission.md');
 
-        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
-        $emitter = File::exists($emitterPath) ? File::get($emitterPath) : '';
+        $runtime = PeeledSource::read($runtimePath);
+        $emitter = PeeledSource::read($emitterPath);
         $runtimeTest = File::exists($runtimeTestPath) ? File::get($runtimeTestPath) : '';
         $emitterTest = File::exists($emitterTestPath) ? File::get($emitterTestPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();

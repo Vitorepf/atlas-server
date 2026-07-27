@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Architecture\Scanner;
 
+use App\Support\PeeledSource;
 use Illuminate\Support\Facades\File;
 
 class ScheduleReplayAudit
@@ -37,8 +38,8 @@ class ScheduleReplayAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-114-schedule-replay-inbox-hydration-gap-signal-contract.md');
 
-        $replay = File::exists($replayPath) ? File::get($replayPath) : '';
-        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $replay = PeeledSource::read($replayPath);
+        $command = PeeledSource::read($commandPath);
         $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
@@ -168,8 +169,8 @@ class ScheduleReplayAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-112-schedule-replay-inbox-item-hydration-contract.md');
 
-        $replay = File::exists($replayPath) ? File::get($replayPath) : '';
-        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $replay = PeeledSource::read($replayPath);
+        $command = PeeledSource::read($commandPath);
         $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
@@ -246,7 +247,7 @@ class ScheduleReplayAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-111-schedule-replay-inbox-refs-surface-parity-contract.md');
 
-        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $command = PeeledSource::read($commandPath);
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
         $observabilityTest = File::exists($observabilityTestPath) ? File::get($observabilityTestPath) : '';
@@ -321,7 +322,7 @@ class ScheduleReplayAudit
         $testPath = base_path('tests/Unit/Ai/Kernel/LedgerReplayServiceTest.php');
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
 
-        $replay = File::exists($replayPath) ? File::get($replayPath) : '';
+        $replay = PeeledSource::read($replayPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 
@@ -371,7 +372,7 @@ class ScheduleReplayAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $replay = File::exists($replayPath) ? File::get($replayPath) : '';
+        $replay = PeeledSource::read($replayPath);
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();

@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Architecture\Scanner;
 
+use App\Support\PeeledSource;
 use Illuminate\Support\Facades\File;
 
 class VoiceAudit
@@ -32,7 +33,7 @@ class VoiceAudit
         $docPath = base_path('docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md');
         $matrixPath = base_path('docs/engineering-knowledge-base/architecture-audit/implemented-vs-scaffold-matrix.md');
 
-        $service = File::exists($servicePath) ? File::get($servicePath) : '';
+        $service = PeeledSource::read($servicePath);
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
         $doc = File::exists($docPath) ? File::get($docPath) : '';
         $matrix = File::exists($matrixPath) ? File::get($matrixPath) : '';
@@ -114,8 +115,8 @@ class VoiceAudit
         $docPath = base_path('docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md');
         $staticScanDocPath = base_path('docs/engineering-knowledge-base/kernel/static-scans.md');
 
-        $service = File::exists($servicePath) ? File::get($servicePath) : '';
-        $certification = File::exists($certificationPath) ? File::get($certificationPath) : '';
+        $service = PeeledSource::read($servicePath);
+        $certification = PeeledSource::read($certificationPath);
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
         $unitTest = File::exists($unitTestPath) ? File::get($unitTestPath) : '';
@@ -502,11 +503,11 @@ class VoiceAudit
         $docPath = base_path('docs/engineering-knowledge-base/atlas-ai-voice-realtime-surface.md');
         $staticScanDocPath = base_path('docs/engineering-knowledge-base/kernel/static-scans.md');
 
-        $certification = $this->primitives->fileContents($certificationPath);
-        $voiceService = $this->primitives->fileContents($voiceServicePath);
-        $tokenIssuer = $this->primitives->fileContents($tokenIssuerPath);
-        $selfImprovement = $this->primitives->fileContents($selfImprovementPath);
-        $command = $this->primitives->fileContents($commandPath);
+        $certification = PeeledSource::read($certificationPath);
+        $voiceService = PeeledSource::read($voiceServicePath);
+        $tokenIssuer = PeeledSource::read($tokenIssuerPath);
+        $selfImprovement = PeeledSource::read($selfImprovementPath);
+        $command = PeeledSource::read($commandPath);
         $unitTest = $this->primitives->fileContents($unitTestPath);
         $tokenIssuerTest = $this->primitives->fileContents($tokenIssuerTestPath);
         $commandTest = $this->primitives->fileContents($commandTestPath);

@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Architecture\Scanner;
 
+use App\Support\PeeledSource;
 use Illuminate\Support\Facades\File;
 
 class FailureGovernanceAudit
@@ -31,8 +32,8 @@ class FailureGovernanceAudit
         $apDocPath = base_path('docs/ap/AP-168-cognitive-productive-failure-flow.md');
         $staticScansDocPath = base_path('docs/engineering-knowledge-base/kernel/static-scans.md');
 
-        $flow = File::exists($flowPath) ? File::get($flowPath) : '';
-        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $flow = PeeledSource::read($flowPath);
+        $command = PeeledSource::read($commandPath);
         $featureTest = File::exists($featureTestPath) ? File::get($featureTestPath) : '';
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
         $staticScansDoc = File::exists($staticScansDocPath) ? File::get($staticScansDocPath) : '';
@@ -123,9 +124,9 @@ class FailureGovernanceAudit
         $apDocPath = base_path('docs/ap/AP-169-cognitive-personal-worked-examples-generator.md');
         $staticScansDocPath = base_path('docs/engineering-knowledge-base/kernel/static-scans.md');
 
-        $redactor = File::exists($redactorPath) ? File::get($redactorPath) : '';
-        $extractor = File::exists($extractorPath) ? File::get($extractorPath) : '';
-        $privacyGate = File::exists($privacyGatePath) ? File::get($privacyGatePath) : '';
+        $redactor = PeeledSource::read($redactorPath);
+        $extractor = PeeledSource::read($extractorPath);
+        $privacyGate = PeeledSource::read($privacyGatePath);
         $featureTest = File::exists($featureTestPath) ? File::get($featureTestPath) : '';
         $redactorTest = File::exists($redactorTestPath) ? File::get($redactorTestPath) : '';
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
@@ -229,10 +230,10 @@ class FailureGovernanceAudit
         $briefingPath = base_path('docs/engineering-knowledge-base/cognitive/implementation-briefing.md');
         $staticScansDocPath = base_path('docs/engineering-knowledge-base/kernel/static-scans.md');
 
-        $flow = File::exists($flowPath) ? File::get($flowPath) : '';
-        $command = File::exists($commandPath) ? File::get($commandPath) : '';
-        $calibrationGate = File::exists($calibrationGatePath) ? File::get($calibrationGatePath) : '';
-        $safetyGate = File::exists($safetyGatePath) ? File::get($safetyGatePath) : '';
+        $flow = PeeledSource::read($flowPath);
+        $command = PeeledSource::read($commandPath);
+        $calibrationGate = PeeledSource::read($calibrationGatePath);
+        $safetyGate = PeeledSource::read($safetyGatePath);
         $featureTest = File::exists($featureTestPath) ? File::get($featureTestPath) : '';
         $gateTest = File::exists($gateTestPath) ? File::get($gateTestPath) : '';
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';

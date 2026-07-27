@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Architecture\Scanner;
 
+use App\Support\PeeledSource;
 use Illuminate\Support\Facades\File;
 
 class EngineeringAudit
@@ -35,8 +36,8 @@ class EngineeringAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $input = File::exists($inputPath) ? File::get($inputPath) : '';
-        $runner = File::exists($runnerPath) ? File::get($runnerPath) : '';
+        $input = PeeledSource::read($inputPath);
+        $runner = PeeledSource::read($runnerPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 
@@ -96,8 +97,8 @@ class EngineeringAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $input = File::exists($inputPath) ? File::get($inputPath) : '';
-        $service = File::exists($servicePath) ? File::get($servicePath) : '';
+        $input = PeeledSource::read($inputPath);
+        $service = PeeledSource::read($servicePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 
@@ -155,8 +156,8 @@ class EngineeringAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $input = File::exists($inputPath) ? File::get($inputPath) : '';
-        $service = File::exists($servicePath) ? File::get($servicePath) : '';
+        $input = PeeledSource::read($inputPath);
+        $service = PeeledSource::read($servicePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 
@@ -231,8 +232,8 @@ class EngineeringAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $input = File::exists($inputPath) ? File::get($inputPath) : '';
-        $service = File::exists($servicePath) ? File::get($servicePath) : '';
+        $input = PeeledSource::read($inputPath);
+        $service = PeeledSource::read($servicePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 
@@ -311,8 +312,8 @@ class EngineeringAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $input = File::exists($inputPath) ? File::get($inputPath) : '';
-        $service = File::exists($servicePath) ? File::get($servicePath) : '';
+        $input = PeeledSource::read($inputPath);
+        $service = PeeledSource::read($servicePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 
@@ -374,8 +375,8 @@ class EngineeringAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $input = File::exists($inputPath) ? File::get($inputPath) : '';
-        $service = File::exists($servicePath) ? File::get($servicePath) : '';
+        $input = PeeledSource::read($inputPath);
+        $service = PeeledSource::read($servicePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 
@@ -458,11 +459,11 @@ class EngineeringAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $input = File::exists($inputPath) ? File::get($inputPath) : '';
-        $knowledge = File::exists($knowledgePath) ? File::get($knowledgePath) : '';
-        $code = File::exists($codePath) ? File::get($codePath) : '';
-        $artifact = File::exists($artifactPath) ? File::get($artifactPath) : '';
-        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $input = PeeledSource::read($inputPath);
+        $knowledge = PeeledSource::read($knowledgePath);
+        $code = PeeledSource::read($codePath);
+        $artifact = PeeledSource::read($artifactPath);
+        $command = PeeledSource::read($commandPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 

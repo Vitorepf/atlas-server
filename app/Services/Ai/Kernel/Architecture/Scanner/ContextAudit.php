@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Architecture\Scanner;
 
+use App\Support\PeeledSource;
 use Illuminate\Support\Facades\File;
 
 class ContextAudit
@@ -32,8 +33,8 @@ class ContextAudit
         $memoryDocsPath = base_path('docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md');
         $violations = [];
 
-        $input = File::exists($inputPath) ? File::get($inputPath) : '';
-        $builder = File::exists($builderPath) ? File::get($builderPath) : '';
+        $input = PeeledSource::read($inputPath);
+        $builder = PeeledSource::read($builderPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $kernelDocs = $this->primitives->kernelDocumentationCorpus();
         $memoryDocs = File::exists($memoryDocsPath) ? File::get($memoryDocsPath) : '';
@@ -109,8 +110,8 @@ class ContextAudit
         $testPath = base_path('tests/Unit/Ai/Context/ContextPackSelfReflectionGateTest.php');
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
 
-        $contextPack = File::exists($contextPackPath) ? File::get($contextPackPath) : '';
-        $gate = File::exists($gatePath) ? File::get($gatePath) : '';
+        $contextPack = PeeledSource::read($contextPackPath);
+        $gate = PeeledSource::read($gatePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 
@@ -181,9 +182,9 @@ class ContextAudit
         $testPath = base_path('tests/Unit/Ai/Context/ContextRetrievalRouterTest.php');
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
 
-        $router = File::exists($routerPath) ? File::get($routerPath) : '';
-        $builder = File::exists($builderPath) ? File::get($builderPath) : '';
-        $pack = File::exists($packPath) ? File::get($packPath) : '';
+        $router = PeeledSource::read($routerPath);
+        $builder = PeeledSource::read($builderPath);
+        $pack = PeeledSource::read($packPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 

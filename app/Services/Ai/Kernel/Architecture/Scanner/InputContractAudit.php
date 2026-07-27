@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Architecture\Scanner;
 
+use App\Support\PeeledSource;
 use Illuminate\Support\Facades\File;
 
 class InputContractAudit
@@ -34,8 +35,8 @@ class InputContractAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $input = File::exists($inputPath) ? File::get($inputPath) : '';
-        $builder = File::exists($builderPath) ? File::get($builderPath) : '';
+        $input = PeeledSource::read($inputPath);
+        $builder = PeeledSource::read($builderPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 
@@ -99,8 +100,8 @@ class InputContractAudit
         $vaultDocsPath = base_path('docs/engineering-knowledge-base/obsidian-atlas-vault.md');
         $violations = [];
 
-        $input = File::exists($inputPath) ? File::get($inputPath) : '';
-        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $input = PeeledSource::read($inputPath);
+        $command = PeeledSource::read($commandPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $kernelDocs = $this->primitives->kernelDocumentationCorpus();
         $vaultDocs = File::exists($vaultDocsPath) ? File::get($vaultDocsPath) : '';
@@ -163,8 +164,8 @@ class InputContractAudit
         $memoryDocsPath = base_path('docs/engineering-knowledge-base/atlas-ai-memory-context-core-open-brain.md');
         $violations = [];
 
-        $input = File::exists($inputPath) ? File::get($inputPath) : '';
-        $builder = File::exists($builderPath) ? File::get($builderPath) : '';
+        $input = PeeledSource::read($inputPath);
+        $builder = PeeledSource::read($builderPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $kernelDocs = $this->primitives->kernelDocumentationCorpus();
         $memoryDocs = File::exists($memoryDocsPath) ? File::get($memoryDocsPath) : '';
@@ -227,8 +228,8 @@ class InputContractAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $input = File::exists($inputPath) ? File::get($inputPath) : '';
-        $resolver = File::exists($resolverPath) ? File::get($resolverPath) : '';
+        $input = PeeledSource::read($inputPath);
+        $resolver = PeeledSource::read($resolverPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $resolverTest = File::exists($resolverTestPath) ? File::get($resolverTestPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
@@ -289,9 +290,9 @@ class InputContractAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $input = File::exists($inputPath) ? File::get($inputPath) : '';
-        $service = File::exists($servicePath) ? File::get($servicePath) : '';
-        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $input = PeeledSource::read($inputPath);
+        $service = PeeledSource::read($servicePath);
+        $command = PeeledSource::read($commandPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 
@@ -358,7 +359,7 @@ class InputContractAudit
         $testPath = base_path('tests/Feature/Ai/AtlasSelfImprovementRuntimeTest.php');
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
 
-        $runtime = File::exists($runtimePath) ? File::get($runtimePath) : '';
+        $runtime = PeeledSource::read($runtimePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 

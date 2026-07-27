@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Architecture\Scanner;
 
+use App\Support\PeeledSource;
 use Illuminate\Support\Facades\File;
 
 class CliAudit
@@ -36,8 +37,8 @@ class CliAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-127-cli-help-architecture-operations-discovery.md');
 
-        $command = File::exists($commandPath) ? File::get($commandPath) : '';
-        $catalog = File::exists($catalogPath) ? File::get($catalogPath) : '';
+        $command = PeeledSource::read($commandPath);
+        $catalog = PeeledSource::read($catalogPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
@@ -124,7 +125,7 @@ class CliAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $apDocPath = base_path('docs/ap/AP-119-cli-inbox-review-action-result-parity-contract.md');
 
-        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $command = PeeledSource::read($commandPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
@@ -184,12 +185,12 @@ class CliAudit
         $docsPath = base_path('docs/engineering-knowledge-base/atlas-ai-kernel-architecture.md');
         $violations = [];
 
-        $input = File::exists($inputPath) ? File::get($inputPath) : '';
-        $tools = File::exists($toolsPath) ? File::get($toolsPath) : '';
-        $trace = File::exists($tracePath) ? File::get($tracePath) : '';
-        $inbox = File::exists($inboxPath) ? File::get($inboxPath) : '';
-        $benchmarkReport = File::exists($benchmarkReportPath) ? File::get($benchmarkReportPath) : '';
-        $benchmarkCalibrate = File::exists($benchmarkCalibratePath) ? File::get($benchmarkCalibratePath) : '';
+        $input = PeeledSource::read($inputPath);
+        $tools = PeeledSource::read($toolsPath);
+        $trace = PeeledSource::read($tracePath);
+        $inbox = PeeledSource::read($inboxPath);
+        $benchmarkReport = PeeledSource::read($benchmarkReportPath);
+        $benchmarkCalibrate = PeeledSource::read($benchmarkCalibratePath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $docs = $this->primitives->kernelDocumentationCorpus();
 
@@ -283,8 +284,8 @@ class CliAudit
         $builderPath = app_path('Services/Ai/Programming/AtlasProgrammingSurfaceCommandBuilder.php');
         $testPath = base_path('tests/Feature/AtlasCliFixCommandTest.php');
 
-        $fix = File::exists($fixPath) ? File::get($fixPath) : '';
-        $builder = File::exists($builderPath) ? File::get($builderPath) : '';
+        $fix = PeeledSource::read($fixPath);
+        $builder = PeeledSource::read($builderPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
 
         $violations = [];
@@ -335,9 +336,9 @@ class CliAudit
         $builderPath = app_path('Services/Ai/Programming/AtlasProgrammingSurfaceCommandBuilder.php');
         $testPath = base_path('tests/Feature/AtlasCliContinueCommandTest.php');
 
-        $continue = File::exists($continuePath) ? File::get($continuePath) : '';
-        $session = File::exists($sessionPath) ? File::get($sessionPath) : '';
-        $builder = File::exists($builderPath) ? File::get($builderPath) : '';
+        $continue = PeeledSource::read($continuePath);
+        $session = PeeledSource::read($sessionPath);
+        $builder = PeeledSource::read($builderPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
 
         $violations = [];
@@ -406,10 +407,10 @@ class CliAudit
         $orchestratorPath = app_path('Services/Ai/Programming/AtlasProgrammingOrchestrator.php');
         $testPath = base_path('tests/Feature/EngineeringHarnessRunnerTest.php');
 
-        $dev = File::exists($devPath) ? File::get($devPath) : '';
-        $adapter = File::exists($adapterPath) ? File::get($adapterPath) : '';
-        $registry = File::exists($registryPath) ? File::get($registryPath) : '';
-        $orchestrator = File::exists($orchestratorPath) ? File::get($orchestratorPath) : '';
+        $dev = PeeledSource::read($devPath);
+        $adapter = PeeledSource::read($adapterPath);
+        $registry = PeeledSource::read($registryPath);
+        $orchestrator = PeeledSource::read($orchestratorPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
 
         $violations = [];
@@ -485,7 +486,7 @@ class CliAudit
         $devPath = app_path('Console/Commands/AtlasCliDevCommand.php');
         $testPath = base_path('tests/Feature/AtlasCliDevCommandTest.php');
 
-        $dev = File::exists($devPath) ? File::get($devPath) : '';
+        $dev = PeeledSource::read($devPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
 
         $violations = [];

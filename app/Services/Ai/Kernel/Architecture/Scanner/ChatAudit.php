@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Architecture\Scanner;
 
+use App\Support\PeeledSource;
 use Illuminate\Support\Facades\File;
 
 class ChatAudit
@@ -28,7 +29,7 @@ class ChatAudit
         $chatPath = app_path('Console/Commands/AiChatCommand.php');
         $testPath = base_path('tests/Feature/Console/AiChatProviderChoiceTest.php');
 
-        $chat = File::exists($chatPath) ? File::get($chatPath) : '';
+        $chat = PeeledSource::read($chatPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
 
         $violations = [];
@@ -67,7 +68,7 @@ class ChatAudit
         $chatPath = app_path('Console/Commands/AiChatCommand.php');
         $testPath = base_path('tests/Feature/Console/AiChatProviderChoiceTest.php');
 
-        $chat = File::exists($chatPath) ? File::get($chatPath) : '';
+        $chat = PeeledSource::read($chatPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
 
         $violations = [];
@@ -111,7 +112,7 @@ class ChatAudit
         $testPath = base_path('tests/Unit/Ai/Programming/ProgrammingSurfaceContractFactoryTest.php');
         $chatPath = app_path('Console/Commands/AiChatCommand.php');
 
-        $factory = File::exists($factoryPath) ? File::get($factoryPath) : '';
+        $factory = PeeledSource::read($factoryPath);
         $test = File::exists($testPath) ? File::get($testPath) : '';
         $chat = File::exists($chatPath) ? File::get($chatPath) : '';
 

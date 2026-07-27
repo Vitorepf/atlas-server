@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Kernel\Architecture\Scanner;
 
+use App\Support\PeeledSource;
 use Illuminate\Support\Facades\File;
 
 class GraphRagAudit
@@ -34,10 +35,10 @@ class GraphRagAudit
         $apDocPath = base_path('docs/ap/AP-683-local-rag-graph-promotion-review.md');
         $matrixPath = base_path('docs/engineering-knowledge-base/architecture-audit/implemented-vs-scaffold-matrix.md');
 
-        $service = File::exists($servicePath) ? File::get($servicePath) : '';
-        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $service = PeeledSource::read($servicePath);
+        $command = PeeledSource::read($commandPath);
         $benchmarkTest = File::exists($benchmarkTestPath) ? File::get($benchmarkTestPath) : '';
-        $selfImprovement = File::exists($selfImprovementPath) ? File::get($selfImprovementPath) : '';
+        $selfImprovement = PeeledSource::read($selfImprovementPath);
         $selfImprovementTest = File::exists($selfImprovementTestPath) ? File::get($selfImprovementTestPath) : '';
         $apDoc = File::exists($apDocPath) ? File::get($apDocPath) : '';
         $matrix = File::exists($matrixPath) ? File::get($matrixPath) : '';
@@ -186,8 +187,8 @@ class GraphRagAudit
         $ownerDocPath = base_path('docs/engineering-knowledge-base/code-intelligence/external-graph-harness.md');
         $matrixPath = base_path('docs/engineering-knowledge-base/architecture-audit/implemented-vs-scaffold-matrix.md');
 
-        $service = File::exists($servicePath) ? File::get($servicePath) : '';
-        $command = File::exists($commandPath) ? File::get($commandPath) : '';
+        $service = PeeledSource::read($servicePath);
+        $command = PeeledSource::read($commandPath);
         $commandTest = File::exists($commandTestPath) ? File::get($commandTestPath) : '';
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
         $serviceTest = File::exists($serviceTestPath) ? File::get($serviceTestPath) : '';
@@ -376,8 +377,8 @@ class GraphRagAudit
         $apDocPath = base_path('docs/ap/AP-685-constelacao-lens1-usage-review.md');
         $matrixPath = base_path('docs/engineering-knowledge-base/architecture-audit/implemented-vs-scaffold-matrix.md');
 
-        $service = File::exists($servicePath) ? File::get($servicePath) : '';
-        $constelacaoSection = File::exists($constelacaoSectionPath) ? File::get($constelacaoSectionPath) : '';
+        $service = PeeledSource::read($servicePath);
+        $constelacaoSection = PeeledSource::read($constelacaoSectionPath);
         $apiTest = File::exists($apiTestPath) ? File::get($apiTestPath) : '';
         $selfImprovementTest = File::exists($selfImprovementTestPath) ? File::get($selfImprovementTestPath) : '';
         $doc = File::exists($docPath) ? File::get($docPath) : '';
