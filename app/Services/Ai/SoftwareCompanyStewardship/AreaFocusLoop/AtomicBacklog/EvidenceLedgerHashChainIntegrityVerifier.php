@@ -122,9 +122,19 @@ final class EvidenceLedgerHashChainIntegrityVerifier
             $rows,
             static fn (array $row): bool => (string) ($row['chain_basis'] ?? '') === AtlasEvidenceLedger::CHAIN_BASIS_LEGACY_UNCHAINED,
         ));
+        // full_envelope_v2 belongs here too. The writer emits it whenever the v2
+        // columns exist (event_hash, prev_event_hash, chain_basis, chain_key_hash,
+        // chain_position — all added 2026-07-23), which is every row written since.
+        // Accepting only 'hash_chained' matched neither those rows nor the legacy
+        // bucket, so they fell out of BOTH lists and were verified by nobody: the
+        // WDG-01 watchdog reported an intact chain over an empty set.
         $chain = array_values(array_filter(
             $rows,
-            static fn (array $row): bool => (string) ($row['chain_basis'] ?? AtlasEvidenceLedger::CHAIN_BASIS_HASH_CHAINED) === AtlasEvidenceLedger::CHAIN_BASIS_HASH_CHAINED,
+            static fn (array $row): bool => in_array(
+                (string) ($row['chain_basis'] ?? AtlasEvidenceLedger::CHAIN_BASIS_HASH_CHAINED),
+                [AtlasEvidenceLedger::CHAIN_BASIS_HASH_CHAINED, AtlasEvidenceLedger::CHAIN_BASIS_FULL_ENVELOPE_V2],
+                true,
+            ),
         ));
 
         $result = $this->verifyChain($chainKey, array_map(fn (array $row): array => $this->storedRowToVerifierEvent($row), $chain));
@@ -175,6 +185,21 @@ final class EvidenceLedgerHashChainIntegrityVerifier
             $this->isoOccurredAt($row['occurred_at'] ?? null),
         ])));
         $hashes = [];
+
+        // A v2 row's event_hash covers the FULL envelope and is computed with a
+        // different function, so recomputing it with the v1 basis below yields a
+        // mismatch on a perfectly intact row. Including v2 rows in the chain
+        // without this would have swapped a silent gap for a flood of false
+        // tamper alarms — worse than the bug being fixed.
+        if ((string) ($row['chain_basis'] ?? '') === AtlasEvidenceLedger::CHAIN_BASIS_FULL_ENVELOPE_V2) {
+            $hashes[] = AtlasEvidenceLedger::computeV2EnvelopeHash(
+                AtlasEvidenceLedger::fullEnvelopeHashBasis(array_merge(
+                    $row,
+                    ['payload' => $this->payloadArray($row['payload'] ?? null)],
+                )),
+            );
+        }
+
         foreach ($occurredAtCandidates as $occurredAt) {
             foreach ([true, false] as $includePrev) {
                 $hashes[] = AtlasEvidenceLedger::computeEventHash([
