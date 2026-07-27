@@ -3,6 +3,7 @@
 namespace App\Services\Ai\SelfConstruction\NativeImplementation;
 
 use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
+use App\Services\Ai\SelfConstruction\Support\HumanCompletionReceiptChecks;
 use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
 use Carbon\CarbonImmutable;
 
@@ -16,10 +17,8 @@ use Carbon\CarbonImmutable;
 final class AtlasSelfConstructionHumanCompletionReceiptEndgameVerifierService
 {
     use HumanCompletionReceiptChecks;
-
-    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
-
     use KsortsArraysByReference;
+    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
 
     /**
      * @param  array<string,mixed>  $value
