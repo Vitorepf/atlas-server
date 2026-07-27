@@ -61,8 +61,9 @@ final class PeeledSource
     }
 
     /**
-     * Files this source explicitly pulls in: `use App\…;` imports and
-     * `require __DIR__.'/…php'` data tables.
+     * Files this source explicitly pulls in: `use App\…;` imports,
+     * `require __DIR__.'/…php'` data tables, and sub-namespace references
+     * written relative to the file's own namespace (`new Runtime\FooSection`).
      *
      * @return list<string>
      */
@@ -79,6 +80,13 @@ final class PeeledSource
         preg_match_all('/(?:require|include)(?:_once)?\s+__DIR__\s*\.\s*[\'"]\/([^\'"]+\.php)[\'"]/', $source, $includes);
         foreach ($includes[1] ?? [] as $relative) {
             $paths[] = $dir.'/'.$relative;
+        }
+
+        // Sub-namespace references resolve against the file's own directory,
+        // so they need no import and the scan above never sees them.
+        preg_match_all('/\b([A-Z][A-Za-z0-9_]*(?:\\\\[A-Z][A-Za-z0-9_]*)+)(?=\s*::|\s*\(|\s+\$)/', $source, $relatives);
+        foreach (array_unique($relatives[1] ?? []) as $reference) {
+            $paths[] = $dir.'/'.str_replace('\\', '/', $reference).'.php';
         }
 
         return $paths;

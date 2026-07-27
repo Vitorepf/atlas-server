@@ -9,6 +9,7 @@ use App\Services\Ai\Kernel\Architecture\KernelArchitectureStaticScanner;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Kernel\Evidence\LedgerProjectionRegistry;
 use App\Support\PeeledSource;
+use App\Support\RoutesApiSource;
 use Tests\TestCase;
 
 class KernelBypassRegressionTest extends TestCase
@@ -467,7 +468,7 @@ PHP,
         $this->assertStringContainsString('normalizedInboxActionFilters(', $replay);
         $this->assertStringContainsString('matchesInboxActionFilters(', $replay);
         $this->assertStringContainsString("'open_reviewable_inbox_action_evidence_proposal'", $replay);
-        $this->assertStringContainsString("'atlas_inbox_action_report' => \$this->toolResponse(\$id, \$this->inboxActionReport(\$arguments))", $mcp);
+        $this->assertStringContainsString("'atlas_inbox_action_report' => \$this->toolResponse(\$id, \$this->reportTools->inboxActionReport(\$arguments))", $mcp);
         $this->assertStringContainsString('$this->ledgerReplay->inboxActionReportForWindow(', $mcp);
         $this->assertStringContainsString('recordInboxActionForMcp(', $mcpTest);
         $this->assertStringContainsString('atlas_inbox_action_report', $mcpTest);
@@ -478,7 +479,7 @@ PHP,
     {
         $command = PeeledSource::read(app_path('Console/Commands/AtlasAiInboxActionReportCommand.php'));
         $controller = PeeledSource::read(app_path('Http/Controllers/AtlasAiInboxActionReportController.php'));
-        $routes = file_get_contents(base_path('routes/api.php'));
+        $routes = RoutesApiSource::read();
         $commandTest = file_get_contents(base_path('tests/Feature/Ai/AtlasAiInboxActionReportCommandTest.php'));
         $apiTest = file_get_contents(base_path('tests/Feature/Ai/AtlasAiInboxActionReportApiTest.php'));
 
