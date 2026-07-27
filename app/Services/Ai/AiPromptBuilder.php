@@ -3,23 +3,27 @@
 namespace App\Services\Ai;
 
 use App\Services\Ai\Attachments\AiAttachmentIndexService;
-use App\Services\Ai\Context\RetrievalRankInput;
 use App\Services\Ai\Context\AiContextPackBuilder;
+use App\Services\Ai\Context\AtlasContextRuntime;
+use App\Services\Ai\Context\RetrievalRankInput;
+use App\Services\Ai\Learning\Harness\AtlasHarnessInstructionSurface;
+use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevFailureCapsulePromptInjector;
+use App\Services\Ai\Programming\AtlasDev\Support\WorkspaceOriginIdentity;
 use App\Services\Ai\Router\AiIntentRouter;
 use App\Services\Ai\Search\SessionSearchService;
 use App\Services\Ai\Skills\AiSkillStore;
 use App\Services\Ai\Skills\SkillBundleStore;
 use App\Services\Ai\Skills\SkillDiscoveryService;
 use App\Services\Ai\Skills\SkillManifest;
-use App\Services\Ai\Support\DatabaseTableAvailability;
-use App\Services\Ai\ValueObjects\AiPromptExecutionPlan as AiExecutionPlan;
-use App\Services\Ai\ValueObjects\AiPrompt;
-use App\Services\Ai\ValueObjects\AiTaskRequest;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
 use App\Services\Ai\Support\AiPromptAttachmentSupport;
 use App\Services\Ai\Support\AiPromptInstructionSupport;
 use App\Services\Ai\Support\AiPromptTextSupport;
+use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Ai\ValueObjects\AiPrompt;
+use App\Services\Ai\ValueObjects\AiPromptExecutionPlan as AiExecutionPlan;
+use App\Services\Ai\ValueObjects\AiTaskRequest;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 class AiPromptBuilder
 {
@@ -59,9 +63,13 @@ class AiPromptBuilder
         $intent = (string) $route['intent'];
         $taskRequest = AiTaskRequest::fromInput($input, $options, $route);
         $options = $this->optionsWithPolicyRequiredOpenBrain($options);
-        $contextPack = $this->contexts->build($input, $taskRequest, $options);
+        // Shared ACOS façade, not build()+inject() by hand — the façade is what
+        // carries the unified retrieval rollout and the fused core. Assembling
+        // here kept the whole prompt surface pinned to `legacy` retrieval.
+        $contract = app(AtlasContextRuntime::class)->compose($input, $taskRequest, $options);
+        $contextPack = $contract->source ?? $this->contexts->build($input, $taskRequest, $options);
+        $openBrainInjection = (array) ($contract->pack['open_brain_injection'] ?? []);
         $openBrain = $this->openBrainInjection ?? app(AtlasOpenBrainContextInjectionService::class);
-        $openBrainInjection = $openBrain->inject($input, $taskRequest, $contextPack, $options);
         $openBrain->assertAllowed($openBrainInjection);
         $openBrainMetadata = $this->openBrainMetadata($openBrainInjection);
         $executionPlan = AiExecutionPlan::fromTask(
@@ -414,7 +422,7 @@ TXT;
     private function harnessInstructionSection(): ?string
     {
         try {
-            return app(\App\Services\Ai\Learning\Harness\AtlasHarnessInstructionSurface::class)->promptSection();
+            return app(AtlasHarnessInstructionSurface::class)->promptSection();
         } catch (\Throwable) {
             return null;
         }
@@ -620,9 +628,9 @@ TXT;
                 return '';
             }
 
-            $modes = app(\App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevFailureCapsulePromptInjector::class)->injectFor(
+            $modes = app(DevFailureCapsulePromptInjector::class)->injectFor(
                 array_slice($files, 0, 12),
-                \App\Services\Ai\Programming\AtlasDev\Support\WorkspaceOriginIdentity::slug($workspace),
+                WorkspaceOriginIdentity::slug($workspace),
             );
             if ($modes === []) {
                 return '';

@@ -72,7 +72,7 @@ final class AtlasContextRuntime
             'retrieval_core' => $fused,
             'retrieval_rollout' => AtlasIntelligenceRolloutMode::receipt($rolloutMode, $enabled),
             'open_brain_injection' => $injection,
-        ], $input, $workspace);
+        ], $input, $workspace, source: $pack);
     }
 
     /**
