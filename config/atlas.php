@@ -299,6 +299,18 @@ return [
     |   other on the same logical key (Cognition kernel; new detector the consumer
     |   lacks).
     */
+    // G0-G8 admission chokepoint over memory writes. Advertised as a two-mode
+    // gate (observe -> enforce), but atlas.memory_admission.mode was declared
+    // nowhere, so every production call fell through to 'observe' and only
+    // tests ever reached 'enforce' via config()->set(). blocks_write could not
+    // be true outside a test.
+    //
+    // Default stays 'observe' — declaring the key changes nothing today, it
+    // just makes the enforce mode reachable at all.
+    'memory_admission' => [
+        'mode' => (string) env('ATLAS_MEMORY_ADMISSION_MODE', 'observe'),
+    ],
+
     'memory_conflict' => [
         'verb_classifier_enabled' => (bool) env('ATLAS_MEMORY_CONFLICT_VERB_CLASSIFIER_ENABLED', false),
         'axis_resolver_enabled' => (bool) env('ATLAS_MEMORY_CONFLICT_AXIS_RESOLVER_ENABLED', false),
@@ -3491,6 +3503,24 @@ return [
     // giving back, plus the maestro:behaviors/route CLI verbs) is gated here.
     // Operator switch — OFF by default.
     'maestro' => [
+        // Budget gate. AtlasMaestroBudgetGate reads BOTH of these and neither
+        // path existed, so loadBudgets() always returned [] and the gate was a
+        // permanent ALLOW: an operator who set ATLAS_MAESTRO_BUDGET_GATE_ENFORCE
+        // =true flipped $enforce but had no budget to enforce, and believed
+        // provider spend was being refused past the ceiling.
+        //
+        // Defaults keep today's behaviour exactly: enforce OFF, and a budget of
+        // 0 is filtered out by loadBudgets()'s own `>= 0` map plus the gate's
+        // "only bites above 0" rule — so nothing starts blocking by declaring
+        // this. The operator opts in per ceiling.
+        'cost' => [
+            'budget_gate_enforce' => (bool) env('ATLAS_MAESTRO_BUDGET_GATE_ENFORCE', false),
+            'budgets' => array_filter([
+                'per_cycle' => (int) env('ATLAS_MAESTRO_BUDGET_PER_CYCLE_CENTS', 0),
+                'per_provider_per_day' => (int) env('ATLAS_MAESTRO_BUDGET_PER_PROVIDER_PER_DAY_CENTS', 0),
+            ], static fn (int $cents): bool => $cents > 0),
+        ],
+
         'adaptive' => [
             'behavior_ledger_enabled' => (bool) env('ATLAS_MAESTRO_BEHAVIOR_LEDGER_ENABLED', false),
             'router_enabled' => (bool) env('ATLAS_MAESTRO_ADAPTIVE_ROUTER_ENABLED', false),
