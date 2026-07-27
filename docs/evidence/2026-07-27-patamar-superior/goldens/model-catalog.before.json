@@ -1,0 +1,310 @@
+{
+    "section": {
+        "catalog": [
+            {
+                "alias": "sonnet",
+                "provider": "claude_cli",
+                "model": "claude-sonnet-4-6",
+                "label": "Claude Sonnet 4.6",
+                "tier": "daily",
+                "source": "default",
+                "description": "Claude diario",
+                "aliases": [
+                    "sonnet",
+                    "sonnet-4.6",
+                    "sonnet-4",
+                    "claude-sonnet",
+                    "claude-sonnet-4-6",
+                    "claude"
+                ]
+            },
+            {
+                "alias": "spark",
+                "provider": "codex_cli",
+                "model": "gpt-5.3-codex-spark",
+                "label": "GPT-5.3-Codex-Spark",
+                "tier": "daily",
+                "source": "default",
+                "description": "Codex diario",
+                "aliases": [
+                    "spark",
+                    "codex-spark",
+                    "gpt-5.3-codex-spark",
+                    "gpt-5.3",
+                    "codex"
+                ]
+            },
+            {
+                "alias": "gemini_flash",
+                "provider": "gemini_cli",
+                "model": "gemini-3.5-flash",
+                "label": "Gemini 3.5 Flash",
+                "tier": "daily",
+                "source": "default",
+                "description": "Gemini rapido",
+                "aliases": [
+                    "gemini",
+                    "gemini-flash",
+                    "gemini_flash",
+                    "gemini-3.5-flash",
+                    "gemini-3-5-flash"
+                ]
+            },
+            {
+                "alias": "gemini_pro",
+                "provider": "gemini_cli",
+                "model": "gemini-3.1-pro-preview",
+                "label": "Gemini 3.1 Pro",
+                "tier": "premium",
+                "source": "premium",
+                "description": "Gemini raciocinio profundo",
+                "aliases": [
+                    "gemini-pro",
+                    "gemini_pro",
+                    "gemini-3.1-pro-preview",
+                    "gemini-3-1-pro"
+                ]
+            },
+            {
+                "alias": "hermes",
+                "provider": "hermes_cli",
+                "model": "kimi-k2.7-code",
+                "label": "kimi-k2.7-code",
+                "tier": "executive_runtime",
+                "source": "default",
+                "description": "Hermes executive runtime",
+                "aliases": [
+                    "hermes",
+                    "hermes-cli",
+                    "hermes-runtime"
+                ]
+            },
+            {
+                "alias": "haiku",
+                "provider": "claude_cli",
+                "model": "claude-haiku-4-5",
+                "label": "Claude Haiku 4.5",
+                "tier": "daily",
+                "source": "fallback",
+                "description": "Claude economico",
+                "aliases": [
+                    "haiku",
+                    "claude-haiku",
+                    "fallback-claude"
+                ]
+            },
+            {
+                "alias": "mini",
+                "provider": "codex_cli",
+                "model": "gpt-5.4-mini",
+                "label": "GPT-5.4-Mini",
+                "tier": "daily",
+                "source": "fallback",
+                "description": "Codex economico",
+                "aliases": [
+                    "mini",
+                    "codex-mini",
+                    "gpt-5.4-mini",
+                    "fallback-codex"
+                ]
+            },
+            {
+                "alias": "opus",
+                "provider": "claude_cli",
+                "model": "claude-opus-4-7",
+                "label": "Claude Opus 4.7",
+                "tier": "premium",
+                "source": "premium",
+                "description": "Claude premium manual",
+                "aliases": [
+                    "opus",
+                    "opus-4.7",
+                    "claude-opus",
+                    "claude-opus-4-7",
+                    "claude-premium"
+                ]
+            },
+            {
+                "alias": "codex-premium",
+                "provider": "codex_cli",
+                "model": "gpt-5.5",
+                "label": "GPT-5.5",
+                "tier": "premium",
+                "source": "premium",
+                "description": "Codex premium manual",
+                "aliases": [
+                    "5.5",
+                    "55",
+                    "codex-premium",
+                    "codex-5.5",
+                    "gpt-5.5",
+                    "gpt-premium",
+                    "premium-codex"
+                ]
+            }
+        ],
+        "display": {
+            "(null)": "padrao",
+            "claude_cli": "Claude",
+            "codex_cli": "Codex",
+            "gemini_cli": "Gemini",
+            "hermes_cli": "Hermes",
+            "claude_codex": "Conselho",
+            "unknown-provider": "padrao"
+        }
+    },
+    "service": {
+        "catalog": [
+            {
+                "alias": "sonnet",
+                "provider": "claude_cli",
+                "model": "claude-sonnet-4-6",
+                "label": "Claude Sonnet 4.6",
+                "tier": "daily",
+                "source": "default",
+                "description": "Claude diario",
+                "aliases": [
+                    "sonnet",
+                    "sonnet-4.6",
+                    "sonnet-4",
+                    "claude-sonnet",
+                    "claude-sonnet-4-6",
+                    "claude"
+                ]
+            },
+            {
+                "alias": "spark",
+                "provider": "codex_cli",
+                "model": "gpt-5.3-codex-spark",
+                "label": "GPT-5.3-Codex-Spark",
+                "tier": "daily",
+                "source": "default",
+                "description": "Codex diario",
+                "aliases": [
+                    "spark",
+                    "codex-spark",
+                    "gpt-5.3-codex-spark",
+                    "gpt-5.3",
+                    "codex"
+                ]
+            },
+            {
+                "alias": "gemini_flash",
+                "provider": "gemini_cli",
+                "model": "gemini-3.5-flash",
+                "label": "Gemini 3.5 Flash",
+                "tier": "daily",
+                "source": "default",
+                "description": "Gemini rapido",
+                "aliases": [
+                    "gemini",
+                    "gemini-flash",
+                    "gemini_flash",
+                    "gemini-3.5-flash",
+                    "gemini-3-5-flash"
+                ]
+            },
+            {
+                "alias": "gemini_pro",
+                "provider": "gemini_cli",
+                "model": "gemini-3.1-pro-preview",
+                "label": "Gemini 3.1 Pro",
+                "tier": "premium",
+                "source": "premium",
+                "description": "Gemini raciocinio profundo",
+                "aliases": [
+                    "gemini-pro",
+                    "gemini_pro",
+                    "gemini-3.1-pro-preview",
+                    "gemini-3-1-pro"
+                ]
+            },
+            {
+                "alias": "hermes",
+                "provider": "hermes_cli",
+                "model": "kimi-k2.7-code",
+                "label": "kimi-k2.7-code",
+                "tier": "executive_runtime",
+                "source": "default",
+                "description": "Hermes executive runtime",
+                "aliases": [
+                    "hermes",
+                    "hermes-cli",
+                    "hermes-runtime"
+                ]
+            },
+            {
+                "alias": "haiku",
+                "provider": "claude_cli",
+                "model": "claude-haiku-4-5",
+                "label": "Claude Haiku 4.5",
+                "tier": "daily",
+                "source": "fallback",
+                "description": "Claude economico",
+                "aliases": [
+                    "haiku",
+                    "claude-haiku",
+                    "fallback-claude"
+                ]
+            },
+            {
+                "alias": "mini",
+                "provider": "codex_cli",
+                "model": "gpt-5.4-mini",
+                "label": "GPT-5.4-Mini",
+                "tier": "daily",
+                "source": "fallback",
+                "description": "Codex economico",
+                "aliases": [
+                    "mini",
+                    "codex-mini",
+                    "gpt-5.4-mini",
+                    "fallback-codex"
+                ]
+            },
+            {
+                "alias": "opus",
+                "provider": "claude_cli",
+                "model": "claude-opus-4-7",
+                "label": "Claude Opus 4.7",
+                "tier": "premium",
+                "source": "premium",
+                "description": "Claude premium manual",
+                "aliases": [
+                    "opus",
+                    "opus-4.7",
+                    "claude-opus",
+                    "claude-opus-4-7",
+                    "claude-premium"
+                ]
+            },
+            {
+                "alias": "codex-premium",
+                "provider": "codex_cli",
+                "model": "gpt-5.5",
+                "label": "GPT-5.5",
+                "tier": "premium",
+                "source": "premium",
+                "description": "Codex premium manual",
+                "aliases": [
+                    "5.5",
+                    "55",
+                    "codex-premium",
+                    "codex-5.5",
+                    "gpt-5.5",
+                    "gpt-premium",
+                    "premium-codex"
+                ]
+            }
+        ],
+        "display": {
+            "(null)": "padrao",
+            "claude_cli": "Claude",
+            "codex_cli": "Codex",
+            "gemini_cli": "Gemini",
+            "hermes_cli": "Hermes",
+            "claude_codex": "Conselho",
+            "unknown-provider": "padrao"
+        }
+    }
+}

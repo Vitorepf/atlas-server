@@ -4,6 +4,7 @@ namespace App\Console\Commands\AiChat;
 
 use App\Console\Commands\AiChatCommand;
 use App\Services\Ai\Cli\AtlasCliDevWorkflowService;
+use App\Services\Ai\Cli\AtlasCliModelCatalogService;
 use App\Services\Ai\Cli\AtlasTerminalTheme;
 use App\Services\Ai\FairClaudePolicy;
 use App\Services\Ai\Kernel\Decision\ComputeEffortPolicy;
@@ -17,9 +18,7 @@ use Illuminate\Support\Str;
  */
 class AiChatModelSection
 {
-    public function __construct(private readonly AiChatCommand $command)
-    {
-    }
+    public function __construct(private readonly AiChatCommand $command) {}
 
     /**
      * @return array{model:string,label:string,tier:string,provider:?string,source:string,alias:string}|null
@@ -174,173 +173,6 @@ class AiChatModelSection
         return trim(Str::before($choice, ' - '));
     }
 
-    /**
-     * @return list<array{alias:string,provider:string,model:string,label:string,tier:string,source:string,description:string,aliases:list<string>}>
-     */
-    private function modelCatalog(): array
-    {
-        $rows = [];
-
-        $this->appendModelCatalogRow(
-            $rows,
-            'sonnet',
-            'claude_cli',
-            $this->providerConfiguredModel('claude_cli'),
-            'default',
-            'Claude diario',
-            ['sonnet', 'sonnet-4.6', 'sonnet-4', 'claude-sonnet', 'claude-sonnet-4-6', 'claude'],
-        );
-        $this->appendModelCatalogRow(
-            $rows,
-            'spark',
-            'codex_cli',
-            $this->providerConfiguredModel('codex_cli'),
-            'default',
-            'Codex diario',
-            ['spark', 'codex-spark', 'gpt-5.3-codex-spark', 'gpt-5.3', 'codex'],
-        );
-        $this->appendModelCatalogRow(
-            $rows,
-            'gemini_flash',
-            'gemini_cli',
-            [
-                'model' => (string) config('atlas.ai.providers.gemini_cli.models.gemini_flash.model', 'gemini-3.5-flash'),
-                'label' => (string) config('atlas.ai.providers.gemini_cli.models.gemini_flash.label', 'Gemini Flash'),
-                'tier' => (string) config('atlas.ai.providers.gemini_cli.models.gemini_flash.tier', 'daily'),
-            ],
-            'default',
-            'Gemini rapido',
-            ['gemini', 'gemini-flash', 'gemini_flash', 'gemini-3.5-flash', 'gemini-3-5-flash'],
-        );
-        $this->appendModelCatalogRow(
-            $rows,
-            'gemini_pro',
-            'gemini_cli',
-            [
-                'model' => (string) config('atlas.ai.providers.gemini_cli.models.gemini_pro.model', 'gemini-3.1-pro-preview'),
-                'label' => (string) config('atlas.ai.providers.gemini_cli.models.gemini_pro.label', 'Gemini Pro'),
-                'tier' => (string) config('atlas.ai.providers.gemini_cli.models.gemini_pro.tier', 'premium'),
-            ],
-            'premium',
-            'Gemini raciocinio profundo',
-            ['gemini-pro', 'gemini_pro', 'gemini-3.1-pro-preview', 'gemini-3-1-pro'],
-        );
-        $this->appendModelCatalogRow(
-            $rows,
-            'hermes',
-            'hermes_cli',
-            $this->providerConfiguredModel('hermes_cli'),
-            'default',
-            'Hermes executive runtime',
-            ['hermes', 'hermes-cli', 'hermes-runtime'],
-        );
-        $this->appendModelCatalogRow(
-            $rows,
-            'haiku',
-            'claude_cli',
-            $this->providerNamedModel('claude_cli', 'fallback_model', 'fallback_model_label'),
-            'fallback',
-            'Claude economico',
-            ['haiku', 'claude-haiku', 'fallback-claude'],
-        );
-        $this->appendModelCatalogRow(
-            $rows,
-            'mini',
-            'codex_cli',
-            $this->providerNamedModel('codex_cli', 'fallback_model', 'fallback_model_label'),
-            'fallback',
-            'Codex economico',
-            ['mini', 'codex-mini', 'gpt-5.4-mini', 'fallback-codex'],
-        );
-        $this->appendModelCatalogRow(
-            $rows,
-            'opus',
-            'claude_cli',
-            $this->providerNamedModel('claude_cli', 'premium_model', 'premium_model_label'),
-            'premium',
-            'Claude premium manual',
-            ['opus', 'opus-4.7', 'claude-opus', 'claude-opus-4-7', 'claude-premium'],
-        );
-        $this->appendModelCatalogRow(
-            $rows,
-            'codex-premium',
-            'codex_cli',
-            $this->providerNamedModel('codex_cli', 'premium_model', 'premium_model_label'),
-            'premium',
-            'Codex premium manual',
-            ['5.5', '55', 'codex-premium', 'codex-5.5', 'gpt-5.5', 'gpt-premium', 'premium-codex'],
-        );
-
-        return $rows;
-    }
-
-    /**
-     * @param  list<array{alias:string,provider:string,model:string,label:string,tier:string,source:string,description:string,aliases:list<string>}>  $rows
-     * @param  array{model:string,label:string,tier:string}|null  $model
-     * @param  list<string>  $aliases
-     */
-    private function appendModelCatalogRow(array &$rows, string $alias, string $provider, ?array $model, string $source, string $description, array $aliases): void
-    {
-        if ($model === null || $model['model'] === '') {
-            return;
-        }
-
-        foreach ($rows as $row) {
-            if ($row['provider'] === $provider && $row['model'] === $model['model']) {
-                return;
-            }
-        }
-
-        $rows[] = [
-            'alias' => $alias,
-            'provider' => $provider,
-            'model' => $model['model'],
-            'label' => $model['label'],
-            'tier' => $model['tier'],
-            'source' => $source,
-            'description' => $description,
-            'aliases' => array_values(array_unique($aliases)),
-        ];
-    }
-
-    /**
-     * @return array{model:string,label:string,tier:string}|null
-     */
-    private function providerConfiguredModel(string $provider): ?array
-    {
-        $config = app(AtlasAiRuntimeSettings::class)->providerConfig($provider);
-        $model = $this->cleanModelString($config['model'] ?? null) ?: $this->cleanModelString($config['model_identity'] ?? null);
-        if ($model === null || str_ends_with($model, '_default')) {
-            return null;
-        }
-
-        return [
-            'model' => $model,
-            'label' => $this->cleanModelString($config['model_label'] ?? null) ?: $model,
-            'tier' => $this->cleanModelString($config['model_tier'] ?? null) ?: app(AtlasAiRuntimeSettings::class)->defaultTier(),
-        ];
-    }
-
-    /**
-     * @return array{model:string,label:string,tier:string}|null
-     */
-    private function providerNamedModel(string $provider, string $modelKey, string $labelKey): ?array
-    {
-        $config = app(AtlasAiRuntimeSettings::class)->providerConfig($provider);
-        $model = $this->cleanModelString($config[$modelKey] ?? null);
-        if ($model === null || str_ends_with($model, '_default')) {
-            return null;
-        }
-
-        return [
-            'model' => $model,
-            'label' => $this->cleanModelString($config[$labelKey] ?? null) ?: $model,
-            'tier' => $modelKey === 'premium_model'
-                ? 'premium'
-                : ($this->cleanModelString($config['model_tier'] ?? null) ?: app(AtlasAiRuntimeSettings::class)->defaultTier()),
-        ];
-    }
-
     public function modelOverrideFromSelection(?array $modelSelection): ?string
     {
         $model = $modelSelection['model'] ?? null;
@@ -473,18 +305,6 @@ class AiChatModelSection
         return AtlasTerminalTheme::muted('padrao do provider', $decorated);
     }
 
-    public function providerDisplayName(?string $provider): string
-    {
-        return match ($provider) {
-            'claude_cli' => 'Claude',
-            'codex_cli' => 'Codex',
-            'gemini_cli' => 'Gemini',
-            'hermes_cli' => 'Hermes',
-            'claude_codex' => 'Conselho',
-            default => 'padrao',
-        };
-    }
-
     /**
      * @param  array<string,mixed>|null  $modelSelection
      * @return array<string,mixed>
@@ -557,17 +377,6 @@ class AiChatModelSection
         return trim($normalized, '-');
     }
 
-    private function cleanModelString(mixed $value): ?string
-    {
-        if (! is_string($value) && ! is_numeric($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value !== '' ? Str::limit($value, 120, '') : null;
-    }
-
     public function providerKey(?string $provider): ?string
     {
         if ($provider === null || trim($provider) === '') {
@@ -595,5 +404,18 @@ class AiChatModelSection
         } catch (\InvalidArgumentException) {
             return 'hermes_cli';
         }
+    }
+
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function modelCatalog(): array
+    {
+        return app(AtlasCliModelCatalogService::class)->catalog();
+    }
+
+    private function providerDisplayName(?string $provider): string
+    {
+        return app(AtlasCliModelCatalogService::class)->providerDisplayName($provider);
     }
 }
