@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\OpenBrainContextPack;
 
 use App\Services\Ai\AtlasOpenBrainContextPackService;
-use App\Services\Ai\Context\AtlasCanonicalContextRef;
 use App\Services\Ai\Context\AtlasDialecticTensionService;
 use App\Services\Ai\Support\AiValueNormalizer;
 use App\Support\YesNo;
@@ -190,7 +189,10 @@ final class RenderMarkdownSection
                 '- report used/noise/missed refs from %d delivered refs; no raw logs or source text',
                 (int) ($feedback['delivered_ref_count'] ?? 0),
             );
-            $lines[] = '- in the report, cite every used context item with its exact rendered ref= value';
+            // Os refs entregues NÃO são mais impressos no corpo do pack: o corpo entrava no
+            // transcript, e o inferidor de uso casava `str_contains($transcript, $ref)` —
+            // media o próprio eco. Os refs vivem só no AtlasDeliveredPackLedger.
+            $lines[] = '- name the items you used by title/path; delivered refs are resolved from the pack ledger, not from this body';
             $lines[] = '';
         }
 
@@ -230,8 +232,7 @@ final class RenderMarkdownSection
                 }
                 $decision = trim((string) ($item['decision_id'] ?? ''));
                 $lines[] = sprintf(
-                    '- ref=%s origin=%s source_scope=%s%s',
-                    (string) ($item['ref'] ?? ''),
+                    '- origin=%s source_scope=%s%s',
                     (string) ($item['origin'] ?? 'obra_working_set'),
                     (string) ($item['source_scope'] ?? ''),
                     $decision !== '' ? ' decision_id='.$decision : '',
@@ -251,9 +252,8 @@ final class RenderMarkdownSection
                 $sig = trim((string) ($item['signature'] ?? ''));
                 $sig = $sig !== '' ? '; sig='.mb_substr($sig, 0, 160) : '';
                 $lines[] = sprintf(
-                    '- %s ref=%s [%s] type=%s%s',
+                    '- %s [%s] type=%s%s',
                     (string) ($item['id'] ?? ''),
-                    AtlasCanonicalContextRef::fromCodeItem((array) $item),
                     (string) ($item['file_path'] ?? 'n/a'),
                     ($item['symbol_type'] ?? '') !== '' ? (string) $item['symbol_type'] : 'n/a',
                     $sig,
@@ -274,8 +274,7 @@ final class RenderMarkdownSection
                     (array) ($path['chain'] ?? []),
                 );
                 $lines[] = sprintf(
-                    '- ref=%s %s%s',
-                    AtlasCanonicalContextRef::fromGraphPath((array) $path),
+                    '- %s%s',
                     implode(' -> ', $chain),
                     ($path['cross_layer'] ?? false) ? '  (cross-layer)' : '',
                 );
@@ -298,8 +297,7 @@ final class RenderMarkdownSection
                 $title = (string) ($item['title'] ?? '');
                 $summary = trim((string) ($item['summary'] ?? ($item['body'] ?? '')));
                 $lines[] = sprintf(
-                    '- ref=%s [%s] %s%s',
-                    AtlasCanonicalContextRef::fromMemoryItem((array) $item),
+                    '- [%s] %s%s',
                     ($item['type'] ?? '') !== '' ? (string) $item['type'] : 'memory',
                     $title !== '' ? $title : '(untitled)',
                     $summary !== '' ? ' — '.mb_substr($summary, 0, 200) : '',

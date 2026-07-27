@@ -638,10 +638,19 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         $this->assertStringContainsString('## Context feedback request', $pack['markdown']);
         $this->assertStringContainsString('context_pack_hash='.substr($pack['context_pack_hash'], 0, 16), $pack['markdown']);
         $this->assertStringContainsString('no raw logs or source text', $pack['markdown']);
-        $this->assertStringContainsString('cite every used context item with its exact rendered ref= value', $pack['markdown']);
+        // Os refs entregues não são impressos no corpo (o corpo entra no transcript e o
+        // inferidor de uso casava o próprio eco). Eles resolvem pelo delivered-pack ledger.
+        $this->assertStringContainsString('delivered refs are resolved from the pack ledger', $pack['markdown']);
     }
 
-    public function test_rendered_markdown_exposes_canonical_refs_for_every_delivered_item(): void
+    /**
+     * Contrato invertido em 3.6: o corpo do pack NÃO carrega mais os refs canônicos.
+     * O corpo entra no transcript da sessão, e o inferidor de uso casava
+     * `str_contains($transcript, $ref)` — media o próprio eco, e por isso 100% dos
+     * eventos de feedback saíam com attribution_quality='low' e used == included.
+     * Os refs entregues continuam completos, mas só no delivered-pack ledger.
+     */
+    public function test_rendered_markdown_carries_no_canonical_refs_while_ledger_keeps_them(): void
     {
         $this->seedCodeSymbol('CodeGraphEmbeddingDecisionResolver', 'atlas-server');
         $this->seedAurg();
@@ -650,25 +659,27 @@ final class AtlasOpenBrainContextPackServiceTest extends TestCase
         $pack = $this->service()->packFor('embedding decision rendered refs');
         $expectedRefs = AtlasCanonicalContextRef::deliveredFromPack($pack);
         $renderedItemLines = $this->renderedDeliveredItemLines((string) $pack['markdown']);
-        $renderedRefs = $this->renderedCanonicalContextRefs((string) $pack['markdown']);
 
+        // A fonte dos refs entregues segue intacta — o que mudou é só o corpo.
         $this->assertNotEmpty($expectedRefs);
         $this->assertCount(
             count((array) $pack['code_graph']) + count((array) $pack['reality_graph_paths']) + count((array) $pack['memory']),
             $renderedItemLines,
-            'every delivered code/graph/memory item should render as a markdown item line',
+            'every delivered code/graph/memory item should still render as a markdown item line',
         );
-        $this->assertSame($expectedRefs, $renderedRefs, 'rendered refs must match deliveredFromPack exactly');
+        $this->assertSame(
+            [],
+            $this->renderedCanonicalContextRefs((string) $pack['markdown']),
+            'the pack body must not echo canonical refs back into the transcript',
+        );
         foreach ($renderedItemLines as $line) {
-            $this->assertMatchesRegularExpression('/\bref=(?:code|graph|memory):[a-f0-9]{32}\b/', $line);
+            $this->assertDoesNotMatchRegularExpression('/\bref=(?:code|graph|memory):[a-f0-9]{32}\b/', $line);
         }
 
-        $withoutFirstRef = preg_replace('/\sref=(?:code|graph|memory):[a-f0-9]{32}\b/', '', (string) $pack['markdown'], 1) ?? '';
-        $this->assertNotSame(
-            $expectedRefs,
-            $this->renderedCanonicalContextRefs($withoutFirstRef),
-            'negative case: a rendered item without ref must fail the delivered refs contract',
-        );
+        // E nenhum ref entregue pode aparecer em lugar nenhum do corpo, sob qualquer forma.
+        foreach ($expectedRefs as $ref) {
+            $this->assertStringNotContainsString($ref, (string) $pack['markdown']);
+        }
     }
 
     public function test_delivered_pack_ledger_persists_canonical_refs_and_supports_multi_hash_lookup(): void

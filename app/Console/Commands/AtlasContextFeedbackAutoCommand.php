@@ -18,8 +18,11 @@ use Throwable;
  * retrieval-feedback event: it extracts the `context_pack_hash=<16 hex>`
  * markers the UserPromptSubmit hook injected and records them through
  * AtlasRetrievalFeedbackLoopService::capture(record=true). Delivered refs are
- * recovered through the COM-01 delivered-pack ledger; used refs and outcomes are
- * transcript-inferred only when the transcript contains mechanical evidence.
+ * recovered through the COM-01 delivered-pack ledger. O outcome é inferido do
+ * transcript só quando há evidência mecânica (exit codes estruturados); a
+ * ATRIBUIÇÃO de uso não é inferida — o corpo do pack entrava no próprio
+ * transcript, então casar ref no texto media o eco. Registra-se o entregue com
+ * attribution_quality='unmeasured'.
  *
  * Fail-open TOTAL: any fault (missing/unreadable transcript, no hashes,
  * missing table, capture exception) exits 0 with a note — this runs from the
@@ -75,19 +78,23 @@ final class AtlasContextFeedbackAutoCommand extends Command
                 ...(array) ($delivered['delivered_refs'] ?? []),
                 ...$this->deliveredMemoryRefsFromTranscriptMarkers($contents),
             ]);
-            $usedRefs = $this->inferUsedContextRefs($deliveredRefs, $contents);
+            $usedRefs = $this->registerDeliveredContextRefs($deliveredRefs);
             $outcome = $this->inferStructuredOutcome($contents);
+            // O outcome (passed/failed) segue inferido dos exit codes do transcript; a
+            // ATRIBUIÇÃO de quais refs foram úteis não tem medidor — declarar 'unmeasured'
+            // em vez de reciclar a qualidade do outcome, que dizia 'low' sobre um eco.
+            $attributionQuality = 'unmeasured';
 
             $result['resolved_context_pack_hashes'] = $resolvedHashes;
             $result['delivered_context_refs'] = $deliveredRefs;
             $result['used_context_refs'] = $usedRefs;
             $result['outcome'] = $outcome['outcome'];
-            $result['attribution_quality'] = $outcome['attribution_quality'];
+            $result['attribution_quality'] = $attributionQuality;
 
             $capture = app(AtlasRetrievalFeedbackLoopService::class)->capture([
                 'record' => true,
                 'outcome_status' => (string) $outcome['outcome'],
-                'attribution_quality' => (string) $outcome['attribution_quality'],
+                'attribution_quality' => $attributionQuality,
                 'flow_id' => 'claude.session.auto',
                 // One event per session: the receipt id is derived from the hash set.
                 'retrieval_receipt_id' => 'session-auto-'.sha1(implode(',', $captureHashes)),
@@ -264,15 +271,18 @@ final class AtlasContextFeedbackAutoCommand extends Command
     }
 
     /**
+     * Registra os refs ENTREGUES. Não infere uso: a versão anterior filtrava por
+     * `str_contains($transcript, $ref)`, e o transcript contém o próprio pack que
+     * declarou o ref — media o eco, e por isso 502/502 eventos saíam com
+     * attribution_quality='low' e used == included. Sem medidor real de uso, o
+     * honesto é registrar o entregue e marcar a atribuição como 'unmeasured'.
+     *
      * @param  array<int,string>  $deliveredRefs
      * @return array<int,string>
      */
-    private function inferUsedContextRefs(array $deliveredRefs, string $transcript): array
+    private function registerDeliveredContextRefs(array $deliveredRefs): array
     {
-        return AtlasCanonicalContextRef::uniqueStrings(array_values(array_filter(
-            $deliveredRefs,
-            static fn (string $ref): bool => AtlasCanonicalContextRef::isMentionedInText($ref, $transcript),
-        )));
+        return AtlasCanonicalContextRef::uniqueStrings($deliveredRefs);
     }
 
     /**

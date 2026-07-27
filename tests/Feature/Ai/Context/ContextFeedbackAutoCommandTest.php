@@ -65,12 +65,15 @@ final class ContextFeedbackAutoCommandTest extends TestCase
             ...AtlasCanonicalContextRef::deliveredFromPack($packA),
             ...AtlasCanonicalContextRef::deliveredFromPack($packB),
         ]);
-        $usedRef = $expectedRefs[1];
+        // Citar um ref no transcript NÃO o torna "usado": era exatamente esse
+        // str_contains que media o eco do próprio pack. O registrador devolve o
+        // conjunto ENTREGUE, e a atribuição se declara 'unmeasured'.
+        $citedRef = $expectedRefs[1];
         $transcript = tempnam(sys_get_temp_dir(), 'atlas-feedback-auto-ledger-');
         file_put_contents($transcript, implode("\n", [
             '## Context feedback request context_pack_hash='.substr($hashA, 0, 16),
             '## Context feedback request context_pack_hash='.substr($hashB, 0, 16),
-            'mechanical citation of delivered ref '.$usedRef,
+            'mechanical citation of delivered ref '.$citedRef,
         ]));
 
         try {
@@ -84,11 +87,12 @@ final class ContextFeedbackAutoCommandTest extends TestCase
             $this->assertSame('captured', $payload['status']);
             $this->assertSame([$hashA, $hashB], $payload['resolved_context_pack_hashes']);
             $this->assertSame($expectedRefs, $payload['delivered_context_refs']);
-            $this->assertSame([$usedRef], $payload['used_context_refs']);
+            $this->assertSame($expectedRefs, $payload['used_context_refs']);
+            $this->assertSame('unmeasured', $payload['attribution_quality']);
 
             $event = AiRagFeedbackEvent::query()->where('flow_id', 'claude.session.auto')->firstOrFail();
             $this->assertSame($expectedRefs, data_get($event->payload, 'payload.context_ref_attribution.delivered_refs.*.ref'));
-            $this->assertSame([$usedRef], data_get($event->payload, 'payload.context_ref_attribution.used_refs.*.ref'));
+            $this->assertSame($expectedRefs, data_get($event->payload, 'payload.context_ref_attribution.used_refs.*.ref'));
         } finally {
             @unlink($transcript);
             $this->dropCompoundingSchema();
@@ -145,7 +149,7 @@ final class ContextFeedbackAutoCommandTest extends TestCase
         }
     }
 
-    public function test_structured_bash_exit_code_derives_outcome_and_transcript_inferred_quality(): void
+    public function test_structured_bash_exit_code_derives_outcome_with_unmeasured_attribution(): void
     {
         $this->bootCompoundingSchema();
         $hash = str_repeat('c', 64);
@@ -184,19 +188,21 @@ final class ContextFeedbackAutoCommandTest extends TestCase
             $payload = json_decode(Artisan::output(), true, 512, JSON_THROW_ON_ERROR);
 
             $this->assertSame(0, $exit);
+            // O outcome segue inferido dos exit codes estruturados; a ATRIBUIÇÃO de
+            // quais refs foram úteis não tem medidor e se declara 'unmeasured'.
             $this->assertSame('passed', $payload['outcome']);
-            $this->assertSame('transcript_inferred', $payload['attribution_quality']);
+            $this->assertSame('unmeasured', $payload['attribution_quality']);
 
             $event = AiRagFeedbackEvent::query()->where('flow_id', 'claude.session.auto')->firstOrFail();
             $this->assertSame('passed', $event->outcome_status);
-            $this->assertSame('transcript_inferred', data_get($event->payload, 'payload.attribution_quality'));
+            $this->assertSame('unmeasured', data_get($event->payload, 'payload.attribution_quality'));
         } finally {
             @unlink($transcript);
             $this->dropCompoundingSchema();
         }
     }
 
-    public function test_prose_only_tests_passed_stays_unknown_with_low_attribution_quality(): void
+    public function test_prose_only_tests_passed_stays_unknown_with_unmeasured_attribution_quality(): void
     {
         $this->bootCompoundingSchema();
         $hash = str_repeat('d', 64);
@@ -220,11 +226,11 @@ final class ContextFeedbackAutoCommandTest extends TestCase
 
             $this->assertSame(0, $exit);
             $this->assertSame('unknown', $payload['outcome']);
-            $this->assertSame('low', $payload['attribution_quality']);
+            $this->assertSame('unmeasured', $payload['attribution_quality']);
 
             $event = AiRagFeedbackEvent::query()->where('flow_id', 'claude.session.auto')->firstOrFail();
             $this->assertSame('unknown', $event->outcome_status);
-            $this->assertSame('low', data_get($event->payload, 'payload.attribution_quality'));
+            $this->assertSame('unmeasured', data_get($event->payload, 'payload.attribution_quality'));
         } finally {
             @unlink($transcript);
             $this->dropCompoundingSchema();
