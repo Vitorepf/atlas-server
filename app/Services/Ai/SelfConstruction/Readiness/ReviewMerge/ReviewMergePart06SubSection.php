@@ -2,8 +2,8 @@
 
 namespace App\Services\Ai\SelfConstruction\Readiness\ReviewMerge;
 
+use App\Services\Ai\SelfConstruction\Readiness\ReadinessReviewMergeEnvelope;
 use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
-use App\Services\Ai\SelfConstruction\Support\ReadinessHash;
 
 /**
  * ReviewMerge pipeline sub-section 06 of 12, sub-split from the god
@@ -129,38 +129,16 @@ final class ReviewMergePart06SubSection
             'dispatch_allowed' => false,
         ];
 
-        return [
-            'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template.v1',
-            'status' => $reviewReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_blocked',
-            'mode' => 'read_only_provider_neutral_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template',
-            'execution_allowed' => false,
-            'ledger_write_allowed' => false,
-            'writer_file_creation_allowed' => false,
-            'dispatch_allowed' => false,
-            'approval_granted' => false,
-            'merge_allowed' => false,
-            'signature_valid' => false,
-            'receipt_signed' => false,
-            'receipt_persisted' => false,
-            'reenable_packet' => $reenablePacket,
-            'reenable_packet_hash' => ReadinessHash::stable($reenablePacket),
-            'non_execution_guarantees' => [
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_does_not_claim_packets',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_does_not_complete_packets',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_does_not_create_writer_file',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_does_not_accept_signature',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_does_not_validate_signature',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_does_not_write_ledger',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_does_not_persist_receipt',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_does_not_record_decision',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_does_not_approve_code',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_does_not_merge',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template_does_not_dispatch_work',
-            ],
-            'human_summary' => $reviewReady
+        return ReadinessReviewMergeEnvelope::project(
+            slug: 'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template',
+            statusSlug: 'merge_post_execution_action_signed_receipt_persistence_writer_release_reenable_review_packet_template',
+            ready: $reviewReady,
+            payloadKey: 'reenable_packet',
+            payload: $reenablePacket,
+            humanSummary: $reviewReady
                 ? 'Agent review merge post-execution action signed receipt persistence writer release re-enable review packet template is ready as a provider-neutral Forge Workspace packet. It still does not create a writer, write ledger, persist receipts, approve, merge or dispatch.'
                 : 'Agent review merge post-execution action signed receipt persistence writer release re-enable review packet template is blocked until post-monitoring review template is ready.',
-        ];
+        );
     }
 
     /**
@@ -261,38 +239,16 @@ final class ReviewMergePart06SubSection
             'dispatch_allowed' => false,
         ];
 
-        return [
-            'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template.v1',
-            'status' => $reenableReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_blocked',
-            'mode' => 'read_only_provider_neutral_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template',
-            'execution_allowed' => false,
-            'ledger_write_allowed' => false,
-            'writer_file_creation_allowed' => false,
-            'dispatch_allowed' => false,
-            'approval_granted' => false,
-            'merge_allowed' => false,
-            'signature_valid' => false,
-            'receipt_signed' => false,
-            'receipt_persisted' => false,
-            'authorization_request' => $authorizationRequest,
-            'authorization_request_hash' => ReadinessHash::stable($authorizationRequest),
-            'non_execution_guarantees' => [
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_does_not_claim_packets',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_does_not_complete_packets',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_does_not_create_writer_file',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_does_not_accept_signature',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_does_not_validate_signature',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_does_not_write_ledger',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_does_not_persist_receipt',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_does_not_record_decision',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_does_not_approve_code',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_does_not_merge',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template_does_not_dispatch_work',
-            ],
-            'human_summary' => $reenableReady
+        return ReadinessReviewMergeEnvelope::project(
+            slug: 'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template',
+            statusSlug: 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_request_template',
+            ready: $reenableReady,
+            payloadKey: 'authorization_request',
+            payload: $authorizationRequest,
+            humanSummary: $reenableReady
                 ? 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization request template is ready as a provider-neutral Forge Workspace request. It still does not create a writer, write ledger, persist receipts, approve, merge or dispatch.'
                 : 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization request template is blocked until re-enable review packet template is ready.',
-        ];
+        );
     }
 
     /**
@@ -395,38 +351,16 @@ final class ReviewMergePart06SubSection
             'dispatch_allowed' => false,
         ];
 
-        return [
-            'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template.v1',
-            'status' => $authorizationReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_blocked',
-            'mode' => 'read_only_provider_neutral_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template',
-            'execution_allowed' => false,
-            'ledger_write_allowed' => false,
-            'writer_file_creation_allowed' => false,
-            'dispatch_allowed' => false,
-            'approval_granted' => false,
-            'merge_allowed' => false,
-            'signature_valid' => false,
-            'receipt_signed' => false,
-            'receipt_persisted' => false,
-            'receipt_draft' => $receiptDraft,
-            'receipt_draft_hash' => ReadinessHash::stable($receiptDraft),
-            'non_execution_guarantees' => [
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_does_not_claim_packets',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_does_not_complete_packets',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_does_not_create_writer_file',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_does_not_accept_signature',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_does_not_validate_signature',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_does_not_write_ledger',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_does_not_persist_receipt',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_does_not_record_decision',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_does_not_approve_code',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_does_not_merge',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template_does_not_dispatch_work',
-            ],
-            'human_summary' => $authorizationReady
+        return ReadinessReviewMergeEnvelope::project(
+            slug: 'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template',
+            statusSlug: 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_receipt_draft_template',
+            ready: $authorizationReady,
+            payloadKey: 'receipt_draft',
+            payload: $receiptDraft,
+            humanSummary: $authorizationReady
                 ? 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization receipt draft template is ready as a provider-neutral unsigned Forge Workspace receipt draft. It still does not create a writer, write ledger, persist receipts, approve, merge or dispatch.'
                 : 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization receipt draft template is blocked until fresh authorization request template is ready.',
-        ];
+        );
     }
 
     /**
@@ -522,38 +456,16 @@ final class ReviewMergePart06SubSection
             'dispatch_allowed' => false,
         ];
 
-        return [
-            'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template.v1',
-            'status' => $receiptDraftReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_blocked',
-            'mode' => 'read_only_provider_neutral_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template',
-            'execution_allowed' => false,
-            'ledger_write_allowed' => false,
-            'writer_file_creation_allowed' => false,
-            'dispatch_allowed' => false,
-            'approval_granted' => false,
-            'merge_allowed' => false,
-            'signature_valid' => false,
-            'receipt_signed' => false,
-            'receipt_persisted' => false,
-            'signature_request' => $signatureRequest,
-            'signature_request_hash' => ReadinessHash::stable($signatureRequest),
-            'non_execution_guarantees' => [
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_does_not_claim_packets',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_does_not_complete_packets',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_does_not_create_writer_file',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_does_not_accept_signature',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_does_not_validate_signature',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_does_not_write_ledger',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_does_not_persist_receipt',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_does_not_record_decision',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_does_not_approve_code',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_does_not_merge',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template_does_not_dispatch_work',
-            ],
-            'human_summary' => $receiptDraftReady
+        return ReadinessReviewMergeEnvelope::project(
+            slug: 'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template',
+            statusSlug: 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signature_request_template',
+            ready: $receiptDraftReady,
+            payloadKey: 'signature_request',
+            payload: $signatureRequest,
+            humanSummary: $receiptDraftReady
                 ? 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization signature request template is ready as a provider-neutral Forge Workspace signature request. It still does not accept signatures, validate signatures, create a writer, write ledger, persist receipts, approve, merge or dispatch.'
                 : 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization signature request template is blocked until fresh authorization receipt draft template is ready.',
-        ];
+        );
     }
 
     /**
@@ -645,38 +557,16 @@ final class ReviewMergePart06SubSection
             'dispatch_allowed' => false,
         ];
 
-        return [
-            'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template.v1',
-            'status' => $signatureRequestReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_blocked',
-            'mode' => 'read_only_provider_neutral_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template',
-            'execution_allowed' => false,
-            'ledger_write_allowed' => false,
-            'writer_file_creation_allowed' => false,
-            'dispatch_allowed' => false,
-            'approval_granted' => false,
-            'merge_allowed' => false,
-            'signature_valid' => false,
-            'receipt_signed' => false,
-            'receipt_persisted' => false,
-            'runbook' => $runbook,
-            'runbook_hash' => ReadinessHash::stable($runbook),
-            'non_execution_guarantees' => [
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_does_not_claim_packets',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_does_not_complete_packets',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_does_not_create_writer_file',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_does_not_accept_signature',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_does_not_validate_signature',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_does_not_write_ledger',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_does_not_persist_receipt',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_does_not_record_decision',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_does_not_approve_code',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_does_not_merge',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template_does_not_dispatch_work',
-            ],
-            'human_summary' => $signatureRequestReady
+        return ReadinessReviewMergeEnvelope::project(
+            slug: 'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template',
+            statusSlug: 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_signature_runbook_template',
+            ready: $signatureRequestReady,
+            payloadKey: 'runbook',
+            payload: $runbook,
+            humanSummary: $signatureRequestReady
                 ? 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization post-signature runbook template is ready as a provider-neutral Forge Workspace non-validating sequence. It still does not accept signatures, validate signatures, create a writer, write ledger, persist receipts, approve, merge or dispatch.'
                 : 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization post-signature runbook template is blocked until fresh authorization signature request template is ready.',
-        ];
+        );
     }
 
     /**
@@ -768,38 +658,16 @@ final class ReviewMergePart06SubSection
             'dispatch_allowed' => false,
         ];
 
-        return [
-            'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template.v1',
-            'status' => $runbookReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_blocked',
-            'mode' => 'read_only_provider_neutral_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template',
-            'execution_allowed' => false,
-            'ledger_write_allowed' => false,
-            'writer_file_creation_allowed' => false,
-            'dispatch_allowed' => false,
-            'approval_granted' => false,
-            'merge_allowed' => false,
-            'signature_valid' => false,
-            'receipt_signed' => false,
-            'receipt_persisted' => false,
-            'template' => $template,
-            'template_hash' => ReadinessHash::stable($template),
-            'non_execution_guarantees' => [
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_does_not_claim_packets',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_does_not_complete_packets',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_does_not_create_writer_file',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_does_not_accept_signature',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_does_not_validate_signature',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_does_not_write_ledger',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_does_not_persist_receipt',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_does_not_record_decision',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_does_not_approve_code',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_does_not_merge',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template_does_not_dispatch_work',
-            ],
-            'human_summary' => $runbookReady
+        return ReadinessReviewMergeEnvelope::project(
+            slug: 'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template',
+            statusSlug: 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_signed_receipt_template',
+            ready: $runbookReady,
+            payloadKey: 'template',
+            payload: $template,
+            humanSummary: $runbookReady
                 ? 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization signed receipt template is ready as a provider-neutral Forge Workspace non-persisting template. It still does not accept signatures, validate signatures, create a writer, write ledger, persist receipts, approve, merge or dispatch.'
                 : 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization signed receipt template is blocked until fresh authorization post-signature runbook template is ready.',
-        ];
+        );
     }
 
     /**
@@ -886,38 +754,16 @@ final class ReviewMergePart06SubSection
             'dispatch_allowed' => false,
         ];
 
-        return [
-            'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template.v1',
-            'status' => $signedReceiptReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_blocked',
-            'mode' => 'read_only_provider_neutral_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template',
-            'execution_allowed' => false,
-            'ledger_write_allowed' => false,
-            'writer_file_creation_allowed' => false,
-            'dispatch_allowed' => false,
-            'approval_granted' => false,
-            'merge_allowed' => false,
-            'signature_valid' => false,
-            'receipt_signed' => false,
-            'receipt_persisted' => false,
-            'preflight' => $preflight,
-            'preflight_hash' => ReadinessHash::stable($preflight),
-            'non_execution_guarantees' => [
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_does_not_claim_packets',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_does_not_complete_packets',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_does_not_create_writer_file',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_does_not_accept_signature',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_does_not_validate_signature',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_does_not_write_ledger',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_does_not_persist_receipt',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_does_not_record_decision',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_does_not_approve_code',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_does_not_merge',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template_does_not_dispatch_work',
-            ],
-            'human_summary' => $signedReceiptReady
+        return ReadinessReviewMergeEnvelope::project(
+            slug: 'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template',
+            statusSlug: 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_preflight_template',
+            ready: $signedReceiptReady,
+            payloadKey: 'preflight',
+            payload: $preflight,
+            humanSummary: $signedReceiptReady
                 ? 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization execution contract preflight template is ready as a provider-neutral Forge Workspace non-executing preflight. It still does not accept signatures, validate signatures, create a writer, write ledger, persist receipts, approve, merge or dispatch.'
                 : 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization execution contract preflight template is blocked until fresh authorization signed receipt template is ready.',
-        ];
+        );
     }
 
     /**
@@ -1045,38 +891,16 @@ final class ReviewMergePart06SubSection
             'dispatch_allowed' => false,
         ];
 
-        return [
-            'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template.v1',
-            'status' => $preflightReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_blocked',
-            'mode' => 'read_only_provider_neutral_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template',
-            'execution_allowed' => false,
-            'ledger_write_allowed' => false,
-            'writer_file_creation_allowed' => false,
-            'dispatch_allowed' => false,
-            'approval_granted' => false,
-            'merge_allowed' => false,
-            'signature_valid' => false,
-            'receipt_signed' => false,
-            'receipt_persisted' => false,
-            'contract' => $contract,
-            'contract_hash' => ReadinessHash::stable($contract),
-            'non_execution_guarantees' => [
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_does_not_claim_packets',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_does_not_complete_packets',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_does_not_create_writer_file',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_does_not_accept_signature',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_does_not_validate_signature',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_does_not_write_ledger',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_does_not_persist_receipt',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_does_not_record_decision',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_does_not_approve_code',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_does_not_merge',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template_does_not_dispatch_work',
-            ],
-            'human_summary' => $preflightReady
+        return ReadinessReviewMergeEnvelope::project(
+            slug: 'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template',
+            statusSlug: 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_execution_contract_template',
+            ready: $preflightReady,
+            payloadKey: 'contract',
+            payload: $contract,
+            humanSummary: $preflightReady
                 ? 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization execution contract template is ready as a provider-neutral Forge Workspace non-authorizing contract. It still does not create a writer, write ledger, persist receipts, approve, merge or dispatch.'
                 : 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization execution contract template is blocked until fresh authorization execution contract preflight template is ready.',
-        ];
+        );
     }
 
     /**
@@ -1193,37 +1017,15 @@ final class ReviewMergePart06SubSection
             'dispatch_allowed' => false,
         ];
 
-        return [
-            'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template.v1',
-            'status' => $contractReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_blocked',
-            'mode' => 'read_only_provider_neutral_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template',
-            'execution_allowed' => false,
-            'ledger_write_allowed' => false,
-            'writer_file_creation_allowed' => false,
-            'dispatch_allowed' => false,
-            'approval_granted' => false,
-            'merge_allowed' => false,
-            'signature_valid' => false,
-            'receipt_signed' => false,
-            'receipt_persisted' => false,
-            'disable_contract' => $disableContract,
-            'disable_contract_hash' => ReadinessHash::stable($disableContract),
-            'non_execution_guarantees' => [
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_does_not_claim_packets',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_does_not_complete_packets',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_does_not_create_writer_file',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_does_not_accept_signature',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_does_not_validate_signature',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_does_not_write_ledger',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_does_not_persist_receipt',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_does_not_record_decision',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_does_not_approve_code',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_does_not_merge',
-                'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_does_not_dispatch_work',
-            ],
-            'human_summary' => $contractReady
+        return ReadinessReviewMergeEnvelope::project(
+            slug: 'agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template',
+            statusSlug: 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template',
+            ready: $contractReady,
+            payloadKey: 'disable_contract',
+            payload: $disableContract,
+            humanSummary: $contractReady
                 ? 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization disable contract template is ready as a provider-neutral Forge Workspace rollback contract. It still does not create a writer, write ledger, persist receipts, approve, merge or dispatch.'
                 : 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization disable contract template is blocked until fresh authorization execution contract template is ready.',
-        ];
+        );
     }
 }
