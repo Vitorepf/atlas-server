@@ -1,4 +1,4 @@
-# CODEMAP — Mobile
+# CODEMAP — app/Services/Ai/Mobile
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

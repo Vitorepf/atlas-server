@@ -1,4 +1,4 @@
-# CODEMAP — RouterRuntime
+# CODEMAP — app/Services/Ai/RouterRuntime
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

@@ -1,4 +1,4 @@
-# CODEMAP — RuntimeEfficiency
+# CODEMAP — app/Services/Ai/RuntimeEfficiency
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

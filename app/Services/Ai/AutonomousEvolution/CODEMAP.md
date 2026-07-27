@@ -1,4 +1,4 @@
-# CODEMAP — AutonomousEvolution
+# CODEMAP — app/Services/Ai/AutonomousEvolution
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

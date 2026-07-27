@@ -1,4 +1,4 @@
-# CODEMAP — Aemor
+# CODEMAP — app/Services/Ai/Aemor
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

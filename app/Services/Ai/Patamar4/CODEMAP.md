@@ -1,4 +1,4 @@
-# CODEMAP — Patamar4
+# CODEMAP — app/Services/Ai/Patamar4
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

@@ -1,4 +1,4 @@
-# CODEMAP — Rivals
+# CODEMAP — app/Services/Ai/Rivals
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

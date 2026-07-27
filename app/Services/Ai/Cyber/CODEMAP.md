@@ -1,4 +1,4 @@
-# CODEMAP — Cyber
+# CODEMAP — app/Services/Ai/Cyber
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

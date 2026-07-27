@@ -19,7 +19,31 @@ namespace App\Services\Engineering\CodeMap;
  */
 final class ZoneCodeMapBuilder
 {
-    private const ZONE_ROOT = 'app/Services/Ai';
+    /**
+     * Roots whose immediate subdirectories each become a zone.
+     *
+     * index() already reads and inverts EVERY php file under app/ — 1,586,012
+     * lines — on every run. Emitting over only app/Services/Ai meant 344,627 of
+     * those lines (21.7% of the corpus) were tokenised and thrown away, leaving
+     * app/Services/Engineering (73,652 lines), the controllers and eight other
+     * service trees with no map at all. The reading was already paid for.
+     */
+    private const ZONE_ROOTS = [
+        'app/Services/Ai',
+        'app/Services',
+        'app/Http/Controllers',
+    ];
+
+    /**
+     * Directories whose OWN files (not subdirectories) form a single zone —
+     * for trees that are flat by design, like the 161 controllers and 407 models
+     * sitting directly in their folder.
+     */
+    private const FLAT_ZONES = [
+        'app/Http/Controllers',
+        'app/Models',
+        'app/Support',
+    ];
 
     /** Zones below this stay unmapped; the map is for territory, not corners. */
     private const MIN_ZONE_LINES = 500;
@@ -42,12 +66,12 @@ final class ZoneCodeMapBuilder
         $this->index();
 
         $maps = [];
-        foreach ($this->zones() as $zone => $files) {
-            $rows = $this->facadeRows($zone, $files);
+        foreach ($this->zones() as $zoneDir => $files) {
+            $rows = $this->facadeRows($zoneDir.'/', $files);
             if ($rows === []) {
                 continue;
             }
-            $maps[self::ZONE_ROOT.'/'.$zone.'/CODEMAP.md'] = $this->render($zone, $rows);
+            $maps[$zoneDir.'/CODEMAP.md'] = $this->render($zoneDir, $rows);
         }
 
         return $maps;
@@ -61,22 +85,21 @@ final class ZoneCodeMapBuilder
     private function zones(): array
     {
         $zones = [];
-        $root = $this->basePath.'/'.self::ZONE_ROOT;
 
-        foreach ((glob($root.'/*', GLOB_ONLYDIR) ?: []) as $dir) {
-            $zone = basename($dir);
-            $files = [];
-            $lines = 0;
-            foreach ($this->sources as $path => $source) {
-                if (str_starts_with($path, self::ZONE_ROOT.'/'.$zone.'/')) {
-                    $files[] = $path;
-                    $lines += substr_count($source, "\n");
+        foreach (self::ZONE_ROOTS as $root) {
+            foreach ((glob($this->basePath.'/'.$root.'/*', GLOB_ONLYDIR) ?: []) as $dir) {
+                $zoneDir = $root.'/'.basename($dir);
+                // A nested root owns its own subtree — app/Services must not swallow
+                // app/Services/Ai and emit one 4,612-file zone on top of its 107.
+                if ($this->ownedByANestedRoot($zoneDir)) {
+                    continue;
                 }
+                $this->collectZone($zones, $zoneDir, recursive: true);
             }
-            if ($lines >= self::MIN_ZONE_LINES && $files !== []) {
-                sort($files);
-                $zones[$zone] = $files;
-            }
+        }
+
+        foreach (self::FLAT_ZONES as $zoneDir) {
+            $this->collectZone($zones, $zoneDir, recursive: false);
         }
 
         ksort($zones);
@@ -84,13 +107,51 @@ final class ZoneCodeMapBuilder
         return $zones;
     }
 
+    private function ownedByANestedRoot(string $zoneDir): bool
+    {
+        foreach (self::ZONE_ROOTS as $root) {
+            if ($root !== $zoneDir && str_starts_with($root, $zoneDir.'/')) {
+                return true;
+            }
+            if ($root === $zoneDir) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string,list<string>>  $zones
+     */
+    private function collectZone(array &$zones, string $zoneDir, bool $recursive): void
+    {
+        $prefix = $zoneDir.'/';
+        $files = [];
+        $lines = 0;
+        foreach ($this->sources as $path => $source) {
+            if (! str_starts_with($path, $prefix)) {
+                continue;
+            }
+            if (! $recursive && str_contains(substr($path, strlen($prefix)), '/')) {
+                continue;
+            }
+            $files[] = $path;
+            $lines += substr_count($source, "\n");
+        }
+        if ($lines >= self::MIN_ZONE_LINES && $files !== []) {
+            sort($files);
+            $zones[$zoneDir] = $files;
+        }
+    }
+
     /**
      * @param  list<string>  $files
      * @return list<array{class:string,target:string}>
      */
-    private function facadeRows(string $zone, array $files): array
+    private function facadeRows(string $zonePrefix, array $files): array
     {
-        $prefix = self::ZONE_ROOT.'/'.$zone.'/';
+        $prefix = $zonePrefix;
         $rows = [];
 
         foreach ($files as $path) {

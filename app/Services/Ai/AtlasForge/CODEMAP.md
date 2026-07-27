@@ -1,4 +1,4 @@
-# CODEMAP — AtlasForge
+# CODEMAP — app/Services/Ai/AtlasForge
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

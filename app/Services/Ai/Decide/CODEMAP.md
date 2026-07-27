@@ -1,4 +1,4 @@
-# CODEMAP — Decide
+# CODEMAP — app/Services/Ai/Decide
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

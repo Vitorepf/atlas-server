@@ -1,4 +1,4 @@
-# CODEMAP — OperatorIntelligence
+# CODEMAP — app/Services/Ai/OperatorIntelligence
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

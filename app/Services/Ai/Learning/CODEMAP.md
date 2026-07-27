@@ -1,4 +1,4 @@
-# CODEMAP — Learning
+# CODEMAP — app/Services/Ai/Learning
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

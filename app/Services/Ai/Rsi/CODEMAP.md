@@ -1,4 +1,4 @@
-# CODEMAP — Rsi
+# CODEMAP — app/Services/Ai/Rsi
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

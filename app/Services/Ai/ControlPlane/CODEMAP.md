@@ -1,4 +1,4 @@
-# CODEMAP — ControlPlane
+# CODEMAP — app/Services/Ai/ControlPlane
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

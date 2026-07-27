@@ -1,4 +1,4 @@
-# CODEMAP — Teos
+# CODEMAP — app/Services/Ai/Teos
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

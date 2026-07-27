@@ -1,4 +1,4 @@
-# CODEMAP — Hermes
+# CODEMAP — app/Services/Ai/Hermes
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

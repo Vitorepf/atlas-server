@@ -1,4 +1,4 @@
-# CODEMAP — TerminalDev
+# CODEMAP — app/Services/Ai/TerminalDev
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

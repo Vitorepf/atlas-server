@@ -1,4 +1,4 @@
-# CODEMAP — Compaction
+# CODEMAP — app/Services/Ai/Compaction
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

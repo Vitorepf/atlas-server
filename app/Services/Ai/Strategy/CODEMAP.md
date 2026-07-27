@@ -1,4 +1,4 @@
-# CODEMAP — Strategy
+# CODEMAP — app/Services/Ai/Strategy
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

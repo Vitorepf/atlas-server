@@ -1,4 +1,4 @@
-# CODEMAP — StrategicOperatingSystem
+# CODEMAP — app/Services/Ai/StrategicOperatingSystem
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

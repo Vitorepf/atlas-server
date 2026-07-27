@@ -1,4 +1,4 @@
-# CODEMAP — NightShift
+# CODEMAP — app/Services/Ai/NightShift
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

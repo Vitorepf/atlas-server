@@ -1,4 +1,4 @@
-# CODEMAP — AgenticWorkcell
+# CODEMAP — app/Services/Ai/AgenticWorkcell
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

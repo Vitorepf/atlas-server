@@ -1,4 +1,4 @@
-# CODEMAP — DomainRuntime
+# CODEMAP — app/Services/Ai/DomainRuntime
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

@@ -1,4 +1,4 @@
-# CODEMAP — Scheduling
+# CODEMAP — app/Services/Ai/Scheduling
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

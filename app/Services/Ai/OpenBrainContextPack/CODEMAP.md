@@ -1,4 +1,4 @@
-# CODEMAP — OpenBrainContextPack
+# CODEMAP — app/Services/Ai/OpenBrainContextPack
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

@@ -1,4 +1,4 @@
-# CODEMAP — Mission
+# CODEMAP — app/Services/Ai/Mission
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

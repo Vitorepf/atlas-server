@@ -1,4 +1,4 @@
-# CODEMAP — Kernel
+# CODEMAP — app/Services/Ai/Kernel
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

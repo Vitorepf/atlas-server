@@ -1,4 +1,4 @@
-# CODEMAP — Reality
+# CODEMAP — app/Services/Ai/Reality
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

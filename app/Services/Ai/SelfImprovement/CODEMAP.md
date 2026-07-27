@@ -1,4 +1,4 @@
-# CODEMAP — SelfImprovement
+# CODEMAP — app/Services/Ai/SelfImprovement
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

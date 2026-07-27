@@ -1,4 +1,4 @@
-# CODEMAP — Reconciliation
+# CODEMAP — app/Services/Ai/Reconciliation
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

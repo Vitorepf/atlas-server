@@ -1,4 +1,4 @@
-# CODEMAP — Capture
+# CODEMAP — app/Services/Ai/Capture
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

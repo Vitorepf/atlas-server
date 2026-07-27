@@ -1,4 +1,4 @@
-# CODEMAP — DualCore
+# CODEMAP — app/Services/Ai/DualCore
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

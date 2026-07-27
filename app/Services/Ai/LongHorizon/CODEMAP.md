@@ -1,4 +1,4 @@
-# CODEMAP — LongHorizon
+# CODEMAP — app/Services/Ai/LongHorizon
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

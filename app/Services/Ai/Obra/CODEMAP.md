@@ -1,4 +1,4 @@
-# CODEMAP — Obra
+# CODEMAP — app/Services/Ai/Obra
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

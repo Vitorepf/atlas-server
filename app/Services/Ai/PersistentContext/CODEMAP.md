@@ -1,4 +1,4 @@
-# CODEMAP — PersistentContext
+# CODEMAP — app/Services/Ai/PersistentContext
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

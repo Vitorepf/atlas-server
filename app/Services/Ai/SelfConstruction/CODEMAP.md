@@ -1,4 +1,4 @@
-# CODEMAP — SelfConstruction
+# CODEMAP — app/Services/Ai/SelfConstruction
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

@@ -1,4 +1,4 @@
-# CODEMAP — Memory
+# CODEMAP — app/Services/Ai/Memory
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

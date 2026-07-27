@@ -1,4 +1,4 @@
-# CODEMAP — Policy
+# CODEMAP — app/Services/Ai/Policy
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

@@ -1,4 +1,4 @@
-# CODEMAP — AgenticEngineeringOs
+# CODEMAP — app/Services/Ai/AgenticEngineeringOs
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

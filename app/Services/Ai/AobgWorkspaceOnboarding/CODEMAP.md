@@ -1,4 +1,4 @@
-# CODEMAP — AobgWorkspaceOnboarding
+# CODEMAP — app/Services/Ai/AobgWorkspaceOnboarding
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write

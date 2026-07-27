@@ -1,4 +1,4 @@
-# CODEMAP — WorkspaceIntelligence
+# CODEMAP — app/Services/Ai/WorkspaceIntelligence
 
 <!-- ATLAS-CODEMAP: GENERATED — do not hand-edit.
      Rebuild: php artisan atlas:codemap --write
