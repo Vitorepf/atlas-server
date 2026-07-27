@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
 use App\Console\Concerns\EmitsCanonicalJson;
+use Illuminate\Console\Command;
 
 /**
  * Installs/uninstalls launchd agent that runs `php artisan schedule:run`
@@ -41,7 +41,35 @@ class AtlasSchedulerInstallLaunchdCommand extends Command
             return self::SUCCESS;
         }
 
-        $php = trim((string) shell_exec('which php')) ?: '/usr/bin/php';
+        // Prefer the PATH symlink (/opt/homebrew/bin/php) because it survives a
+        // brew upgrade; PHP_BINARY resolves to the versioned Cellar path, which
+        // disappears the moment PHP moves to the next patch release.
+        //
+        // But never trust `which php` alone: launchd spawns with a minimal PATH
+        // that excludes /opt/homebrew/bin, and the old fallback then wrote
+        // /usr/bin/php — a binary macOS has not shipped since Monterey. That is
+        // what killed the scheduler on 2026-07-13: the plist was rewritten to a
+        // non-existent interpreter, so every launchctl kickstart the watchdog
+        // fired died instantly, and the Autônomos stayed down 14 days.
+        $php = trim((string) shell_exec('command -v php 2>/dev/null'));
+        if ($php === '' || ! is_file($php) || ! is_executable($php)) {
+            $php = PHP_BINARY;
+        }
+
+        // The invariant that was missing: a plist pointing at an interpreter that
+        // does not exist is worse than no plist, because launchd keeps accepting
+        // kickstarts for it and every one of them fails silently.
+        if (! is_file($php) || ! is_executable($php)) {
+            $this->emit([
+                'action' => 'install',
+                'label' => $label,
+                'status' => 'refused',
+                'reason' => 'php_binary_not_executable',
+                'php' => $php,
+            ], $json);
+
+            return self::FAILURE;
+        }
         $artisan = base_path('artisan');
         $repo = base_path();
         $logOut = storage_path('atlas/scheduler/launchd.out.log');
