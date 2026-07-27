@@ -7,14 +7,17 @@ namespace App\Services\Ai\SelfConstruction;
 use App\Services\Ai\AtlasAobgBlackboardService;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPatternLearningLedger;
 use App\Services\Ai\AutonomousEvolution\Constitution\AtlasLoopMergeActuator;
 use App\Services\Ai\Cognition\AtlasCognitionRemintTouchedQueue;
+use App\Services\Ai\EngineeringKernel\Adapters\AtlasDevGateAdapter;
 use App\Services\Ai\EngineeringKernel\CertVerdict;
 use App\Services\Ai\EngineeringKernel\CriteriaCanonicalizer;
 use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
 use App\Services\Ai\EngineeringKernel\OutcomeProofGate;
 use App\Services\Ai\SelfConstruction\GovernedTargets\AtlasTaskPropertyGatedTargetPolicy;
 use App\Services\Ai\SelfConstruction\NativeWorker\AutonomosExecutionOrderBinding;
+use App\Services\Engineering\EngineeringQualityScanService;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -261,18 +264,18 @@ final class AtlasTaskScopedCommitter
             // Fail-open: ledger write never blocks the receipt.
             $patternLedgerRow = null;
             try {
-                $patternLedgerRow = (new \App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPatternLearningLedger)
+                $patternLedgerRow = (new AtlasBrainPatternLearningLedger)
                     ->append([
                         'scope' => $commitAuthority === 'operator' ? 'operator_land' : 'autonomos_land',
                         'task_id' => $taskPacketId,
                         'action_hint' => 'compound',
-                        'result_kind' => \App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPatternLearningLedger::RESULT_ACCEPTED,
+                        'result_kind' => AtlasBrainPatternLearningLedger::RESULT_ACCEPTED,
                         'evidence_refs' => array_map(
                             static fn (string $file): string => 'file:'.$file,
                             $files,
                         ),
                     ]);
-            } catch (\Throwable) {
+            } catch (Throwable) {
                 $patternLedgerRow = null;
             }
 
@@ -381,12 +384,28 @@ final class AtlasTaskScopedCommitter
                     'execution_order_hash' => $executionOrderBinding['order_hash'] ?? null,
                 ],
                 'mutation_report' => ['decision_surface_added' => false],
-                'security_scan' => [
-                    'ran' => true,
-                    'secret_free' => true,
-                    'critical_sast' => 0,
-                    'critical_cve' => 0,
-                ],
+                // These four values used to be literals, and they were the sovereign
+                // floor's ONLY view of security on every autonomous landing. The floor
+                // does enforce them — SovereignHonestyFloor::securityFree() fails on
+                // security_scan_did_not_run, on secret_free !== true, and on
+                // critical_sast > 0 — so hardcoding them satisfied the invariant by
+                // assertion. No scanner had ever run on this path.
+                //
+                // The Dev path already derives this honestly from a real scan; use the
+                // same producer rather than inventing a second answer. Fail-closed by
+                // construction: if the scan cannot run (AWIS gate denies, tool missing,
+                // timeout) the result is status=blocked, securityFromScan reports
+                // ran=false, and the floor blocks with security_scan_did_not_run —
+                // which is the honest verdict, not a regression.
+                'security_scan' => AtlasDevGateAdapter::securityFromScan(
+                    app(EngineeringQualityScanService::class)->scan($this->repoRoot(), [
+                        'profile' => 'auto',
+                        'changed_only' => true,
+                        'include_categories' => ['security'],
+                        'run_context_type' => 'autonomos_landing',
+                        'run_context_id' => $taskPacketId,
+                    ]),
+                ),
                 'context_sufficiency' => 85,
                 'judges' => [
                     ['name' => 'task-verify-gate', 'provider_family' => 'atlas_harness', 'approved' => true],

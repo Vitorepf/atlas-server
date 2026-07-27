@@ -90,12 +90,14 @@ final class AtlasObraGateAdapter implements AcceptanceGate
                 'mutants_generated' => 0,
                 'decision_surface_added' => false,
             ],
-            'security_scan' => [
-                'ran' => true,
-                'secret_free' => true,
-                'critical_sast' => 0,
-                'critical_cve' => 0,
-            ],
+            // Lido do envelope como todo o resto — o docblock desta classe promete
+            // "Nada fabricado", e este era o único bloco que não cumpria: quatro
+            // literais afirmando scan limpo. Ausente agora vira [], e o floor
+            // devolve honestamente security_scan_did_not_run, que é o mesmo
+            // "raio-X do gap" que judges e context_sufficiency já produzem.
+            'security_scan' => is_array($envelope['security_scan'] ?? null)
+                ? (array) $envelope['security_scan']
+                : [],
             'judges' => (array) ($envelope['judges'] ?? []),
             'context_sufficiency' => (int) ($envelope['context_sufficiency'] ?? 0),
             'non_functional' => [],
