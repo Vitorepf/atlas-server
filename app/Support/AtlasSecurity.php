@@ -55,6 +55,53 @@ class AtlasSecurity
         return $value;
     }
 
+    /**
+     * Secret patterns, keyed by kind. Single source of truth for BOTH redaction
+     * and detection.
+     *
+     * AtlasRetrievalPrivacyTrustLayerService — the gate deciding whether a
+     * retrieved chunk may leave the machine for an external provider — carried
+     * its own 3-pattern table, so a GitHub PAT, a JWT, an AWS key or a Slack
+     * token passed the local-first export gate that this class would have
+     * redacted. One owner now.
+     *
+     * @return array<string,string> kind => pattern
+     */
+    public static function secretPatterns(): array
+    {
+        return [
+            'private_key' => '/-----BEGIN [A-Z ]*PRIVATE KEY-----/',
+            'jwt' => '/\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/',
+            'openai_key' => '/\bsk-(?:proj-)?[A-Za-z0-9_-]{16,}\b/',
+            'github_pat' => '/\bgithub_pat_[A-Za-z0-9_]{20,}\b/',
+            'github_token' => '/\bgh[pousr]_[A-Za-z0-9_]{20,}\b/',
+            'gitlab_pat' => '/\bglpat-[A-Za-z0-9_-]{20,}\b/',
+            'slack_token' => '/\bxox[baprs]-[A-Za-z0-9-]{20,}\b/',
+            'aws_access_key' => '/\bAKIA[0-9A-Z]{16}\b/',
+            'bearer' => '/\bBearer\s+[A-Za-z0-9._~+\/=-]{12,}\b/i',
+            'api_key' => '/\b(api[_-]?key|secret|password|senha|passwd|pwd|token|authorization|auth|cookie|session|private[_-]?key)\s*[:=]\s*[^\s,"\']{6,}/i',
+        ];
+    }
+
+    /**
+     * Which secret kinds appear in $value, and how many times each.
+     *
+     * @return array<string,int> kind => count
+     */
+    public static function secretDetections(string $value): array
+    {
+        $detections = [];
+        foreach (self::secretPatterns() as $kind => $pattern) {
+            preg_match_all($pattern, $value, $matches);
+            $count = count($matches[0] ?? []);
+            if ($count > 0) {
+                $detections[$kind] = $count;
+            }
+        }
+
+        return $detections;
+    }
+
     public static function redactString(string $value): string
     {
         if ($value === '') {

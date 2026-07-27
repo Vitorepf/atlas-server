@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Context;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Support\AtlasSecurity;
 use Illuminate\Support\Carbon;
 
 final class AtlasRetrievalPrivacyTrustLayerService
@@ -18,12 +19,6 @@ final class AtlasRetrievalPrivacyTrustLayerService
     public const RETENTION_POLICY_SCHEMA = 'atlas.aucri.context_retention_policy.v1';
 
     public const TRUST_RECEIPT_SCHEMA = 'atlas.aucri.trust_receipt.v1';
-
-    private const SECRET_PATTERNS = [
-        'api_key' => '/\b(api[_-]?key|secret|password|senha|token)\s*[:=]\s*[^\s,"\']{6,}/i',
-        'openai_key' => '/\bsk-[A-Za-z0-9_\-]{16,}\b/',
-        'private_key' => '/-----BEGIN [A-Z ]*PRIVATE KEY-----/',
-    ];
 
     private const PII_PATTERNS = [
         'email' => '/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/i',
@@ -133,11 +128,12 @@ final class AtlasRetrievalPrivacyTrustLayerService
     private function detectSensitiveClasses(string $value): array
     {
         $detections = [];
-        foreach (self::SECRET_PATTERNS as $kind => $pattern) {
-            preg_match_all($pattern, $value, $matches);
-            if (count($matches[0]) > 0) {
-                $detections['secret:'.$kind] = count($matches[0]);
-            }
+        // AtlasSecurity is the single pattern authority. This gate used to carry
+        // its own 3-pattern table while AtlasSecurity redacted 10 kinds — so a
+        // GitHub PAT, a JWT, an AWS key or a Slack token walked out through the
+        // provider-export gate that the redactor would have caught.
+        foreach (AtlasSecurity::secretDetections($value) as $kind => $count) {
+            $detections['secret:'.$kind] = $count;
         }
 
         foreach (self::PII_PATTERNS as $kind => $pattern) {
