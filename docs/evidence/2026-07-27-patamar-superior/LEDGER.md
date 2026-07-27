@@ -188,11 +188,49 @@ Um gate que grita lobo é pior que gate nenhum. Ambas as checagens foram provada
 php -d memory_limit=1G scripts/symbol-resolution-guard.php
 ```
 
+---
+
+# FASE 3 — Config que o operador não conseguia acionar
+
+Mesma família do fatal de `handle()`: o código **lê** a chave, o config **não a
+declara**, então ela cai no default inline para sempre. Nem sempre é bug — a
+maioria passa default explícito de propósito. Vira bug quando o comando
+**instrui o operador a setá-la**.
+
+| Seção | O que o comando manda fazer | Estado antes |
+|---|---|---|
+| `atlas.aael` | *"set config atlas.aael.parallel.cli_enabled=true to enable"* | seção inexistente — instrução impossível de seguir |
+| `atlas.ai.cost_sentinel` | *"enable atlas.ai.cost_sentinel.enabled"* e *"set hard_gate_units […] to flip from observe to enforce"* | 3 chaves declaradas em lugar nenhum — o kill-switch de gasto não tinha onde ser ligado |
+
+Ambas declaradas com defaults **byte-idênticos** aos inline (tudo OFF, ceilings
+em `0.0`), então nada muda de comportamento — só passa a ser alcançável:
+
+```bash
+ATLAS_AAEL_PARALLEL_CLI_ENABLED=true php artisan atlas:aael:parallel history   # []  exit 0
+ATLAS_AI_COST_SENTINEL_ENABLED=true ATLAS_AI_COST_SENTINEL_HARD_GATE_UNITS=12.5 # enabled=true hard=12.5
+```
+
+## O que a varredura ampla NÃO era
+
+1.161 chaves de config são lidas; **142 resolvem NULL**. Quase todas de
+propósito (default explícito ou guarda `?nullable`), e várias nem eram leitura —
+eram menção em docblock.
+
+O caso mais importante que parecia bug e não era: `atlas.loop.master_enabled`
+aparece como leitura sem default, mas é **docblock**. O switch real
+(`AtlasLoopMasterSwitch`) parseia o `.env` **direto**, preferindo
+`ATLAS_AUTONOMOS_MASTER_ENABLED` ao legado — bypassa o cache de config de
+propósito, para que o flip do operador valha na hora. Intacto.
+
+Dos 6 comandos que citam config inexistente em mensagem, **4 eram falso
+positivo** conferidos um a um: um nome de canal de log e três strings de schema
+`.v1`.
+
 ## Balanço da sessão
 
 | | |
 |---|---|
-| Commits escopados na `main` | 27 |
+| Commits escopados na `main` | 31 |
 | **PHP em `app/`** | +1.430 −3.736 = **−2.306 líquido** |
 | Arquivos PHP | 6.656 → 6.656 (7 deletados, 7 novos donos únicos) |
 | Mapas de navegação gerados | +3.734 linhas, sob gate de drift |
@@ -201,6 +239,7 @@ php -d memory_limit=1G scripts/symbol-resolution-guard.php
 | Gates de arquitetura | 8 falhas → **1** (o ratchet de docs) |
 | **Comandos mortos na chegada** | 5 → **0** (de 946) |
 | Símbolos ausentes restaurados | 4 |
+| Kill-switches que o operador não conseguia acionar | 2 → **0** |
 | Checks estáticos do kernel | 45 vermelhos → **0** |
 
 ## Achados que não eram "gate velho"
