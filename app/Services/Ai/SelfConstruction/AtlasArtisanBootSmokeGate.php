@@ -49,6 +49,20 @@ class AtlasArtisanBootSmokeGate
                 return $this->degradedDifferential('worktree_add_failed');
             }
 
+            // A fresh worktree carries no vendor/ — it is gitignored — so `php artisan
+            // list --raw` fatals on the missing autoloader and the BASELINE always
+            // failed. That made introduced_failure = $baselineOk && ! $snapshotOk
+            // permanently false: this gate could never catch a landing that breaks
+            // boot, which is the only thing it exists to catch. Measured on this repo:
+            // exit 255 without vendor, exit 0 with it linked.
+            //
+            // A symlink, not a copy: the smoke only reads the tree, and copying ~500MB
+            // per landing would cost more than the check is worth.
+            $vendor = $repoRoot.'/vendor';
+            if (is_dir($vendor) && ! file_exists($worktree.'/vendor')) {
+                @symlink($vendor, $worktree.'/vendor');
+            }
+
             $baseline = $this->smoke($worktree);
 
             foreach ($this->normalizeFiles($allowedFiles) as $rel) {
