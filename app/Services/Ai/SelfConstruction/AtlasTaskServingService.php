@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction;
 
+use App\Models\AtlasAaeosTestRunReceipt;
 use App\Models\AtlasDevFailureCapsule;
 use App\Services\Ai\Aemor\AtlasEngineeringOutcomeRecorder;
 use App\Services\Ai\AtlasAobgBlackboardService;
@@ -26,6 +27,7 @@ use App\Services\Ai\SelfConstruction\Governance\AtlasTaskGovernancePolicyPlane;
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskPostLandCanarySentinel;
 use App\Services\Ai\SelfConstruction\TaskServing\AtlasRefactorProofGate;
 use App\Services\Ai\SelfConstruction\VerificationCourt\AtlasVerificationCourtEvidenceContract;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use Closure;
@@ -1766,6 +1768,7 @@ final class AtlasTaskServingService
                 isset($verification['execution_evidence']['tests_run'])
                     ? 'tests_run:'.(int) $verification['execution_evidence']['tests_run']
                     : null,
+                $this->serverTestRunReceiptRef($taskPacketId, $verification),
             ]));
 
             if ($evidenceRefs === []) {
@@ -1802,6 +1805,63 @@ final class AtlasTaskServingService
                     ? 'Server-verified scoped Autônomos landings compound when decision receipt and evidence refs stay attached.'
                     : '',
             ]);
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    /**
+     * A1 — the ONLY resolvable proof of a green suite this producer can emit.
+     *
+     * `tests_run:51` is an un-resolvable counter: AEMOR's resolver requires a UUID
+     * (resolveGreenTestRunReceiptRef → Str::isUuid), so every outcome this producer
+     * ever closed fell back to `provenance=caller_claim` and the false-learning gate
+     * blocked it on `success_without_test_or_gate_evidence`.
+     *
+     * The receipt is minted ONLY from `test_attestation`, which nothing but the
+     * server-side AtlasTaskCommitVerificationGate writes — it executed the suite
+     * itself (`php artisan test <task-owned test files>`) and pinned the result to a
+     * tree hash of the task's changed files. The muscle's self-reported counters
+     * (payload.evidence.tests_run) are merged into execution_evidence elsewhere and
+     * are deliberately NOT a mint source: author must never be judge.
+     */
+    private function serverTestRunReceiptRef(string $taskPacketId, ?array $verification): ?string
+    {
+        $attestation = data_get($verification, 'test_attestation')
+            ?? data_get($verification, 'execution_evidence.test_attestation');
+        if (! is_array($attestation) || ($attestation['status'] ?? '') !== 'valid') {
+            return null;
+        }
+        if ((int) ($attestation['exit_code'] ?? 1) !== 0 || (int) ($attestation['n_tests'] ?? 0) < 1) {
+            return null;
+        }
+        if (! DatabaseTableAvailability::has('atlas_aaeos_test_run_receipts')) {
+            return null;
+        }
+
+        try {
+            $receipt = AtlasAaeosTestRunReceipt::query()->create([
+                'capability_id' => 'autonomos.task.'.$taskPacketId,
+                'test_ref' => implode(',', array_map('strval', (array) ($attestation['suite'] ?? []))),
+                'filter' => 'task:'.$taskPacketId,
+                'passed' => true,
+                'tests_run' => (int) $attestation['n_tests'],
+                'exit_code' => 0,
+                'metadata' => [
+                    // Server-side attribution: the suite is this task's OWN declared test
+                    // files and the run is pinned to the tree hash of its changed files.
+                    'attribution_reviewed' => true,
+                    'attribution_basis' => 'task_owned_suite_pinned_to_tree_hash',
+                    'source' => 'atlas_task_commit_verification_gate',
+                    'runner' => (string) ($attestation['runner'] ?? ''),
+                    'tree_hash' => (string) ($attestation['tree_hash'] ?? ''),
+                    'assertions' => (int) ($attestation['n_assertions'] ?? 0),
+                    'task_packet_id' => $taskPacketId,
+                ],
+                'ran_at' => now(),
+            ]);
+
+            return 'test_run_receipt:'.$receipt->id;
         } catch (Throwable) {
             return null;
         }
