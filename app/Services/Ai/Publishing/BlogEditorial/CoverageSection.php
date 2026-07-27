@@ -273,6 +273,7 @@ final class CoverageSection
         foreach ($publishedBySlug as $slug => $publishedPost) {
             if (isset($plannedBySlug[$slug])) {
                 $plannedPublished[] = $this->publishedPostSummary($publishedPost, $plannedBySlug[$slug]);
+
                 continue;
             }
 
@@ -287,8 +288,8 @@ final class CoverageSection
             'status' => 'ready',
             'planned_published_count' => count($plannedPublished),
             'external_published_count' => count($externalPublished),
-            'external_by_kind' => $this->countPublishedByField($externalPublished, 'kind'),
-            'external_by_collection' => $this->countPublishedByField($externalPublished, 'collection'),
+            'external_by_kind' => $this->countByField($externalPublished, 'kind'),
+            'external_by_collection' => $this->countByField($externalPublished, 'collection'),
             'planned_published' => array_values($plannedPublished),
             'external_published' => array_values($externalPublished),
             'bridge_candidates' => $this->archiveBridgeCandidates($posts, $externalPublished),
@@ -398,21 +399,6 @@ final class CoverageSection
      * @param  array<int,array<string,mixed>>  $posts
      * @return array<string,int>
      */
-    public function countPublishedByField(array $posts, string $field): array
-    {
-        $counts = [];
-        foreach ($posts as $post) {
-            $value = (string) ($post[$field] ?? '');
-            if ($value === '') {
-                $value = 'unknown';
-            }
-            $counts[$value] = ($counts[$value] ?? 0) + 1;
-        }
-
-        ksort($counts);
-
-        return $counts;
-    }
 
     /**
      * @param  array<string,bool>  $plannedSet

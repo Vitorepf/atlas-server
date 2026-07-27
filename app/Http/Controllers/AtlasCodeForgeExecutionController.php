@@ -8,20 +8,23 @@ use App\Http\Controllers\Support\ForgeExecutionStageSupport;
 use App\Jobs\AtlasCodeForgeLiveExecutionJob;
 use App\Models\AtlasEngineeringEvidence;
 use App\Models\AtlasEngineeringRun;
-use App\Models\AtlasProgrammingWorkItem;
 use App\Models\AtlasProject;
+use App\Services\Ai\DualCore\CanonicalRouteDecisionEnvelope;
 use App\Services\Ai\DualCore\ForgeIntakeRouteDecisionRecorder;
 use App\Services\Ai\Programming\AtlasForgeGovernedExecutionService;
 use App\Services\Ai\Programming\AtlasForgeLiveExecutionService;
+use App\Services\Ai\Programming\AtlasForgeProviderInvocationService;
+use App\Services\Ai\Programming\AtlasForgeRuntimeDispatchService;
 use App\Services\Ai\Programming\Forge\ForgeIntakeService;
 use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;
+use App\Services\Ai\Programming\ProgrammingWorkItemContractSupport;
 use App\Services\Ai\Support\AiStringListNormalizer;
+use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Support\YesNo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
 use Throwable;
-use App\Support\YesNo;
 
 /**
  * Atlas Code -> Forge Live Execution bridge.
@@ -118,13 +121,13 @@ final class AtlasCodeForgeExecutionController extends Controller
             ? $data['role']
             : 'primary_builder';
 
-        $dispatch = app(\App\Services\Ai\Programming\AtlasForgeRuntimeDispatchService::class)->dispatch([
+        $dispatch = app(AtlasForgeRuntimeDispatchService::class)->dispatch([
             'obra_id' => (string) $project->getKey(),
             'role' => $role,
             'execution_mode' => 'prepare_dispatch_plan',
         ]);
 
-        if ((string) ($dispatch['status'] ?? 'blocked') !== \App\Services\Ai\Programming\AtlasForgeRuntimeDispatchService::STATUS_DISPATCH_PLANNED) {
+        if ((string) ($dispatch['status'] ?? 'blocked') !== AtlasForgeRuntimeDispatchService::STATUS_DISPATCH_PLANNED) {
             return [
                 'schema_version' => 'atlas.code.forge_cockpit_real_invocation.v1',
                 'execution_path' => 'real_governed_chain',
@@ -137,12 +140,12 @@ final class AtlasCodeForgeExecutionController extends Controller
             ];
         }
 
-        $invocation = app(\App\Services\Ai\Programming\AtlasForgeProviderInvocationService::class)->invoke([
+        $invocation = app(AtlasForgeProviderInvocationService::class)->invoke([
             'obra_id' => (string) $project->getKey(),
             'role' => $role,
             'mode' => (bool) ($data['execute'] ?? false)
-                ? \App\Services\Ai\Programming\AtlasForgeProviderInvocationService::MODE_EXECUTE
-                : \App\Services\Ai\Programming\AtlasForgeProviderInvocationService::MODE_DRY_RUN,
+                ? AtlasForgeProviderInvocationService::MODE_EXECUTE
+                : AtlasForgeProviderInvocationService::MODE_DRY_RUN,
             'confirm_provider_call' => (bool) ($data['confirm_provider_call'] ?? false),
             'confirm_budget' => (bool) ($data['confirm_budget'] ?? false),
             'confirm_runtime_dispatch' => (bool) ($data['confirm_runtime_dispatch'] ?? false),
@@ -293,8 +296,8 @@ final class AtlasCodeForgeExecutionController extends Controller
             'snapshot' => $snapshot,
             'snapshot_available' => $snapshot !== null,
             'review' => $this->reviewForHistoryId($project, $historyId),
-        'route_decision' => \App\Services\Ai\DualCore\CanonicalRouteDecisionEnvelope::emit(route: 'programming', reason: 'http_atlas_code_forge_execution_controller'),
-    ]);
+            'route_decision' => CanonicalRouteDecisionEnvelope::emit(route: 'programming', reason: 'http_atlas_code_forge_execution_controller'),
+        ]);
     }
 
     public function executeAsyncJob(
@@ -473,7 +476,7 @@ final class AtlasCodeForgeExecutionController extends Controller
             return $governedFeedback;
         }
 
-        $workItem = $this->programmingWorkItemForProject($project);
+        $workItem = ProgrammingWorkItemContractSupport::existingWorkItem($project);
         if (! $workItem) {
             return null;
         }
@@ -512,7 +515,7 @@ final class AtlasCodeForgeExecutionController extends Controller
      */
     private function governedExecutionForProject(AtlasProject $project): ?array
     {
-        $workItem = $this->programmingWorkItemForProject($project);
+        $workItem = ProgrammingWorkItemContractSupport::existingWorkItem($project);
         if (! $workItem || (array) $workItem->tasks_json === []) {
             return null;
         }
@@ -607,7 +610,7 @@ final class AtlasCodeForgeExecutionController extends Controller
             return null;
         }
 
-        $workItem = $this->programmingWorkItemForProject($project);
+        $workItem = ProgrammingWorkItemContractSupport::existingWorkItem($project);
         if (! $workItem) {
             return null;
         }
@@ -648,45 +651,6 @@ final class AtlasCodeForgeExecutionController extends Controller
             'plan_hash' => $workItem->plan_hash,
             'spec_hash' => $workItem->spec_hash,
         ];
-    }
-
-    private function programmingWorkItemForProject(AtlasProject $project): ?AtlasProgrammingWorkItem
-    {
-        $metadata = is_array($project->metadata) ? $project->metadata : [];
-        $id = (string) data_get($metadata, 'programming_work_item_id', '');
-        if ($id !== '') {
-            $item = AtlasProgrammingWorkItem::query()->where('id', $id)->first();
-            if ($item) {
-                return $item;
-            }
-        }
-
-        $code = (string) data_get($metadata, 'programming_work_item_code', '');
-        if ($code !== '') {
-            $item = AtlasProgrammingWorkItem::query()->where('code', $code)->first();
-            if ($item) {
-                return $item;
-            }
-        }
-
-        $projectId = (string) $project->getKey();
-        $workspace = trim((string) data_get($metadata, 'workspace_path', ''));
-
-        return AtlasProgrammingWorkItem::query()
-            ->orderByDesc('updated_at')
-            ->orderByDesc('created_at')
-            ->limit(50)
-            ->get()
-            ->first(function (AtlasProgrammingWorkItem $item) use ($projectId, $workspace): bool {
-                $itemMetadata = is_array($item->metadata_json) ? $item->metadata_json : [];
-                if ((string) data_get($itemMetadata, 'obra_id', '') === $projectId
-                    || (string) data_get($itemMetadata, 'atlas_project_id', '') === $projectId
-                ) {
-                    return true;
-                }
-
-                return $workspace !== '' && trim((string) ($item->workspace ?? '')) === $workspace;
-            });
     }
 
     /**
