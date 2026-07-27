@@ -19,12 +19,19 @@ final class AutonomosPreflightService
     public const SCHEMA = 'atlas.autonomos.preflight.v1';
 
     public const CHECK_CONSTITUTION_GATE = 'constitution_gate_alive';
+
     public const CHECK_ADMISSION_CHOKE = 'admission_chokepoint_clean';
+
     public const CHECK_IMMUNE_LEDGERS = 'immune_ledgers_test_isolated';
+
     public const CHECK_SEED_GATE = 'seed_gate_active';
+
     public const CHECK_LEASES_REAP = 'leases_reaped_and_giveback';
+
     public const CHECK_COMMITTER_SMOKE = 'scoped_committer_boot_smoke';
+
     public const CHECK_OUTC_SPINE = 'outc01_spine_wired';
+
     public const CHECK_TASK_REPAIR = 'task_repair_command_ready';
 
     private const CHECK_ORDER = [
@@ -161,13 +168,26 @@ final class AutonomosPreflightService
         return $this->guarded(
             'atlas:brain:seed gate-and-enqueue is active',
             function (): array {
-                $configured = config('atlas.autonomos.seed_gate_enabled', true);
-                $pass = $configured !== false;
+                // This read used to be config($key, true) with the key declared
+                // NOWHERE, so it always resolved to the default and $pass was true
+                // on every run: a preflight check that could not fail. Ask whether
+                // the key exists before trusting its value — an absent switch is an
+                // unknown, not an approval.
+                $key = 'atlas.autonomos.seed_gate_enabled';
+                if (! config()->has($key)) {
+                    return [
+                        'pass' => false,
+                        'reason' => 'seed_gate_config_key_missing',
+                        'config_key' => $key,
+                    ];
+                }
+
+                $pass = config($key) !== false;
 
                 return [
-                    'pass' => (bool) $pass,
+                    'pass' => $pass,
                     'reason' => $pass ? 'seed_gate_config_enabled' : 'seed_gate_config_disabled',
-                    'config_key' => 'atlas.autonomos.seed_gate_enabled',
+                    'config_key' => $key,
                 ];
             },
         );

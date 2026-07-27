@@ -1144,6 +1144,15 @@ return [
         'finding_min_gain_fraction' => (float) env('ATLAS_REPORT_FINDING_MIN_GAIN', 0.35),
     ],
 
+    // Autônomos (live: atlas:brain:* / atlas:task:*). AutonomosPreflightService read
+    // atlas.autonomos.seed_gate_enabled with a `true` default while the key existed
+    // nowhere, so its seed-gate check resolved to that default on every run and could
+    // not fail. Declared here, at the top level the reader actually asks for, so the
+    // switch is real and an operator flip reaches the preflight.
+    'autonomos' => [
+        'seed_gate_enabled' => (bool) env('ATLAS_AUTONOMOS_SEED_GATE_ENABLED', true),
+    ],
+
     'ai' => [
         'enabled' => (bool) env('ATLAS_AI_ENABLED', true),
 
