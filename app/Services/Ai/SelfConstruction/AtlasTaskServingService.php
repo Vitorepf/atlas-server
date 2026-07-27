@@ -1811,7 +1811,7 @@ final class AtlasTaskServingService
     }
 
     /**
-     * A1 — the ONLY resolvable proof of a green suite this producer can emit.
+     * The ONLY resolvable proof of a green suite this producer can emit.
      *
      * `tests_run:51` is an un-resolvable counter: AEMOR's resolver requires a UUID
      * (resolveGreenTestRunReceiptRef → Str::isUuid), so every outcome this producer

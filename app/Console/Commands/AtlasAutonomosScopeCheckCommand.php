@@ -9,7 +9,7 @@ use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneScopeLockRunt
 use Illuminate\Console\Command;
 
 /**
- * A3 — answers, for a path, the one question the Autônomo cannot ask today:
+ * Answers, for a path, the one question the Autônomo cannot ask today:
  * "can I even touch this?"
  *
  * FORBIDDEN_AXES values are PREFIXES, not paths — `cartografia/` blocks
