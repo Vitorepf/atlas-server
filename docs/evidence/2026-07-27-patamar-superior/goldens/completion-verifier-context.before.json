@@ -1,0 +1,97 @@
+{
+    "human_gate": {
+        "full": {
+            "completion_audit_hash": "sha256:audit-golden",
+            "release_dossier_hash": "sha256:release",
+            "replay_diff_hash": "sha256:replay",
+            "runtime_gap_matrix_hash": "sha256:rgm-from-evidence",
+            "runtime_promotion_receipt_hash": "sha256:promotion",
+            "real_provider_smoke_hash": "sha256:smoke-from-evidence",
+            "certification_status_batch_hash": "sha256:batch"
+        },
+        "empty_audit": {
+            "completion_audit_hash": "",
+            "release_dossier_hash": "",
+            "replay_diff_hash": "",
+            "runtime_gap_matrix_hash": "sha256:rgm-from-evidence",
+            "runtime_promotion_receipt_hash": "sha256:promotion",
+            "real_provider_smoke_hash": "sha256:smoke-from-evidence",
+            "certification_status_batch_hash": ""
+        },
+        "empty_evidence": {
+            "completion_audit_hash": "sha256:audit-golden",
+            "release_dossier_hash": "sha256:release",
+            "replay_diff_hash": "sha256:replay",
+            "runtime_gap_matrix_hash": "sha256:rgm-from-criterion",
+            "runtime_promotion_receipt_hash": "",
+            "real_provider_smoke_hash": "sha256:smoke-from-criterion",
+            "certification_status_batch_hash": "sha256:batch"
+        },
+        "criterion_fallback": {
+            "completion_audit_hash": "sha256:audit-golden",
+            "release_dossier_hash": "sha256:release",
+            "replay_diff_hash": "sha256:replay",
+            "runtime_gap_matrix_hash": "sha256:rgm-from-criterion",
+            "runtime_promotion_receipt_hash": "",
+            "real_provider_smoke_hash": "sha256:smoke-from-criterion",
+            "certification_status_batch_hash": "sha256:batch"
+        },
+        "both_empty": {
+            "completion_audit_hash": "",
+            "release_dossier_hash": "",
+            "replay_diff_hash": "",
+            "runtime_gap_matrix_hash": "",
+            "runtime_promotion_receipt_hash": "",
+            "real_provider_smoke_hash": "",
+            "certification_status_batch_hash": ""
+        }
+    },
+    "closure_pack": {
+        "full": {
+            "completion_audit_hash": "sha256:audit-golden",
+            "release_dossier_hash": "sha256:release",
+            "replay_diff_hash": "sha256:replay",
+            "runtime_gap_matrix_hash": "sha256:rgm-from-evidence",
+            "runtime_promotion_receipt_hash": "sha256:promotion",
+            "real_provider_smoke_hash": "sha256:smoke-from-evidence",
+            "certification_status_batch_hash": "sha256:batch"
+        },
+        "empty_audit": {
+            "completion_audit_hash": "",
+            "release_dossier_hash": "",
+            "replay_diff_hash": "",
+            "runtime_gap_matrix_hash": "sha256:rgm-from-evidence",
+            "runtime_promotion_receipt_hash": "sha256:promotion",
+            "real_provider_smoke_hash": "sha256:smoke-from-evidence",
+            "certification_status_batch_hash": ""
+        },
+        "empty_evidence": {
+            "completion_audit_hash": "sha256:audit-golden",
+            "release_dossier_hash": "sha256:release",
+            "replay_diff_hash": "sha256:replay",
+            "runtime_gap_matrix_hash": "sha256:rgm-from-criterion",
+            "runtime_promotion_receipt_hash": "",
+            "real_provider_smoke_hash": "sha256:smoke-from-criterion",
+            "certification_status_batch_hash": "sha256:batch"
+        },
+        "criterion_fallback": {
+            "completion_audit_hash": "sha256:audit-golden",
+            "release_dossier_hash": "sha256:release",
+            "replay_diff_hash": "sha256:replay",
+            "runtime_gap_matrix_hash": "sha256:rgm-from-criterion",
+            "runtime_promotion_receipt_hash": "",
+            "real_provider_smoke_hash": "sha256:smoke-from-criterion",
+            "certification_status_batch_hash": "sha256:batch"
+        },
+        "both_empty": {
+            "completion_audit_hash": "",
+            "release_dossier_hash": "",
+            "replay_diff_hash": "",
+            "runtime_gap_matrix_hash": "",
+            "runtime_promotion_receipt_hash": "",
+            "real_provider_smoke_hash": "",
+            "certification_status_batch_hash": ""
+        }
+    },
+    "_owner": "human_gate"
+}

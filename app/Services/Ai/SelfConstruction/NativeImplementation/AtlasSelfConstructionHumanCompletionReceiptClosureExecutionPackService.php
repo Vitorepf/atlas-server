@@ -2,13 +2,10 @@
 
 namespace App\Services\Ai\SelfConstruction\NativeImplementation;
 
-
-
 use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
+use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
+use App\Services\Ai\SelfConstruction\Support\CompletionVerifierContextSupport;
 use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
-use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\Storage;
-
 /**
  * Closes the Atlas Self-Construction blocker
  *   `human_signed_os_complete_receipt_present`
@@ -25,14 +22,13 @@ use Illuminate\Support\Facades\Storage;
  *   - calls a provider, spends tokens or dispatches work;
  *   - mutates Atlas state in any way.
  */
-use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Storage;
 
 final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackService
 {
-    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
-
     use KsortsArraysByReference;
-
+    use RecursivelyKsortsArrays { recursivelyKsort as ksortRecursive; }
 
     /**
      * @param  array<string,mixed>  $value
@@ -110,7 +106,7 @@ final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackServi
         $failedCriteria = (array) data_get($completionAudit, 'failed_criteria', []);
 
         $receiptProvided = $receiptInput !== [];
-        $verifierContext = $this->verifierContext($completionAudit, $completionEvidence);
+        $verifierContext = CompletionVerifierContextSupport::verifierContext($completionAudit, $completionEvidence);
         $verificationResult = (new AtlasSelfConstructionHumanCompletionReceiptPreSubmissionVerifierService)
             ->verify($receiptInput, $verifierContext + ['prerequisites' => $prereqs]);
 
@@ -309,35 +305,6 @@ final class AtlasSelfConstructionHumanCompletionReceiptClosureExecutionPackServi
      * @param  array<string, mixed>  $completionEvidence
      * @return array<string, string>
      */
-    private function verifierContext(array $completionAudit, array $completionEvidence): array
-    {
-        $criterion = function (string $id) use ($completionAudit): array {
-            foreach ((array) data_get($completionAudit, 'criteria', []) as $row) {
-                if ((string) ($row['id'] ?? '') === $id) {
-                    return (array) $row;
-                }
-            }
-
-            return [];
-        };
-
-        $runtime = $criterion('runtime_gap_matrix_all_runtime_y');
-        $release = $criterion('release_dossier_green');
-        $replay = $criterion('replay_diff_against_completion_snapshot_green');
-        $smoke = $criterion('end_to_end_real_provider_smoke_green');
-        $batch = $criterion('certification_status_batch_green');
-
-        return [
-            'completion_audit_hash' => (string) data_get($completionAudit, 'completion_audit_hash', ''),
-            'release_dossier_hash' => (string) data_get($release, 'evidence.hash', ''),
-            'replay_diff_hash' => (string) data_get($replay, 'evidence.diff_hash', ''),
-            'runtime_gap_matrix_hash' => (string) data_get($completionEvidence, 'runtime_gap_matrix.runtime_gap_matrix_hash', data_get($runtime, 'evidence.runtime_gap_matrix_hash', '')),
-            'runtime_promotion_receipt_hash' => (string) data_get($completionEvidence, 'runtime_gap_matrix.runtime_promotion_receipt.receipt_hash', ''),
-            'real_provider_smoke_hash' => (string) data_get($completionEvidence, 'real_provider_smoke.smoke_hash', data_get($smoke, 'evidence.smoke_hash', '')),
-            'certification_status_batch_hash' => (string) data_get($batch, 'evidence.hash', data_get($completionAudit, 'operator_action_packet.human_completion_receipt_template.certification_status_batch_hash', '')),
-        ];
-    }
-
     /**
      * @param  array<string, string>  $context
      * @return array<string, mixed>
