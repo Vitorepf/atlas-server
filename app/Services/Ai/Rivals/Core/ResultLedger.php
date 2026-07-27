@@ -93,7 +93,15 @@ class ResultLedger
             $entry['entry_hash'] = self::hashEntry($entry);
 
             fseek($handle, 0, SEEK_END);
-            fwrite($handle, json_encode($entry, JSON_UNESCAPED_SLASHES).PHP_EOL);
+            // Same flags the hash uses. Without JSON_PRESERVE_ZERO_FRACTION a
+            // whole-number float (0.0, 1.0 — every saturated success_rate and
+            // Wilson bound) persisted as `0`/`1`, read back as int, and
+            // recomputed to a different digest. The chain links stayed intact,
+            // so it looked like tampering; it was the ledger corrupting its own
+            // evidence on write. 98 of 279 live entries fail verification for
+            // exactly this reason — all of them adjudications, the only entry
+            // type carrying statistical_analysis.
+            fwrite($handle, json_encode($entry, JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION).PHP_EOL);
             fflush($handle);
             if (function_exists('fsync')) {
                 fsync($handle);
