@@ -13,7 +13,6 @@ use App\Services\Engineering\EngineeringKnowledgeBaseService;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
 use SplFileInfo;
-use App\Support\YesNo;
 
 class AtlasFeaturePlacementService
 {

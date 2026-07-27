@@ -21,7 +21,7 @@ final class ReviewMergePart12SubSection
     public function __construct(
         private readonly AtlasSelfConstructionReadinessService $parent,
     ) {}
-    
+
     /**
      * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
      * @return array<string, mixed>
@@ -31,7 +31,7 @@ final class ReviewMergePart12SubSection
         $reviewPayload = $this->parent->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationRepairReviewTemplate($options);
         $repairReview = (array) data_get($reviewPayload, 'disable_execution_later_cycle_authorization_repair_review', []);
         $reviewReady = data_get($reviewPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_repair_review_template_ready';
-    
+
         $requiredRejectionFields = [
             'later_cycle_authorization_repair_review_hash',
             'selected_repair_review_outcome',
@@ -49,7 +49,7 @@ final class ReviewMergePart12SubSection
             'non_signature_authority_statement',
             'non_execution_statement',
         ];
-    
+
         $persistenceRejection = [
             'disable_execution_later_cycle_authorization_persistence_rejection_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-PERSISTENCE-REJECTION-TEMPLATE-SELF-CONSTRUCTION-0001',
             'workspace' => data_get($repairReview, 'workspace'),
@@ -140,7 +140,7 @@ final class ReviewMergePart12SubSection
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
         ];
-    
+
         return [
             'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template.v1',
             'status' => $reviewReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_blocked',
@@ -184,7 +184,7 @@ final class ReviewMergePart12SubSection
                 : 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization persistence rejection template is blocked until fresh authorization new-cycle disable execution later-cycle authorization repair review template is ready.',
         ];
     }
-    
+
     /**
      * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null}  $options
      * @return array<string, mixed>
@@ -194,7 +194,7 @@ final class ReviewMergePart12SubSection
         $rejectionPayload = $this->parent->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationPersistenceRejectionTemplate($options);
         $persistenceRejection = (array) data_get($rejectionPayload, 'disable_execution_later_cycle_authorization_persistence_rejection', []);
         $rejectionReady = data_get($rejectionPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_persistence_rejection_template_ready';
-    
+
         $requiredEscalationFields = [
             'later_cycle_authorization_persistence_rejection_hash',
             'persistence_rejection_rationale',
@@ -211,7 +211,7 @@ final class ReviewMergePart12SubSection
             'escalation_actor_identity',
             'escalation_actor_provider',
         ];
-    
+
         $humanEscalation = [
             'disable_execution_later_cycle_authorization_human_escalation_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-HUMAN-ESCALATION-TEMPLATE-SELF-CONSTRUCTION-0001',
             'workspace' => data_get($persistenceRejection, 'workspace'),
@@ -305,7 +305,7 @@ final class ReviewMergePart12SubSection
             'human_notified' => false,
             'human_task_created' => false,
         ];
-    
+
         return [
             'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template.v1',
             'status' => $rejectionReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_blocked',
@@ -353,7 +353,7 @@ final class ReviewMergePart12SubSection
                 : 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization human escalation template is blocked until fresh authorization new-cycle disable execution later-cycle authorization persistence rejection template is ready.',
         ];
     }
-    
+
     /**
      * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null}  $options
      * @return array<string, mixed>
@@ -363,7 +363,7 @@ final class ReviewMergePart12SubSection
         $escalationPayload = $this->parent->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationHumanEscalationTemplate($options);
         $humanEscalation = (array) data_get($escalationPayload, 'disable_execution_later_cycle_authorization_human_escalation', []);
         $escalationReady = data_get($escalationPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_human_escalation_template_ready';
-    
+
         $requiredDecisionRequestFields = [
             'later_cycle_authorization_human_escalation_hash',
             'required_human_role',
@@ -381,7 +381,7 @@ final class ReviewMergePart12SubSection
             'request_actor_identity',
             'request_actor_provider',
         ];
-    
+
         $manualDecisionRequest = [
             'disable_execution_later_cycle_authorization_manual_decision_request_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-MANUAL-DECISION-REQUEST-TEMPLATE-SELF-CONSTRUCTION-0001',
             'workspace' => data_get($humanEscalation, 'workspace'),
@@ -480,7 +480,7 @@ final class ReviewMergePart12SubSection
             'human_task_created' => false,
             'manual_decision_requested' => false,
         ];
-    
+
         return [
             'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template.v1',
             'status' => $escalationReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_manual_decision_request_template_blocked',

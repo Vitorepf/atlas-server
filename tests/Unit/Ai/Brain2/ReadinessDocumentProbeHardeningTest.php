@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\Brain2;
 
 use PHPUnit\Framework\TestCase;
-use App\Services\Ai\SelfConstruction\Support\ReadinessDocumentProbe;
 
 final class ReadinessDocumentProbeHardeningTest extends TestCase
 {

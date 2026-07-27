@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\Maestro\Tiering;
 
-
 use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use App\Services\Ai\SelfConstruction\Support\UsesUtcClock;
 

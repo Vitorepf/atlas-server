@@ -2,7 +2,6 @@
 
 namespace App\Services\Engineering\CodeGraph;
 
-
 /**
  * TYPE-AWARE method->method CALL edges for the code graph (AP-811/812, densifying pass).
  *

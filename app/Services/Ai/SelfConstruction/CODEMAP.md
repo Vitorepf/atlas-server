@@ -195,7 +195,6 @@ The target is the first public entry method — the door, not the whole surface.
 | AtlasMaestroPacketAgeFactReporter | `App\Services\Ai\SelfConstruction\Maestro\Decay\AtlasMaestroPacketAgeFactReporter::report` |
 | AtlasMaestroPacketClassifier | `App\Services\Ai\SelfConstruction\Maestro\MultiProvider\AtlasMaestroPacketClassifier::classify` |
 | AtlasMaestroPacketDecayPolicy | `App\Services\Ai\SelfConstruction\Maestro\Decay\AtlasMaestroPacketDecayPolicy::propose` |
-| AtlasMaestroPacketProvenanceComposer | `App\Services\Ai\SelfConstruction\Maestro\Provenance\AtlasMaestroPacketProvenanceComposer::composeContentHash` |
 | AtlasMaestroPacketProvenanceReceiptLedger | `App\Services\Ai\SelfConstruction\Maestro\Provenance\AtlasMaestroPacketProvenanceReceiptLedger::append` |
 | AtlasMaestroPacketProvenanceVerifier | `App\Services\Ai\SelfConstruction\Maestro\Provenance\AtlasMaestroPacketProvenanceVerifier::verify` |
 | AtlasMaestroPacketReshaper | `App\Services\Ai\SelfConstruction\Maestro\Adaptive\AtlasMaestroPacketReshaper::propose` |
@@ -297,7 +296,6 @@ The target is the first public entry method — the door, not the whole surface.
 | AtlasSelfConstructionNativePatchPlanner | `App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionNativePatchPlanner::plan` |
 | AtlasSelfConstructionNativePatchRollbackRunner | `App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionNativePatchRollbackRunner::rollback` |
 | AtlasSelfConstructionNativePostApplyVerifier | `App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionNativePostApplyVerifier::verify` |
-| AtlasSelfConstructionNativeReplenisherEnqueueRunner | `App\Services\Ai\SelfConstruction\Replenisher\AtlasSelfConstructionNativeReplenisherEnqueueRunner::run` |
 | AtlasSelfConstructionNativeReplenisherFrontierContract | `App\Services\Ai\SelfConstruction\Replenisher\AtlasSelfConstructionNativeReplenisherFrontierContract::normalize` |
 | AtlasSelfConstructionNativeReplenisherPreflight | `App\Services\Ai\SelfConstruction\Replenisher\AtlasSelfConstructionNativeReplenisherPreflight::preflight` |
 | AtlasSelfConstructionNativeScopedPatchApplyRunner | `App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionNativeScopedPatchApplyRunner::apply` |
@@ -378,8 +376,6 @@ The target is the first public entry method — the door, not the whole surface.
 | AtlasVerificationCourtVerdictLedger | `App\Services\Ai\SelfConstruction\VerificationCourt\AtlasVerificationCourtVerdictLedger::append` |
 | AutonomosAutoApplyPreflightService | `App\Services\Ai\SelfConstruction\AutonomosAutoApplyPreflightService::preflight` |
 | AutonomosPreflightService | `App\Services\Ai\SelfConstruction\AutonomosPreflightService::preflight` |
-| BidArbitrationVerdict | `App\Services\Ai\SelfConstruction\Maestro\ProviderNegotiation\BidArbitrationVerdict::toArray` |
-| BidSet | `App\Services\Ai\SelfConstruction\Maestro\ProviderNegotiation\BidSet::toArray` |
 | DialogueLedgerEvent | `App\Services\Ai\SelfConstruction\Quaternity\DialogueToPackets\DialogueLedgerEvent::canonicalBody` |
 | NoEligibleProviderVerdict | `App\Services\Ai\SelfConstruction\Maestro\ProviderNegotiation\NoEligibleProviderVerdict::toArray` |
 | ProposedPacketShape | `App\Services\Ai\SelfConstruction\Quaternity\DialogueToPackets\ProposedPacketShape::toArray` |
@@ -388,4 +384,4 @@ The target is the first public entry method — the door, not the whole surface.
 | TaskEnvelope | `App\Services\Ai\SelfConstruction\Maestro\ProviderNegotiation\TaskEnvelope::toArray` |
 | TaskOutcomeLearningCandidate | `App\Services\Ai\SelfConstruction\TaskOutcomeLearningCandidate::from` |
 
-Façades: 378.
+Façades: 374.

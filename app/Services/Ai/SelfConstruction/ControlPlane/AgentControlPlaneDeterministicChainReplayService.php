@@ -6,7 +6,6 @@ use App\Services\Ai\SelfConstruction\Support\HashesKsortedPayloadCanonically;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
-
 /**
  * Deterministic replay of the Agent Control Plane chain integrity certification.
  *

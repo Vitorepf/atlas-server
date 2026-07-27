@@ -54,6 +54,6 @@ final class AtlasAcosWatchdogServiceProvider extends ServiceProvider
         ] as $checkClass) {
             $registry->register(app($checkClass));
         }
-    
+
     }
 }

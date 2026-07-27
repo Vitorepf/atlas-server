@@ -6,7 +6,6 @@ use App\Models\AtlasEngineeringEvidence;
 use App\Models\AtlasProgrammingWorkItem;
 use App\Services\Ai\Programming\Governance\Gates\ProgrammingCodeIntelligenceGate;
 use App\Services\Ai\Programming\Governance\Gates\ProgrammingEvidenceGate;
-use App\Services\Ai\Programming\Governance\Gates\ProgrammingGateContract;
 use App\Services\Ai\Programming\Governance\ProgrammingEvidenceLedger;
 use App\Services\Ai\Programming\Governance\ProgrammingGateRunner;
 use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;

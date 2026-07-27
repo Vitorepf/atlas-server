@@ -7,7 +7,6 @@ use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;
 use App\Services\Ai\Programming\Governance\ProgrammingSpecCompiler;
 use Illuminate\Console\Command;
 use Throwable;
-use App\Support\YesNo;
 
 /**
  * Compile (and optionally critique + attach) a draft spec for a work item

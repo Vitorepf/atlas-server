@@ -16,7 +16,6 @@ use App\Services\Ai\TerminalDev\Tools\TerminalToolHost;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use ReflectionClass;
-use ReflectionMethod;
 use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasTerminalScorecardCommand extends Command

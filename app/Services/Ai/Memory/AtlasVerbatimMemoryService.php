@@ -6,8 +6,6 @@ use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasTask;
 use App\Models\AtlasVerbatimMemory;
-use App\Services\Ai\Memory\AtlasMemorySemanticIndexer;
-use App\Services\Ai\Memory\MemoryQueryInput;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Support\MemoryScopeHelpers;
 use App\Support\AtlasSecurity;

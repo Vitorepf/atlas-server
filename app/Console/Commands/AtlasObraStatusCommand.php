@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Console\Commands\Concerns\ReadsRawStringOption;
-
 use App\Services\Ai\Obra\AtlasObraService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;

@@ -7,7 +7,6 @@ use App\Services\Ai\Memory\MemoryQueryInput;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Support\AtlasSecurity;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Collection;
 
 class AtlasMemoryPrivacyService
 {

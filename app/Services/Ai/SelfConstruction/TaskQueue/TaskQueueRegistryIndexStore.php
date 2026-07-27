@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\TaskQueue;
 
-use App\Services\Ai\SelfConstruction\TaskQueue\TaskPacketCanonicalizer;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Throwable;
 

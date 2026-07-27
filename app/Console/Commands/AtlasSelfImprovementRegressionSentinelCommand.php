@@ -7,7 +7,6 @@ namespace App\Console\Commands;
 use App\Console\Commands\Concerns\ResolvesSilentJsonOption;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementRegressionSentinelService;
 use Illuminate\Console\Command;
-use Throwable;
 
 final class AtlasSelfImprovementRegressionSentinelCommand extends Command
 {

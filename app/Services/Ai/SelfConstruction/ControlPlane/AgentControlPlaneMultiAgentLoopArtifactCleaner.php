@@ -4,11 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\ControlPlane;
 
-use App\Services\Ai\SelfConstruction\MultiAgentLoopCertification\AgentControlPlaneMultiAgentLoopCertificationSafetyPredicates;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskLeaseRecoveryService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTerminalLoopHealthDigestService;
-use Illuminate\Support\Facades\Log;
-
 /**
  * ARTIFACT CLEANER + POST-CLEANUP HEALTH PROBE extracted from the
  * god-class {@see AgentControlPlaneMultiAgentLoopCertificationService}.

@@ -2,7 +2,6 @@
 
 namespace App\Console\Commands;
 
-use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Services\Engineering\EngineeringApiContractService;
 use Illuminate\Console\Command;
 use App\Console\Concerns\EmitsCanonicalJson;

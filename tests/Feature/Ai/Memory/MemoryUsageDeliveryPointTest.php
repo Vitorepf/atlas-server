@@ -10,7 +10,6 @@ use App\Services\Ai\Memory\AtlasHybridMemoryRetrievalService;
 use App\Services\Ai\Memory\AtlasMemoryUsageService;
 use App\Services\Ai\AtlasOpenBrainContextPackService;
 use App\Services\Ai\Compounding\AtlasRagFeedbackService;
-use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 use Tests\Concerns\CreatesAtlasMemoryEntryTable;
 use Tests\TestCase;

@@ -6,7 +6,6 @@ use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
 use App\Models\AtlasMemoryEntryUsage;
 use App\Services\Ai\Memory\MemoryQueryInput;
-use App\Services\Ai\MemoryGovernance\MemoryNearDuplicateDetector;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Support\AtlasSecurity;
 use Illuminate\Database\Eloquent\Builder;

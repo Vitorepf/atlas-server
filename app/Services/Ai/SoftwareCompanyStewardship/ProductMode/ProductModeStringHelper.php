@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\ProductMode;
 
 use App\Support\NonEmptyStringOrFallback;
+
 /**
  * Shared byte-identical helper de-duplicated across this family (nonEmpty).
  */

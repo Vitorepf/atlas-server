@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\Readiness;
 
-use App\Services\Ai\SelfConstruction\Readiness\Codex;
-
 /**
  * AGENT CODEX projection section facade, extracted from the god-class
  * {@see AtlasSelfConstructionReadinessService}.

@@ -2,14 +2,12 @@
 
 namespace App\Services\Ai\SelfConstruction\ControlPlane;
 
-
 use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
 use App\Services\Ai\SelfConstruction\TerminalLoopProof\TerminalLoopProofCanonicalizer;
 use App\Services\Ai\SelfConstruction\TerminalLoopProof\TerminalLoopProofDigestInterpreter;
 use App\Services\Ai\SelfConstruction\TerminalLoopProof\TerminalLoopProofReadinessMatrixBuilder;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
-
 /**
  * Executes one bounded local terminal-loop proof:
  * auto-replenish -> claim/lease -> one-shot worker packet -> structured

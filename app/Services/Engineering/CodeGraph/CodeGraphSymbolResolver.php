@@ -2,7 +2,6 @@
 
 namespace App\Services\Engineering\CodeGraph;
 
-
 /**
  * Symbol-level keystone for the code graph (AP-811, granularity upgrade).
  *

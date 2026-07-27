@@ -145,7 +145,7 @@ final class TerminalHermesBridge
             $timedOut = (bool) data_get($result->metadata ?? [], 'timed_out', false)
                 || str_contains(strtolower((string) ($result->errorMessage ?? '')), 'timeout');
 
-            
+
             if ($text === '' && $result->ok) {
                 $stderr = trim((string) $result->stderr);
                 $text = $stderr !== ''

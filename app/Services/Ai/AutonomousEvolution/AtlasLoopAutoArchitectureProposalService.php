@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
-use App\Services\Ai\Obra\AtlasObraReceiptStamp;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementProposalBacklogService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\ArchitectureEvolutionProposalAdmissionService;
 use Illuminate\Support\Carbon;

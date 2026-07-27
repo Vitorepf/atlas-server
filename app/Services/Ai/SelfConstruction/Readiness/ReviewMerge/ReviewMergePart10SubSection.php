@@ -21,7 +21,7 @@ final class ReviewMergePart10SubSection
     public function __construct(
         private readonly AtlasSelfConstructionReadinessService $parent,
     ) {}
-    
+
     /**
      * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null}  $options
      * @return array<string, mixed>
@@ -31,7 +31,7 @@ final class ReviewMergePart10SubSection
         $outcomePayload = $this->parent->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionRepairOutcomePacketTemplate($options);
         $repairOutcome = (array) data_get($outcomePayload, 'disable_execution_repair_outcome_packet', []);
         $outcomeReady = data_get($outcomePayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_repair_outcome_packet_template_ready';
-    
+
         $requiredRequestFields = [
             'repair_outcome_packet_hash',
             'selected_repair_review_outcome',
@@ -49,7 +49,7 @@ final class ReviewMergePart10SubSection
             'non_execution_statement',
             'non_authorization_statement',
         ];
-    
+
         $laterCycleRequest = [
             'disable_execution_later_cycle_request_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-REQUEST-TEMPLATE-SELF-CONSTRUCTION-0001',
             'workspace' => data_get($repairOutcome, 'workspace'),
@@ -122,7 +122,7 @@ final class ReviewMergePart10SubSection
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
         ];
-    
+
         return [
             'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template.v1',
             'status' => $outcomeReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template_blocked',
@@ -163,7 +163,7 @@ final class ReviewMergePart10SubSection
                 : 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle request template is blocked until fresh authorization new-cycle disable execution repair outcome packet template is ready.',
         ];
     }
-    
+
     /**
      * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null}  $options
      * @return array<string, mixed>
@@ -173,7 +173,7 @@ final class ReviewMergePart10SubSection
         $requestPayload = $this->parent->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleRequestTemplate($options);
         $laterCycleRequest = (array) data_get($requestPayload, 'disable_execution_later_cycle_request', []);
         $requestReady = data_get($requestPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_request_template_ready';
-    
+
         $preflightChecks = [
             'later_cycle_request_hash_present',
             'repair_outcome_packet_hash_present',
@@ -193,7 +193,7 @@ final class ReviewMergePart10SubSection
             'no_ledger_or_receipt_persistence_allowed',
             'no_writer_state_mutation_allowed',
         ];
-    
+
         $laterCyclePreflight = [
             'disable_execution_later_cycle_preflight_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-PREFLIGHT-TEMPLATE-SELF-CONSTRUCTION-0001',
             'workspace' => data_get($laterCycleRequest, 'workspace'),
@@ -280,7 +280,7 @@ final class ReviewMergePart10SubSection
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
         ];
-    
+
         return [
             'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template.v1',
             'status' => $requestReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template_blocked',
@@ -321,7 +321,7 @@ final class ReviewMergePart10SubSection
                 : 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle preflight template is blocked until fresh authorization new-cycle disable execution later-cycle request template is ready.',
         ];
     }
-    
+
     /**
      * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
      * @return array<string, mixed>
@@ -331,7 +331,7 @@ final class ReviewMergePart10SubSection
         $preflightPayload = $this->parent->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCyclePreflightTemplate($options);
         $laterCyclePreflight = (array) data_get($preflightPayload, 'disable_execution_later_cycle_preflight', []);
         $preflightReady = data_get($preflightPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_preflight_template_ready';
-    
+
         $requiredAuthorizationRequestFields = [
             'later_cycle_preflight_hash',
             'later_cycle_preflight_integrity_hash',
@@ -349,7 +349,7 @@ final class ReviewMergePart10SubSection
             'non_approval_statement',
             'non_authorization_statement',
         ];
-    
+
         $laterCycleAuthorizationRequest = [
             'disable_execution_later_cycle_authorization_request_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-REQUEST-TEMPLATE-SELF-CONSTRUCTION-0001',
             'workspace' => data_get($laterCyclePreflight, 'workspace'),
@@ -442,7 +442,7 @@ final class ReviewMergePart10SubSection
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
         ];
-    
+
         return [
             'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template.v1',
             'status' => $preflightReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template_blocked',
@@ -483,7 +483,7 @@ final class ReviewMergePart10SubSection
                 : 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization request template is blocked until fresh authorization new-cycle disable execution later-cycle preflight template is ready.',
         ];
     }
-    
+
     /**
      * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
      * @return array<string, mixed>
@@ -493,7 +493,7 @@ final class ReviewMergePart10SubSection
         $authorizationRequestPayload = $this->parent->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationRequestTemplate($options);
         $authorizationRequest = (array) data_get($authorizationRequestPayload, 'disable_execution_later_cycle_authorization_request', []);
         $authorizationRequestReady = data_get($authorizationRequestPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_request_template_ready';
-    
+
         $requiredReceiptDraftFields = [
             'later_cycle_authorization_request_hash',
             'later_cycle_authorization_request_integrity_hash',
@@ -511,7 +511,7 @@ final class ReviewMergePart10SubSection
             'non_persistence_statement',
             'non_authorization_statement',
         ];
-    
+
         $receiptDraft = [
             'disable_execution_later_cycle_authorization_receipt_draft_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-RECEIPT-DRAFT-TEMPLATE-SELF-CONSTRUCTION-0001',
             'workspace' => data_get($authorizationRequest, 'workspace'),
@@ -609,7 +609,7 @@ final class ReviewMergePart10SubSection
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
         ];
-    
+
         return [
             'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template.v1',
             'status' => $authorizationRequestReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template_blocked',
@@ -651,7 +651,7 @@ final class ReviewMergePart10SubSection
                 : 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization receipt draft template is blocked until fresh authorization new-cycle disable execution later-cycle authorization request template is ready.',
         ];
     }
-    
+
     /**
      * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
      * @return array<string, mixed>
@@ -661,7 +661,7 @@ final class ReviewMergePart10SubSection
         $receiptDraftPayload = $this->parent->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationReceiptDraftTemplate($options);
         $receiptDraft = (array) data_get($receiptDraftPayload, 'disable_execution_later_cycle_authorization_receipt_draft', []);
         $receiptDraftReady = data_get($receiptDraftPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_receipt_draft_template_ready';
-    
+
         $requiredSignatureRequestFields = [
             'later_cycle_authorization_receipt_draft_hash',
             'later_cycle_authorization_receipt_draft_integrity_hash',
@@ -679,7 +679,7 @@ final class ReviewMergePart10SubSection
             'non_signature_acceptance_statement',
             'non_validation_statement',
         ];
-    
+
         $signatureRequest = [
             'disable_execution_later_cycle_authorization_signature_request_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-SIGNATURE-REQUEST-TEMPLATE-SELF-CONSTRUCTION-0001',
             'workspace' => data_get($receiptDraft, 'workspace'),
@@ -777,7 +777,7 @@ final class ReviewMergePart10SubSection
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
         ];
-    
+
         return [
             'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template.v1',
             'status' => $receiptDraftReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template_blocked',
@@ -820,7 +820,7 @@ final class ReviewMergePart10SubSection
                 : 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization signature request template is blocked until fresh authorization new-cycle disable execution later-cycle authorization receipt draft template is ready.',
         ];
     }
-    
+
     /**
      * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
      * @return array<string, mixed>
@@ -830,7 +830,7 @@ final class ReviewMergePart10SubSection
         $signatureRequestPayload = $this->parent->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationSignatureRequestTemplate($options);
         $signatureRequest = (array) data_get($signatureRequestPayload, 'disable_execution_later_cycle_authorization_signature_request', []);
         $signatureRequestReady = data_get($signatureRequestPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_request_template_ready';
-    
+
         $runbookSteps = [
             'collect_detached_provider_neutral_signature_artifact',
             'bind_signature_to_provider_identity_receipt_draft_hash',
@@ -848,7 +848,7 @@ final class ReviewMergePart10SubSection
             'block_if_any_execution_or_persistence_flag_true',
             'route_to_signature_validation_report_only_after_separate_validation_surface',
         ];
-    
+
         $runbook = [
             'disable_execution_later_cycle_authorization_post_signature_runbook_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-POST-SIGNATURE-RUNBOOK-TEMPLATE-SELF-CONSTRUCTION-0001',
             'workspace' => data_get($signatureRequest, 'workspace'),
@@ -940,7 +940,7 @@ final class ReviewMergePart10SubSection
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
         ];
-    
+
         return [
             'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template.v1',
             'status' => $signatureRequestReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template_blocked',
@@ -983,7 +983,7 @@ final class ReviewMergePart10SubSection
                 : 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization post-signature runbook template is blocked until fresh authorization new-cycle disable execution later-cycle authorization signature request template is ready.',
         ];
     }
-    
+
     /**
      * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
      * @return array<string, mixed>
@@ -993,7 +993,7 @@ final class ReviewMergePart10SubSection
         $runbookPayload = $this->parent->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationPostSignatureRunbookTemplate($options);
         $runbook = (array) data_get($runbookPayload, 'disable_execution_later_cycle_authorization_post_signature_runbook', []);
         $runbookReady = data_get($runbookPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_post_signature_runbook_template_ready';
-    
+
         $validationChecks = [
             'post_signature_runbook_hash_matches_report_source',
             'signature_request_hash_matches_runbook_source',
@@ -1013,7 +1013,7 @@ final class ReviewMergePart10SubSection
             'ledger_write_flags_remain_false',
             'writer_state_mutation_flags_remain_false',
         ];
-    
+
         $report = [
             'disable_execution_later_cycle_authorization_signature_validation_report_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-SIGNATURE-VALIDATION-REPORT-TEMPLATE-SELF-CONSTRUCTION-0001',
             'workspace' => data_get($runbook, 'workspace'),
@@ -1099,7 +1099,7 @@ final class ReviewMergePart10SubSection
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
         ];
-    
+
         return [
             'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template.v1',
             'status' => $runbookReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template_blocked',
@@ -1142,7 +1142,7 @@ final class ReviewMergePart10SubSection
                 : 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle disable execution later-cycle authorization signature validation report template is blocked until fresh authorization new-cycle disable execution later-cycle authorization post-signature runbook template is ready.',
         ];
     }
-    
+
     /**
      * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
      * @return array<string, mixed>
@@ -1152,7 +1152,7 @@ final class ReviewMergePart10SubSection
         $validationReportPayload = $this->parent->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleDisableExecutionLaterCycleAuthorizationSignatureValidationReportTemplate($options);
         $validationReport = (array) data_get($validationReportPayload, 'disable_execution_later_cycle_authorization_signature_validation_report', []);
         $validationReportReady = data_get($validationReportPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signature_validation_report_template_ready';
-    
+
         $requiredSignedReceiptFields = [
             'later_cycle_authorization_signed_receipt_id',
             'later_cycle_authorization_signature_validation_report_hash',
@@ -1172,7 +1172,7 @@ final class ReviewMergePart10SubSection
             'non_authorization_statement',
             'signature_authority_deferral_statement',
         ];
-    
+
         $template = [
             'disable_execution_later_cycle_authorization_signed_receipt_template_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-DISABLE-EXECUTION-LATER-CYCLE-AUTHORIZATION-SIGNED-RECEIPT-TEMPLATE-SELF-CONSTRUCTION-0001',
             'workspace' => data_get($validationReport, 'workspace'),
@@ -1257,7 +1257,7 @@ final class ReviewMergePart10SubSection
             'prior_authorization_reuse_allowed' => false,
             'later_cycle_authorized' => false,
         ];
-    
+
         return [
             'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template.v1',
             'status' => $validationReportReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_disable_execution_later_cycle_authorization_signed_receipt_template_blocked',

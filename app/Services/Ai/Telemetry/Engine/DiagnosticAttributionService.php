@@ -2,8 +2,6 @@
 
 namespace App\Services\Ai\Telemetry\Engine;
 
-use App\Models\AiReportFinding;
-use App\Models\AiTraceMetricSummary;
 use App\Services\Ai\Telemetry\Engine\Dto\DiagnosticFinding;
 use App\Services\Ai\Telemetry\Engine\Dto\DiagnosticResult;
 use App\Services\Ai\Telemetry\Engine\Dto\ReportContext;

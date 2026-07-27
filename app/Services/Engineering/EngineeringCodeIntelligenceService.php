@@ -6,7 +6,6 @@ use App\Support\MemoryLimitBytes;
 use App\Models\AtlasEngineeringCodeModule;
 use App\Models\AtlasEngineeringCodeSymbol;
 use App\Models\AtlasEngineeringDocLink;
-use App\Models\AtlasEngineeringKnowledgeItem;
 use App\Services\AtlasCode\AtlasCodeWorkspaceProfileService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
@@ -24,13 +23,9 @@ use App\Services\Engineering\CodeIntelligence\SymbolExtractor;
 use App\Services\Tools\AtlasToolEvidenceStore;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Str;
-use Illuminate\Database\QueryException;
 use RuntimeException;
-use SplFileInfo;
 use Throwable;
 
 class EngineeringCodeIntelligenceService

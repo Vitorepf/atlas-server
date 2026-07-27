@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\AutonomousEvolution;
 
 use App\Services\Ai\AutonomousEvolution\AtlasAutonomousEvolutionCertificationService;
-use App\Services\Ai\AutonomousEvolution\AtlasAutonomousEvolutionLoopService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopAntiGoodhartRefusalVerdict;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopAntiGoodhartUnifiedRefusal;
 use ReflectionClass;

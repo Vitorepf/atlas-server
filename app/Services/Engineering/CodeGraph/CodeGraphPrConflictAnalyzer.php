@@ -2,7 +2,6 @@
 
 namespace App\Services\Engineering\CodeGraph;
 
-
 /**
  * Read-only PR merge-order risk analysis over code-graph communities (AP-811/AP-812 P-10).
  *

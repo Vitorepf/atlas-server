@@ -2,10 +2,9 @@
 
 namespace App\Services\Ai\SelfConstruction\ControlPlane;
 
-
-
 use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
+
 /**
  * Normalizes operator/synthetic cost events without reading provider billing
  * APIs or writing cost ledgers.

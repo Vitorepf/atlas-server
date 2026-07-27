@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai;
 
 use App\Models\AiJob;
-use App\Services\Ai\Governance\AiPermissionDecision;
 use App\Services\Ai\Governance\AiPermissionEngine;
-use App\Services\Ai\Governance\AiPermissionEngineSupport;
 use Tests\TestCase;
 
 final class AiPermissionEngineFailClosedTest extends TestCase

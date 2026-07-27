@@ -2,7 +2,6 @@
 
 namespace App\Services\Engineering\CodeGraph;
 
-
 /**
  * Method->method CALL edges for the code graph (AP-811/812, deepest granularity).
  *

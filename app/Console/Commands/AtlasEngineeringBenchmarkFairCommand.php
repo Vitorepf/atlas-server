@@ -12,7 +12,6 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Str;
 use Symfony\Component\Process\ExecutableFinder;
-use Symfony\Component\Process\Process;
 use App\Services\Ai\Programming\Support\GitWorkspaceStateReader;
 use App\Console\Concerns\EmitsCanonicalJson;
 

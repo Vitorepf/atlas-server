@@ -3,7 +3,6 @@
 namespace App\Services\Ai\SelfConstruction\ControlPlane;
 
 use Carbon\CarbonImmutable;
-
 /**
  * Read-only structural certification of the Atlas Agent Control Plane chain.
  *

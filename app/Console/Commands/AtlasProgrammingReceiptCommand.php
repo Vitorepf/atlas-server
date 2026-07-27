@@ -3,7 +3,6 @@
 namespace App\Console\Commands;
 
 use App\Console\Commands\Concerns\ReadsNonEmptyUntrimmedStringOption;
-
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Programming\Governance\ProgrammingEvidenceLedger;
 use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;

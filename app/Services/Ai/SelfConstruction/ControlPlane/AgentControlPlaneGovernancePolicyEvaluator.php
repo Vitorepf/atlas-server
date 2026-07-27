@@ -2,8 +2,8 @@
 
 namespace App\Services\Ai\SelfConstruction\ControlPlane;
 
-
 use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
+
 /**
  * Evaluates operator governance policy for future runtime actions without
  * granting approval or mutating state.

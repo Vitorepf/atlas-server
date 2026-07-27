@@ -6,7 +6,6 @@ namespace Tests\Unit\Ai\Vox;
 
 use App\Services\Ai\Vox\VoxIntentExtractor;
 use App\Services\Ai\Vox\VoxPromptPolisher;
-use App\Services\Ai\Vox\VoxSchema;
 use PHPUnit\Framework\TestCase;
 
 final class VoxIntentExtractorTest extends TestCase

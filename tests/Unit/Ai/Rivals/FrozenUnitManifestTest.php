@@ -2,7 +2,6 @@
 
 namespace Tests\Unit\Ai\Rivals;
 
-use App\Services\Ai\Rivals\Adapters\LocalFakeSuiteAdapter;
 use App\Services\Ai\Rivals\Core\ArmRegistry;
 use App\Services\Ai\Rivals\Core\FrozenUnitManifest;
 use App\Services\Ai\Rivals\Core\RunPlan;

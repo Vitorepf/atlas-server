@@ -7,7 +7,6 @@ use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
 use Illuminate\Support\Str;
 use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
-
 /**
  * Coverage report for the Agent Control Plane certification stack.
  * Measures slice/edge/CLI/readiness/invoker/doc/runtime-flag/scenario

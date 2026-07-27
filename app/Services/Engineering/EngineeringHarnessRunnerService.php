@@ -2,9 +2,6 @@
 
 namespace App\Services\Engineering;
 
-use App\Models\AiTrace;
-use App\Models\AtlasEngineeringControlResult;
-use App\Models\AtlasEngineeringPatchArtifact;
 use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasEngineeringRunAttempt;
 use App\Models\AtlasTask;
@@ -14,15 +11,7 @@ use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspacePathResolverService;
-use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Tools\AtlasToolGateService;
-use App\Support\AtlasPhpBinary;
-use App\Support\AtlasSecurity;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Str;
-use Symfony\Component\Process\Exception\ProcessTimedOutException;
-use Symfony\Component\Process\Process;
 use App\Services\Engineering\EngineeringHarness\HarnessRunnerSupport;
 use App\Services\Engineering\EngineeringHarness\HarnessControlsSection;
 use App\Services\Engineering\EngineeringHarness\HarnessProviderSection;

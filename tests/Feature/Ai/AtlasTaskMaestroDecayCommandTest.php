@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
-
 use App\Console\Commands\AtlasTaskMaestroDecayCommand;
 use App\Services\Ai\SelfConstruction\Maestro\Decay\AtlasMaestroPacketAgeFactReporter;
 use App\Services\Ai\SelfConstruction\Maestro\Decay\AtlasMaestroPacketDecayPolicy;

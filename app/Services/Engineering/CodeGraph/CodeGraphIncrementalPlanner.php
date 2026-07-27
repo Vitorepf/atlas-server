@@ -2,7 +2,6 @@
 
 namespace App\Services\Engineering\CodeGraph;
 
-
 /**
  * Incremental re-index planner for the code graph (AP-811 / AP-812, P-12).
  *

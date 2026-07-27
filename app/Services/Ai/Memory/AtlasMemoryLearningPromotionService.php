@@ -5,7 +5,6 @@ namespace App\Services\Ai\Memory;
 use App\Models\AiMemoryDelta;
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\Kernel\Slo\KernelSloProbe;
-use App\Services\Ai\Memory\MemoryQueryInput;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Database\Eloquent\Builder;
 use Throwable;

@@ -2,7 +2,6 @@
 
 namespace App\Services\Ai\ControlPlane;
 
-use App\Services\Ai\Support\DatabaseTableAvailability;
 use Throwable;
 
 class AtlasControlPlaneToolService

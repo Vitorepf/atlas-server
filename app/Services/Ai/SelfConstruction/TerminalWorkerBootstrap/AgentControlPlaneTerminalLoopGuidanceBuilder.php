@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\TerminalWorkerBootstrap;
 
 use App\Services\Ai\SelfConstruction\Support\HashesPayloadCanonically;
-use App\Services\Ai\SelfConstruction\TerminalWorkerBootstrap\AgentControlPlaneTerminalWorkerCommandFormatter;
 
 /**
  * ITEM8 — the cohesive read-only terminal-loop guidance-artifact builder concern the bootstrap

@@ -6,7 +6,6 @@ use App\Services\Ai\SelfConstruction\Support\HashesKsortedPayloadCanonically;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-
 /**
  * Proves the certification stack is read-only by snapshotting the
  * before/after state of pointer, runtime safety flags, snapshot

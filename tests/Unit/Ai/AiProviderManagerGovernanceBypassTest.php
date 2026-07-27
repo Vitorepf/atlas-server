@@ -6,7 +6,6 @@ namespace Tests\Unit\Ai;
 
 use App\Services\Ai\AiProviderManager;
 use App\Services\Ai\Governance\ProviderGovernanceCoverageLedger;
-use App\Services\Ai\AtlasDecide\AtlasDecideGatewayConsultationService;
 use App\Services\Ai\Policy\AtlasAiRuntimeSettings;
 use App\Services\Ai\ClaudeCliProvider;
 use App\Services\Ai\CodexCliProvider;

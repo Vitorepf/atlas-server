@@ -14,7 +14,6 @@ use App\Services\Ai\Compounding\AtlasCompoundingRuntimeService;
 use App\Services\Ai\Compounding\AtlasHeuristicEvolutionService;
 use App\Services\Ai\Compounding\AtlasLearningProposalService;
 use App\Services\Ai\Compounding\AtlasTemporalCertificationService;
-use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
 use Tests\Concerns\BootsCompoundingSchema;
 use Tests\TestCase;

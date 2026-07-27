@@ -2,8 +2,6 @@
 
 namespace App\Services\Ai\SelfConstruction\ControlPlane;
 
-
-
 use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
 use Carbon\CarbonImmutable;

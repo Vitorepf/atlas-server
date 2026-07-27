@@ -7,7 +7,6 @@ use App\Models\AiJob;
 use App\Models\AiMarketingVslAsset;
 use App\Services\Ai\AiProviderManager;
 use Illuminate\Support\Str;
-use JsonException;
 use RuntimeException;
 use Throwable;
 

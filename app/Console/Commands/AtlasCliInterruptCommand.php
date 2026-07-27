@@ -5,7 +5,6 @@ namespace App\Console\Commands;
 use App\Console\Commands\Concerns\ResolvesGitProjectRoot;
 use App\Services\Ai\Cli\AtlasCliSessionService;
 use App\Services\Ai\Cli\DevProgressReporter;
-use App\Support\AtlasSecurity;
 use Illuminate\Console\Command;
 
 class AtlasCliInterruptCommand extends Command

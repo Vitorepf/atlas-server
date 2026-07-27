@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\MultiProject;
 
-use App\Services\Ai\SelfConstruction\MultiProject\AtlasProjectLaneReceiptPolicy;
-
 /**
  * READ-ONLY sentinel composing three independent FACT sources to prove a project lane is isolated
  * BEFORE 24/7 work runs there:

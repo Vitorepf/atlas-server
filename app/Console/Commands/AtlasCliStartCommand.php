@@ -5,7 +5,6 @@ namespace App\Console\Commands;
 use App\Console\Commands\Concerns\ResolvesGitProjectRoot;
 use App\Services\Ai\Cli\AtlasCliStartService;
 use App\Services\Ai\Cli\DevProgressReporter;
-use App\Support\AtlasSecurity;
 use App\Support\TerminalMarkdownRenderer;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;

@@ -6,7 +6,6 @@ use App\Services\Ai\SelfConstruction\TerminalWorkerBootstrap\AgentControlPlaneTe
 use App\Services\Ai\SelfConstruction\TerminalWorkerBootstrap\AgentControlPlaneTerminalWorkerCommandFormatter;
 use App\Services\Ai\SelfConstruction\TerminalWorkerBootstrap\AgentControlPlaneWorkerEligibilityGuard;
 use Carbon\CarbonImmutable;
-
 /**
  * One-command bootstrap for a terminal worker.
  *

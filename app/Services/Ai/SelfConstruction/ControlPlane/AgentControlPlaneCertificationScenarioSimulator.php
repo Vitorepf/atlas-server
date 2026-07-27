@@ -5,7 +5,6 @@ namespace App\Services\Ai\SelfConstruction\ControlPlane;
 use App\Services\Ai\SelfConstruction\Support\HashesKsortedPayloadCanonically;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
-
 /**
  * Runs a battery of synthetic regression scenarios against the Agent
  * Control Plane Chain Integrity audit, Deterministic Replay, Replay Diff

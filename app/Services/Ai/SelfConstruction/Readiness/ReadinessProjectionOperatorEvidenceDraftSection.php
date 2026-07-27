@@ -7,6 +7,7 @@ use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionO
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionOperatorEvidenceDraftWorkspacePublisherService;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionOperatorEvidenceArtifactTemplatePackService;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionOperatorEvidenceDraftWorkspaceInspectorService;
+
 /**
  * GOD-DEBULK extracted stateful operator-evidence-draft status family from AtlasSelfConstructionReadinessService (completion evidence hash composer, draft hash finalizer, draft workspace publisher, artifact template pack, draft workspace inspector).
  * Bound via setMother(); undefined method calls bridge through __call and undefined

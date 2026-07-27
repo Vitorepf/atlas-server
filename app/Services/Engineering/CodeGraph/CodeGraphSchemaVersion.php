@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering\CodeGraph;
 
-
 /**
  * AP-815 · W-9 — Per-workspace code-graph schema version tracker.
  *

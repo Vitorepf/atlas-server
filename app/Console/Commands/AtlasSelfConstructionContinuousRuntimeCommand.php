@@ -12,7 +12,6 @@ use App\Services\Ai\SelfConstruction\ContinuousRuntime\AtlasSelfConstructionCont
 use App\Services\Ai\SelfConstruction\ContinuousRuntime\AtlasSelfConstructionContinuousRuntimeWorkerIntegration;
 use App\Services\Ai\SelfConstruction\ContinuousRuntime\AtlasSelfConstructionOriginatorCadencePolicy;
 use Illuminate\Console\Command;
-use Throwable;
 
 /**
  * Operator surface for the continuous Self-Construction runtime brain.

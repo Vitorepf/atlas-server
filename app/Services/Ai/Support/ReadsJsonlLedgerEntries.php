@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Support;
 
-
 /**
  * Extraido pela limpeza-bruta 05/07 (censo de metodos duplicados): readAll() era
  * clonado byte a byte em 3 classes. Copia divergente permanece local.

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering\CodeGraph;
 
-
 /**
  * AP-815 · G-8 — Verifiable, reproducible graph-snapshot integrity hash.
  *

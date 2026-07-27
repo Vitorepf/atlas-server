@@ -7,7 +7,6 @@ use App\Models\AiAtlasFlowRoute;
 use App\Models\AiAtlasIntentClassification;
 use App\Models\AiAtlasRouterDecision;
 use App\Models\AiAtlasRuntimeDispatch;
-use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Contracts\Container\Container;
 
 class RouterRuntimeReadinessService

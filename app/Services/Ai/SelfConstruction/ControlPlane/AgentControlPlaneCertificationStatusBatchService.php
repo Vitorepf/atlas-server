@@ -6,7 +6,6 @@ use App\Services\Ai\SelfConstruction\Support\HashesKsortedPayloadCanonically;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
-
 /**
  * Read-only batch runner that calls every certification status
  * projection through the readiness service (no shell, no subprocess,

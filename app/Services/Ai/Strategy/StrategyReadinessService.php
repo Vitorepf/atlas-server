@@ -9,9 +9,7 @@ use App\Models\AiStrategyMemo;
 use App\Models\AiStrategyRun;
 use App\Models\AiUnitEconomics;
 use App\Models\AiVentureBlueprint;
-use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Contracts\Container\Container;
-use Throwable;
 
 class StrategyReadinessService
 {

@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\ProgrammingGovernance;
 
-use App\Models\AtlasProgrammingWorkItem;
 use App\Services\Ai\Kernel\Architecture\AtlasFeaturePlacementService;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
 use Illuminate\Support\Facades\Artisan;

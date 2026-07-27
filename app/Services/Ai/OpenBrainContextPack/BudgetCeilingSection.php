@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\OpenBrainContextPack;
 
-
-
 /**
  * GOD-DEBULK split of {@see \App\Services\Ai\AtlasOpenBrainContextPackService}.
  * Verbatim budgetceiling family extracted from the AOBG context-pack

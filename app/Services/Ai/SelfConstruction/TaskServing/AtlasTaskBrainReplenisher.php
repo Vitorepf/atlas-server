@@ -12,7 +12,6 @@ use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionQue
 use App\Services\Ai\AutonomousEvolution\Feedback\AtlasLoopGiveBackToReplenisherFeedback;
 use DomainException;
 use Throwable;
-
 /**
  * PART 2 — the BRAIN → QUEUE bridge: the Atlas STRUCTURES THE TASK LIST ITSELF from its complete comprehension
  * of a scope, and keeps the serving queue full so the AIs (pulling with the fixed worker prompt) never run dry.

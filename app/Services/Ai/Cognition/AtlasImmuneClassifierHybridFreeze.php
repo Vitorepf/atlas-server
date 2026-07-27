@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Cognition;
 
-
 /**
  * MAXI-04 freeze \u2014 stamps the semantic-arm floors of the immune input
  * classifier BEFORE implementation runs on real corpora (ELEV-03 law: X and FP

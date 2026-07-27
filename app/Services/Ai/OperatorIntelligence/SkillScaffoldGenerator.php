@@ -7,7 +7,6 @@ namespace App\Services\Ai\OperatorIntelligence;
 use App\Services\Ai\OperatorIntelligence\Support\SkillScaffoldTextSupport;
 use App\Models\OperatorPatternDetection;
 use Illuminate\Support\Str;
-use App\Support\YesNo;
 
 /**
  * Turns a detected recurring pattern into a real, valid SKILL.md — the artifact Atlas

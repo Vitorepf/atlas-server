@@ -2,7 +2,6 @@
 
 namespace App\Services\Engineering\CodeGraph;
 
-
 /**
  * Resolves the per-file relations that {@see \App\Services\Engineering\EngineeringCodeIntelligenceService}
  * already extracts into real, deduplicated, confidence-graded code-graph edges.

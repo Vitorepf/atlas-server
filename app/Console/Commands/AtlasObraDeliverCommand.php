@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Console\Commands\Concerns\ReadsRawStringOption;
-
 use App\Support\YesNo;
 use App\Services\Ai\AtlasOpenBrainContextPackService;
 use App\Services\Ai\Obra\AtlasObraExecutor;

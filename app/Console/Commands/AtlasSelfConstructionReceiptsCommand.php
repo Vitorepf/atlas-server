@@ -6,7 +6,6 @@ namespace App\Console\Commands;
 
 use App\Console\Commands\Concerns\LoadsFactsJsonOption;
 use Illuminate\Console\Command;
-use Throwable;
 
 /**
  * Read-only operator surface for the Self-Construction receipt brain.

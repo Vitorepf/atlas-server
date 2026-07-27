@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering;
 
-use App\Models\AtlasDocsAuthorityGraph;
-use App\Models\AtlasEngineeringCodeModule;
-use App\Models\AtlasEngineeringDocLink;
 use App\Models\AtlasEngineeringCodeSymbol;
 use App\Models\AtlasSoftwareTwinSnapshot;
 use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasImplementationTruthService;
@@ -16,7 +13,6 @@ use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use Illuminate\Support\Facades\File;
 use InvalidArgumentException;
-use SplFileInfo;
 
 // Intentionally NOT final: this read-only predictive service is designed to be
 // injected and wrapped (e.g. by the L2-O2 intent advisory), and downstream tests

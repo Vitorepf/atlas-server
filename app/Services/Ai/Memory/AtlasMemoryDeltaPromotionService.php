@@ -6,7 +6,6 @@ use App\Models\AiMemoryDelta;
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\Brain\AtlasEvolutionDiaryRecorder;
 use App\Services\Ai\LongHorizon\LongHorizonMemoryPromotionGuard;
-use App\Services\Ai\Memory\MemoryQueryInput;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;

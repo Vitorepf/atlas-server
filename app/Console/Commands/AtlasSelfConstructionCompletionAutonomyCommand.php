@@ -10,7 +10,6 @@ use App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionAutonomyTra
 use App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionCodeIndexReadinessBridge;
 use App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionFinalAutonomyVerdict;
 use Illuminate\Console\Command;
-use Throwable;
 
 /**
  * Read-only operator surface for the final autonomy completion brain.

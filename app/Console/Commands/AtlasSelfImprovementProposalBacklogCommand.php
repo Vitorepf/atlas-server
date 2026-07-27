@@ -8,7 +8,6 @@ use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Commands\Concerns\ResolvesJsonOptionWithComponentsError;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementProposalBacklogService;
 use Illuminate\Console\Command;
-use Throwable;
 
 /**
  * Atlas Self-Improvement Proposal Backlog CLI (Level 7).

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SelfConstruction;
 
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionFinalEvidenceBundleService;
-use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 

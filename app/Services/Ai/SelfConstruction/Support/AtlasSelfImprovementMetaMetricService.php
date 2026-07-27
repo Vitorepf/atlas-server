@@ -8,7 +8,6 @@ use App\Models\AtlasAurgNode;
 use App\Models\AtlasSelfConstructCycle;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
-
 /**
  * S3.F3 — the HONEST META-METRIC of the RECURSIVE GOVERNED SELF-IMPROVEMENT LOOP.
  *

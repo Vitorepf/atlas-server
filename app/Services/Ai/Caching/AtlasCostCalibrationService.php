@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Caching;
 
 use App\Support\ArrayPercentile;
+
 /**
  * Turns observed cost telemetry (the JSONL the cost sentinel records in observe
  * mode) into the numbers the operator needs to set a hard ceiling from DATA, not

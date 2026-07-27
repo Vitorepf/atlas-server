@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering\CodeGraph;
 
-
 /**
  * AP-815 · Q-1 — Self-audit of the code graph's basic structural health.
  *

@@ -14,7 +14,6 @@ use App\Services\Ai\Context\AtlasCanonicalContextRef;
 use App\Services\Ai\Context\AtlasDeliveredPackLedger;
 use App\Services\Ai\Context\AtlasRetrievalFeedbackLoopService;
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\Schema;
 use ReflectionMethod;
 use Tests\Concerns\BootsCompoundingSchema;
 use Tests\TestCase;

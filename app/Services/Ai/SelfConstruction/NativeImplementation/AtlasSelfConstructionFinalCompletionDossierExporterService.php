@@ -2,11 +2,9 @@
 
 namespace App\Services\Ai\SelfConstruction\NativeImplementation;
 
-
 use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Storage;
-
 /**
  * Read-only exporter that produces the final completion dossier (machine
  * JSON + human Markdown + checklist + evidence map) for Atlas

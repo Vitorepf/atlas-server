@@ -7,7 +7,6 @@ namespace App\Console\Commands;
 use App\Console\Commands\Concerns\ResolvesSilentJsonOption;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementInvariantLockService;
 use Illuminate\Console\Command;
-use Throwable;
 
 /**
  * Atlas Self-Improvement Invariant Lock CLI.

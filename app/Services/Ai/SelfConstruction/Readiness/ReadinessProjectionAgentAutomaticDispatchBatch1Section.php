@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\Readiness;
 
-use App\Services\Ai\SelfConstruction\Readiness\AutomaticDispatchBatch1;
-
 /**
  * SC-01 fatia ReadinessProjectionAgentAutomaticDispatchBatch1Section (Obra 4 Residual Elite).
  */

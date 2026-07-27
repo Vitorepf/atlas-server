@@ -21,7 +21,7 @@ final class ReviewMergePart07SubSection
     public function __construct(
         private readonly AtlasSelfConstructionReadinessService $parent,
     ) {}
-    
+
     /**
      * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
      * @return array<string, mixed>
@@ -31,7 +31,7 @@ final class ReviewMergePart07SubSection
         $disablePayload = $this->parent->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationDisableContractTemplate($options);
         $disableContract = (array) data_get($disablePayload, 'disable_contract', []);
         $disableReady = data_get($disablePayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_contract_template_ready';
-    
+
         $signals = [
             'fresh_authorization_execution_contract_loaded',
             'fresh_authorization_workspace_identity_rechecked',
@@ -52,7 +52,7 @@ final class ReviewMergePart07SubSection
             'fresh_authorization_post_execution_receipt_generated',
             'fresh_authorization_human_review_required',
         ];
-    
+
         $observabilityContract = [
             'observability_contract_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-OBSERVABILITY-CONTRACT-TEMPLATE-SELF-CONSTRUCTION-0001',
             'workspace' => data_get($disableContract, 'workspace'),
@@ -150,7 +150,7 @@ final class ReviewMergePart07SubSection
             'merge_allowed' => false,
             'dispatch_allowed' => false,
         ];
-    
+
         return [
             'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template.v1',
             'status' => $disableReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template_blocked',
@@ -184,7 +184,7 @@ final class ReviewMergePart07SubSection
                 : 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization observability contract template is blocked until fresh authorization disable contract template is ready.',
         ];
     }
-    
+
     /**
      * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
      * @return array<string, mixed>
@@ -194,7 +194,7 @@ final class ReviewMergePart07SubSection
         $observabilityPayload = $this->parent->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationObservabilityContractTemplate($options);
         $observabilityContract = (array) data_get($observabilityPayload, 'observability_contract', []);
         $observabilityReady = data_get($observabilityPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_observability_contract_template_ready';
-    
+
         $allowedDecisions = [
             'keep_fresh_authorization_writer_disabled',
             'keep_fresh_authorization_writer_enabled_under_watch',
@@ -202,7 +202,7 @@ final class ReviewMergePart07SubSection
             'request_new_fresh_authorization_cycle',
             'escalate_to_human_review',
         ];
-    
+
         $reviewTemplate = [
             'review_template_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-POST-MONITORING-REVIEW-TEMPLATE-SELF-CONSTRUCTION-0001',
             'workspace' => data_get($observabilityContract, 'workspace'),
@@ -307,7 +307,7 @@ final class ReviewMergePart07SubSection
             'merge_allowed' => false,
             'dispatch_allowed' => false,
         ];
-    
+
         return [
             'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template.v1',
             'status' => $observabilityReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template_blocked',
@@ -341,7 +341,7 @@ final class ReviewMergePart07SubSection
                 : 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization post-monitoring review template is blocked until fresh authorization observability contract template is ready.',
         ];
     }
-    
+
     /**
      * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
      * @return array<string, mixed>
@@ -351,7 +351,7 @@ final class ReviewMergePart07SubSection
         $reviewPayload = $this->parent->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationPostMonitoringReviewTemplate($options);
         $reviewTemplate = (array) data_get($reviewPayload, 'review_template', []);
         $reviewReady = data_get($reviewPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_post_monitoring_review_template_ready';
-    
+
         $allowedDecisionStates = [
             'keep_fresh_authorization_writer_disabled',
             'continue_fresh_authorization_watch',
@@ -359,7 +359,7 @@ final class ReviewMergePart07SubSection
             'request_new_fresh_authorization_cycle',
             'escalate_to_human_review',
         ];
-    
+
         $healthDecision = [
             'health_decision_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-HEALTH-DECISION-TEMPLATE-SELF-CONSTRUCTION-0001',
             'workspace' => data_get($reviewTemplate, 'workspace'),
@@ -433,7 +433,7 @@ final class ReviewMergePart07SubSection
             'merge_allowed' => false,
             'dispatch_allowed' => false,
         ];
-    
+
         return [
             'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template.v1',
             'status' => $reviewReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template_blocked',
@@ -468,7 +468,7 @@ final class ReviewMergePart07SubSection
                 : 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization health decision template is blocked until fresh authorization post-monitoring review template is ready.',
         ];
     }
-    
+
     /**
      * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
      * @return array<string, mixed>
@@ -478,7 +478,7 @@ final class ReviewMergePart07SubSection
         $decisionPayload = $this->parent->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationHealthDecisionTemplate($options);
         $healthDecision = (array) data_get($decisionPayload, 'health_decision', []);
         $decisionReady = data_get($decisionPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template_ready';
-    
+
         $disableTriggers = [
             'selected_decision_request_fresh_authorization_disable_execution',
             'fresh_authorization_provider_identity_drift_after_reenable',
@@ -490,7 +490,7 @@ final class ReviewMergePart07SubSection
             'fresh_authorization_unexpected_receipt_persistence_after_reenable',
             'fresh_authorization_disable_path_compromised_or_unavailable',
         ];
-    
+
         $disableRequest = [
             'disable_request_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-DISABLE-REQUEST-TEMPLATE-SELF-CONSTRUCTION-0001',
             'workspace' => data_get($healthDecision, 'workspace'),
@@ -565,7 +565,7 @@ final class ReviewMergePart07SubSection
             'merge_allowed' => false,
             'dispatch_allowed' => false,
         ];
-    
+
         return [
             'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template.v1',
             'status' => $decisionReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_disable_request_template_blocked',
@@ -602,7 +602,7 @@ final class ReviewMergePart07SubSection
                 : 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization disable request template is blocked until fresh authorization health decision template is ready.',
         ];
     }
-    
+
     /**
      * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
      * @return array<string, mixed>
@@ -612,7 +612,7 @@ final class ReviewMergePart07SubSection
         $decisionPayload = $this->parent->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationHealthDecisionTemplate($options);
         $healthDecision = (array) data_get($decisionPayload, 'health_decision', []);
         $decisionReady = data_get($decisionPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_health_decision_template_ready';
-    
+
         $requiredRestartRequirements = [
             'new_cycle_requires_new_authorization_request_hash',
             'new_cycle_requires_new_receipt_draft_hash',
@@ -624,7 +624,7 @@ final class ReviewMergePart07SubSection
             'new_cycle_requires_new_observability_contract_hash',
             'new_cycle_requires_new_post_monitoring_review_hash',
         ];
-    
+
         $newCycleRequest = [
             'new_cycle_request_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-REQUEST-TEMPLATE-SELF-CONSTRUCTION-0001',
             'workspace' => data_get($healthDecision, 'workspace'),
@@ -704,7 +704,7 @@ final class ReviewMergePart07SubSection
             'merge_allowed' => false,
             'dispatch_allowed' => false,
         ];
-    
+
         return [
             'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template.v1',
             'status' => $decisionReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template_blocked',
@@ -741,7 +741,7 @@ final class ReviewMergePart07SubSection
                 : 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle request template is blocked until fresh authorization health decision template is ready.',
         ];
     }
-    
+
     /**
      * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
      * @return array<string, mixed>
@@ -751,7 +751,7 @@ final class ReviewMergePart07SubSection
         $newCyclePayload = $this->parent->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleRequestTemplate($options);
         $newCycleRequest = (array) data_get($newCyclePayload, 'new_cycle_request', []);
         $newCycleReady = data_get($newCyclePayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_request_template_ready';
-    
+
         $requiredAuthorizationEvidence = [
             'writer_release_fresh_authorization_new_cycle_request_hash',
             'writer_release_fresh_authorization_new_cycle_workspace_identity_hash',
@@ -765,7 +765,7 @@ final class ReviewMergePart07SubSection
             'new_cycle_required_restart_requirements_hash',
             'human_reviewer_identity',
         ];
-    
+
         $authorizationRequest = [
             'authorization_request_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-AUTHORIZATION-REQUEST-TEMPLATE-SELF-CONSTRUCTION-0001',
             'workspace' => data_get($newCycleRequest, 'workspace'),
@@ -836,7 +836,7 @@ final class ReviewMergePart07SubSection
             'merge_allowed' => false,
             'dispatch_allowed' => false,
         ];
-    
+
         return [
             'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template.v1',
             'status' => $newCycleReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template_blocked',
@@ -873,7 +873,7 @@ final class ReviewMergePart07SubSection
                 : 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle authorization request template is blocked until fresh authorization new-cycle request template is ready.',
         ];
     }
-    
+
     /**
      * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
      * @return array<string, mixed>
@@ -883,7 +883,7 @@ final class ReviewMergePart07SubSection
         $authorizationPayload = $this->parent->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleAuthorizationRequestTemplate($options);
         $authorizationRequest = (array) data_get($authorizationPayload, 'authorization_request', []);
         $authorizationReady = data_get($authorizationPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_authorization_request_template_ready';
-    
+
         $requiredReceiptFields = [
             'new_cycle_authorization_request_hash',
             'receipt_subject',
@@ -897,7 +897,7 @@ final class ReviewMergePart07SubSection
             'non_execution_statement',
             'rollback_and_disable_reference',
         ];
-    
+
         $receiptDraft = [
             'receipt_draft_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-RECEIPT-DRAFT-TEMPLATE-SELF-CONSTRUCTION-0001',
             'workspace' => data_get($authorizationRequest, 'workspace'),
@@ -967,7 +967,7 @@ final class ReviewMergePart07SubSection
             'merge_allowed' => false,
             'dispatch_allowed' => false,
         ];
-    
+
         return [
             'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template.v1',
             'status' => $authorizationReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template_blocked',
@@ -1003,7 +1003,7 @@ final class ReviewMergePart07SubSection
                 : 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle receipt draft template is blocked until fresh authorization new-cycle authorization request template is ready.',
         ];
     }
-    
+
     /**
      * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
      * @return array<string, mixed>
@@ -1013,13 +1013,13 @@ final class ReviewMergePart07SubSection
         $receiptPayload = $this->parent->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleReceiptDraftTemplate($options);
         $receiptDraft = (array) data_get($receiptPayload, 'receipt_draft', []);
         $receiptReady = data_get($receiptPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_receipt_draft_template_ready';
-    
+
         $requiredSigners = [
             'atlas_operator',
             'self_construction_governance_reviewer',
             'writer_release_safety_reviewer',
         ];
-    
+
         $signatureRequest = [
             'signature_request_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-SIGNATURE-REQUEST-TEMPLATE-SELF-CONSTRUCTION-0001',
             'workspace' => data_get($receiptDraft, 'workspace'),
@@ -1094,7 +1094,7 @@ final class ReviewMergePart07SubSection
             'merge_allowed' => false,
             'dispatch_allowed' => false,
         ];
-    
+
         return [
             'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template.v1',
             'status' => $receiptReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template_blocked',
@@ -1129,7 +1129,7 @@ final class ReviewMergePart07SubSection
                 : 'Agent review merge post-execution action signed receipt persistence writer release fresh authorization new-cycle signature request template is blocked until fresh authorization new-cycle receipt draft template is ready.',
         ];
     }
-    
+
     /**
      * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
      * @return array<string, mixed>
@@ -1139,7 +1139,7 @@ final class ReviewMergePart07SubSection
         $signaturePayload = $this->parent->agentReviewMergePostExecutionActionSignedReceiptPersistenceWriterReleaseFreshAuthorizationNewCycleSignatureRequestTemplate($options);
         $signatureRequest = (array) data_get($signaturePayload, 'signature_request', []);
         $signatureRequestReady = data_get($signaturePayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_signature_request_template_ready';
-    
+
         $runbookSteps = [
             'collect_future_new_cycle_signatures',
             'verify_all_required_signer_roles_present',
@@ -1153,7 +1153,7 @@ final class ReviewMergePart07SubSection
             'prepare_new_cycle_disable_contract_template',
             'prepare_new_cycle_observability_contract_template',
         ];
-    
+
         $runbook = [
             'runbook_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-WRITER-RELEASE-FRESH-AUTHORIZATION-NEW-CYCLE-POST-SIGNATURE-RUNBOOK-TEMPLATE-SELF-CONSTRUCTION-0001',
             'workspace' => data_get($signatureRequest, 'workspace'),
@@ -1217,7 +1217,7 @@ final class ReviewMergePart07SubSection
             'merge_allowed' => false,
             'dispatch_allowed' => false,
         ];
-    
+
         return [
             'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template.v1',
             'status' => $signatureRequestReady ? 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_writer_release_fresh_authorization_new_cycle_post_signature_runbook_template_blocked',

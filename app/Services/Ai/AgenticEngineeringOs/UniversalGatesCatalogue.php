@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AgenticEngineeringOs;
 
-use App\Services\Ai\AgenticEngineeringOs\DeliveryPackCompletenessScorer;
-
 /**
  * TRI-HYGIENE — 15 universal gates catalogue (extracted from façade).
  */

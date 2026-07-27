@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SelfConstruction;
 
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneChainIntegrityAuditService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneChainIntegrityChainBuilder;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneChainIntegrityCorridorAnalyzer;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneChainIntegritySurfaceAuditor;
 use App\Services\Ai\SelfConstruction\Readiness\AtlasSelfConstructionReadinessService;
 use Tests\TestCase;

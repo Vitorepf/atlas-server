@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\Cognition\Watchdog\Checks;
 
 use App\Services\Ai\Support\AiValueNormalizer;
-
 use App\Services\Ai\Cognition\AcosProgram\AtlasLocalModelIntegrityService;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheck;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckResult;

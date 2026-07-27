@@ -5,13 +5,11 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Console\Commands\Concerns\LoadsNamedJsonOption;
-
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionNativePatchMaterializer;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionNativePatchPlanner;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionNativeTestFeedbackRepairLoop;
 use Illuminate\Console\Command;
 use RuntimeException;
-use Throwable;
 
 /**
  * Read-only operator surface for the native-implementation brain.

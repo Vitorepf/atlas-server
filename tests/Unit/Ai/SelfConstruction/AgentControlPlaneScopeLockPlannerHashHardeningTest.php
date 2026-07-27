@@ -2,7 +2,6 @@
 
 namespace Tests\Unit\Ai\SelfConstruction;
 
-use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneScopeLockPlanner;
 

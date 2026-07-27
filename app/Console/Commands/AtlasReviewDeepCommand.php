@@ -4,13 +4,10 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Models\AtlasEngineeringReviewFinding;
-use App\Models\AtlasEngineeringRun;
 use App\Models\AtlasTask;
 use App\Services\Engineering\CodeGraph\CodeGraphReviewContextAssembler;
 use App\Services\Engineering\EngineeringReviewService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\DB;
 use App\Console\Concerns\EmitsCanonicalJson;
 
 class AtlasReviewDeepCommand extends Command

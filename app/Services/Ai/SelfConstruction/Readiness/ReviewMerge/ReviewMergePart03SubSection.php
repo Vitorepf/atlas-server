@@ -21,7 +21,7 @@ final class ReviewMergePart03SubSection
     public function __construct(
         private readonly AtlasSelfConstructionReadinessService $parent,
     ) {}
-    
+
     /**
      * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null}  $options
      * @return array<string, mixed>
@@ -30,14 +30,14 @@ final class ReviewMergePart03SubSection
     {
         $executionReceiptPayload = $this->parent->agentReviewMergeExecutionReceiptTemplate($options);
         $preflightReady = data_get($executionReceiptPayload, 'status') === 'merge_execution_receipt_template_ready';
-    
+
         $workspace = [
             'workspace_id' => 'FORGE-WORKSPACE-ATLAS-SELF-CONSTRUCTION-0001',
             'canonical_name' => 'Obras Shared Workspace',
             'specialization' => 'Forge Workspace',
             'obra_id' => 'OBRA-ATLAS-SELF-CONSTRUCTION-OS',
         ];
-    
+
         $preflight = [
             'preflight_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-PREFLIGHT-SELF-CONSTRUCTION-0001',
             'workspace' => $workspace,
@@ -108,7 +108,7 @@ final class ReviewMergePart03SubSection
             'approval_granted' => false,
             'merge_allowed' => false,
         ];
-    
+
         return [
             'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_preflight.v1',
             'status' => $preflightReady ? 'merge_post_execution_preflight_ready' : 'merge_post_execution_preflight_blocked',
@@ -135,7 +135,7 @@ final class ReviewMergePart03SubSection
                 : 'Agent review merge post-execution preflight is blocked until execution receipt template is ready.',
         ];
     }
-    
+
     /**
      * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null}  $options
      * @return array<string, mixed>
@@ -144,14 +144,14 @@ final class ReviewMergePart03SubSection
     {
         $preflightPayload = $this->parent->agentReviewMergePostExecutionPreflight($options);
         $templateReady = data_get($preflightPayload, 'status') === 'merge_post_execution_preflight_ready';
-    
+
         $workspace = [
             'workspace_id' => 'FORGE-WORKSPACE-ATLAS-SELF-CONSTRUCTION-0001',
             'canonical_name' => 'Obras Shared Workspace',
             'specialization' => 'Forge Workspace',
             'obra_id' => 'OBRA-ATLAS-SELF-CONSTRUCTION-OS',
         ];
-    
+
         $template = [
             'template_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-ACTION-TEMPLATE-SELF-CONSTRUCTION-0001',
             'workspace' => $workspace,
@@ -216,7 +216,7 @@ final class ReviewMergePart03SubSection
             'approval_granted' => false,
             'merge_allowed' => false,
         ];
-    
+
         return [
             'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_template.v1',
             'status' => $templateReady ? 'merge_post_execution_action_template_ready' : 'merge_post_execution_action_template_blocked',
@@ -241,7 +241,7 @@ final class ReviewMergePart03SubSection
                 : 'Agent review merge post-execution action template is blocked until post-execution preflight is ready.',
         ];
     }
-    
+
     /**
      * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null}  $options
      * @return array<string, mixed>
@@ -250,14 +250,14 @@ final class ReviewMergePart03SubSection
     {
         $actionTemplatePayload = $this->parent->agentReviewMergePostExecutionActionTemplate($options);
         $receiptReady = data_get($actionTemplatePayload, 'status') === 'merge_post_execution_action_template_ready';
-    
+
         $workspace = [
             'workspace_id' => 'FORGE-WORKSPACE-ATLAS-SELF-CONSTRUCTION-0001',
             'canonical_name' => 'Obras Shared Workspace',
             'specialization' => 'Forge Workspace',
             'obra_id' => 'OBRA-ATLAS-SELF-CONSTRUCTION-OS',
         ];
-    
+
         $receipt = [
             'receipt_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-ACTION-RECEIPT-DRAFT-SELF-CONSTRUCTION-0001',
             'workspace' => $workspace,
@@ -314,7 +314,7 @@ final class ReviewMergePart03SubSection
             'merge_allowed' => false,
             'receipt_signed' => false,
         ];
-    
+
         return [
             'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_receipt_draft.v1',
             'status' => $receiptReady ? 'merge_post_execution_action_receipt_draft_ready' : 'merge_post_execution_action_receipt_draft_blocked',
@@ -341,7 +341,7 @@ final class ReviewMergePart03SubSection
                 : 'Agent review merge post-execution action receipt draft is blocked until post-execution action template is ready.',
         ];
     }
-    
+
     /**
      * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null}  $options
      * @return array<string, mixed>
@@ -351,14 +351,14 @@ final class ReviewMergePart03SubSection
         $receiptPayload = $this->parent->agentReviewMergePostExecutionActionReceiptDraft($options);
         $receipt = (array) data_get($receiptPayload, 'receipt', []);
         $requestReady = data_get($receiptPayload, 'status') === 'merge_post_execution_action_receipt_draft_ready';
-    
+
         $workspace = [
             'workspace_id' => 'FORGE-WORKSPACE-ATLAS-SELF-CONSTRUCTION-0001',
             'canonical_name' => 'Obras Shared Workspace',
             'specialization' => 'Forge Workspace',
             'obra_id' => 'OBRA-ATLAS-SELF-CONSTRUCTION-OS',
         ];
-    
+
         $signablePayload = [
             'signature_request_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNATURE-REQUEST-SELF-CONSTRUCTION-0001',
             'workspace' => $workspace,
@@ -390,7 +390,7 @@ final class ReviewMergePart03SubSection
                 'dispatch_from_post_execution_action_signature_request',
             ],
         ];
-    
+
         $signatureRequest = [
             'request_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNATURE-REQUEST-SELF-CONSTRUCTION-0001',
             'workspace' => $workspace,
@@ -405,7 +405,7 @@ final class ReviewMergePart03SubSection
             'merge_allowed' => false,
             'receipt_persisted' => false,
         ];
-    
+
         return [
             'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signature_request.v1',
             'status' => $requestReady ? 'merge_post_execution_action_signature_request_pending' : 'merge_post_execution_action_signature_request_blocked',
@@ -436,7 +436,7 @@ final class ReviewMergePart03SubSection
                 : 'Agent review merge post-execution action signature request is blocked until action receipt draft is ready.',
         ];
     }
-    
+
     /**
      * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null}  $options
      * @return array<string, mixed>
@@ -445,14 +445,14 @@ final class ReviewMergePart03SubSection
     {
         $signaturePayload = $this->parent->agentReviewMergePostExecutionActionSignatureRequest($options);
         $runbookReady = data_get($signaturePayload, 'status') === 'merge_post_execution_action_signature_request_pending';
-    
+
         $workspace = [
             'workspace_id' => 'FORGE-WORKSPACE-ATLAS-SELF-CONSTRUCTION-0001',
             'canonical_name' => 'Obras Shared Workspace',
             'specialization' => 'Forge Workspace',
             'obra_id' => 'OBRA-ATLAS-SELF-CONSTRUCTION-OS',
         ];
-    
+
         $runbook = [
             'runbook_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-ACTION-POST-SIGNATURE-RUNBOOK-SELF-CONSTRUCTION-0001',
             'workspace' => $workspace,
@@ -509,7 +509,7 @@ final class ReviewMergePart03SubSection
             ],
             'step_count' => 8,
         ];
-    
+
         return [
             'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_post_signature_runbook.v1',
             'status' => $runbookReady ? 'merge_post_execution_action_post_signature_runbook_ready' : 'merge_post_execution_action_post_signature_runbook_blocked',
@@ -539,7 +539,7 @@ final class ReviewMergePart03SubSection
                 : 'Agent review merge post-execution action post-signature runbook is blocked until action signature request is pending.',
         ];
     }
-    
+
     /**
      * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null}  $options
      * @return array<string, mixed>
@@ -548,14 +548,14 @@ final class ReviewMergePart03SubSection
     {
         $runbookPayload = $this->parent->agentReviewMergePostExecutionActionPostSignatureRunbook($options);
         $templateReady = data_get($runbookPayload, 'status') === 'merge_post_execution_action_post_signature_runbook_ready';
-    
+
         $workspace = [
             'workspace_id' => 'FORGE-WORKSPACE-ATLAS-SELF-CONSTRUCTION-0001',
             'canonical_name' => 'Obras Shared Workspace',
             'specialization' => 'Forge Workspace',
             'obra_id' => 'OBRA-ATLAS-SELF-CONSTRUCTION-OS',
         ];
-    
+
         $template = [
             'template_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-TEMPLATE-SELF-CONSTRUCTION-0001',
             'workspace' => $workspace,
@@ -638,7 +638,7 @@ final class ReviewMergePart03SubSection
             'approval_granted' => false,
             'merge_allowed' => false,
         ];
-    
+
         return [
             'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_template.v1',
             'status' => $templateReady ? 'merge_post_execution_action_signed_receipt_template_ready' : 'merge_post_execution_action_signed_receipt_template_blocked',
@@ -668,7 +668,7 @@ final class ReviewMergePart03SubSection
                 : 'Agent review merge post-execution action signed receipt template is blocked until action post-signature runbook is ready.',
         ];
     }
-    
+
     /**
      * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null}  $options
      * @return array<string, mixed>
@@ -678,14 +678,14 @@ final class ReviewMergePart03SubSection
         $templatePayload = $this->parent->agentReviewMergePostExecutionActionSignedReceiptTemplate($options);
         $template = (array) data_get($templatePayload, 'template', []);
         $preflightReady = data_get($templatePayload, 'status') === 'merge_post_execution_action_signed_receipt_template_ready';
-    
+
         $workspace = [
             'workspace_id' => 'FORGE-WORKSPACE-ATLAS-SELF-CONSTRUCTION-0001',
             'canonical_name' => 'Obras Shared Workspace',
             'specialization' => 'Forge Workspace',
             'obra_id' => 'OBRA-ATLAS-SELF-CONSTRUCTION-OS',
         ];
-    
+
         $blockingConditions = [
             'missing_workspace_id',
             'missing_obra_id',
@@ -707,7 +707,7 @@ final class ReviewMergePart03SubSection
             'hot_scope_drift_since_action_signature_request',
             'unreviewed_diff_since_action_signature_request',
         ];
-    
+
         $preflight = [
             'preflight_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PREFLIGHT-SELF-CONSTRUCTION-0001',
             'workspace' => $workspace,
@@ -739,7 +739,7 @@ final class ReviewMergePart03SubSection
             'approval_granted' => false,
             'merge_allowed' => false,
         ];
-    
+
         return [
             'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_preflight.v1',
             'status' => $preflightReady ? 'merge_post_execution_action_signed_receipt_preflight_ready' : 'merge_post_execution_action_signed_receipt_preflight_blocked',
@@ -769,7 +769,7 @@ final class ReviewMergePart03SubSection
                 : 'Agent review merge post-execution action signed receipt preflight is blocked until signed action receipt template is ready.',
         ];
     }
-    
+
     /**
      * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null}  $options
      * @return array<string, mixed>
@@ -779,14 +779,14 @@ final class ReviewMergePart03SubSection
         $preflightPayload = $this->parent->agentReviewMergePostExecutionActionSignedReceiptPreflight($options);
         $preflight = (array) data_get($preflightPayload, 'preflight', []);
         $templateReady = data_get($preflightPayload, 'status') === 'merge_post_execution_action_signed_receipt_preflight_ready';
-    
+
         $workspace = [
             'workspace_id' => 'FORGE-WORKSPACE-ATLAS-SELF-CONSTRUCTION-0001',
             'canonical_name' => 'Obras Shared Workspace',
             'specialization' => 'Forge Workspace',
             'obra_id' => 'OBRA-ATLAS-SELF-CONSTRUCTION-OS',
         ];
-    
+
         $template = [
             'template_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-TEMPLATE-SELF-CONSTRUCTION-0001',
             'workspace' => $workspace,
@@ -857,7 +857,7 @@ final class ReviewMergePart03SubSection
             'approval_granted' => false,
             'merge_allowed' => false,
         ];
-    
+
         return [
             'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_template.v1',
             'status' => $templateReady ? 'merge_post_execution_action_signed_receipt_persistence_template_ready' : 'merge_post_execution_action_signed_receipt_persistence_template_blocked',
@@ -888,7 +888,7 @@ final class ReviewMergePart03SubSection
                 : 'Agent review merge post-execution action signed receipt persistence template is blocked until signed receipt preflight is ready.',
         ];
     }
-    
+
     /**
      * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
      * @return array<string, mixed>
@@ -898,14 +898,14 @@ final class ReviewMergePart03SubSection
         $templatePayload = $this->parent->agentReviewMergePostExecutionActionSignedReceiptPersistenceTemplate($options);
         $template = (array) data_get($templatePayload, 'template', []);
         $receiptReady = data_get($templatePayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_template_ready';
-    
+
         $workspace = [
             'workspace_id' => 'FORGE-WORKSPACE-ATLAS-SELF-CONSTRUCTION-0001',
             'canonical_name' => 'Obras Shared Workspace',
             'specialization' => 'Forge Workspace',
             'obra_id' => 'OBRA-ATLAS-SELF-CONSTRUCTION-OS',
         ];
-    
+
         $receipt = [
             'receipt_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-RECEIPT-DRAFT-SELF-CONSTRUCTION-0001',
             'workspace' => $workspace,
@@ -951,7 +951,7 @@ final class ReviewMergePart03SubSection
             'approval_granted' => false,
             'merge_allowed' => false,
         ];
-    
+
         return [
             'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_receipt_draft.v1',
             'status' => $receiptReady ? 'merge_post_execution_action_signed_receipt_persistence_receipt_draft_ready' : 'merge_post_execution_action_signed_receipt_persistence_receipt_draft_blocked',
@@ -983,7 +983,7 @@ final class ReviewMergePart03SubSection
                 : 'Agent review merge post-execution action signed receipt persistence receipt draft is blocked until the persistence template is ready.',
         ];
     }
-    
+
     /**
      * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
      * @return array<string, mixed>
@@ -993,14 +993,14 @@ final class ReviewMergePart03SubSection
         $receiptPayload = $this->parent->agentReviewMergePostExecutionActionSignedReceiptPersistenceReceiptDraft($options);
         $receipt = (array) data_get($receiptPayload, 'receipt', []);
         $receiptDraftReady = data_get($receiptPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_receipt_draft_ready';
-    
+
         $workspace = [
             'workspace_id' => 'FORGE-WORKSPACE-ATLAS-SELF-CONSTRUCTION-0001',
             'canonical_name' => 'Obras Shared Workspace',
             'specialization' => 'Forge Workspace',
             'obra_id' => 'OBRA-ATLAS-SELF-CONSTRUCTION-OS',
         ];
-    
+
         $blockingConditions = $receiptDraftReady ? [
             'workspace_identity_missing',
             'obra_identity_missing',
@@ -1020,7 +1020,7 @@ final class ReviewMergePart03SubSection
         ] : [
             'signed_action_receipt_persistence_receipt_draft_not_ready',
         ];
-    
+
         $preflight = [
             'preflight_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-PREFLIGHT-SELF-CONSTRUCTION-0001',
             'workspace' => $workspace,
@@ -1062,7 +1062,7 @@ final class ReviewMergePart03SubSection
             'approval_granted' => false,
             'merge_allowed' => false,
         ];
-    
+
         return [
             'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_preflight.v1',
             'status' => $receiptDraftReady ? 'merge_post_execution_action_signed_receipt_persistence_preflight_ready' : 'merge_post_execution_action_signed_receipt_persistence_preflight_blocked',
@@ -1094,7 +1094,7 @@ final class ReviewMergePart03SubSection
                 : 'Agent review merge post-execution action signed receipt persistence preflight is blocked until the persistence receipt draft is ready.',
         ];
     }
-    
+
     /**
      * @param  array{workspace?: string|null, target?: string|null, packet?: string|null, actor?: string|null, session?: string|null, lease_minutes?: int|string|null, reason?: string|null, evidence_hash?: string|null}  $options
      * @return array<string, mixed>
@@ -1104,14 +1104,14 @@ final class ReviewMergePart03SubSection
         $preflightPayload = $this->parent->agentReviewMergePostExecutionActionSignedReceiptPersistencePreflight($options);
         $preflight = (array) data_get($preflightPayload, 'preflight', []);
         $preflightReady = data_get($preflightPayload, 'status') === 'merge_post_execution_action_signed_receipt_persistence_preflight_ready';
-    
+
         $workspace = [
             'workspace_id' => 'FORGE-WORKSPACE-ATLAS-SELF-CONSTRUCTION-0001',
             'canonical_name' => 'Obras Shared Workspace',
             'specialization' => 'Forge Workspace',
             'obra_id' => 'OBRA-ATLAS-SELF-CONSTRUCTION-OS',
         ];
-    
+
         $steps = [
             [
                 'id' => 'step_01_reconfirm_workspace_and_preflight_hash',
@@ -1144,7 +1144,7 @@ final class ReviewMergePart03SubSection
                 'required_evidence' => ['future_append_only_event_payload_hash'],
             ],
         ];
-    
+
         $runbook = [
             'runbook_id' => 'AGENT-REVIEW-MERGE-POST-EXECUTION-ACTION-SIGNED-RECEIPT-PERSISTENCE-POST-PREFLIGHT-RUNBOOK-SELF-CONSTRUCTION-0001',
             'workspace' => $workspace,
@@ -1184,7 +1184,7 @@ final class ReviewMergePart03SubSection
             'approval_granted' => false,
             'merge_allowed' => false,
         ];
-    
+
         return [
             'schema_version' => 'atlas.self_construction_agent_review_merge_post_execution_action_signed_receipt_persistence_post_preflight_runbook.v1',
             'status' => $preflightReady ? 'merge_post_execution_action_signed_receipt_persistence_post_preflight_runbook_ready' : 'merge_post_execution_action_signed_receipt_persistence_post_preflight_runbook_blocked',

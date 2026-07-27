@@ -5,7 +5,6 @@ namespace App\Services\Ai\SelfConstruction\ControlPlane;
 use App\Services\Ai\SelfConstruction\TaskQueue\AgentControlPlaneCompletionEvidenceValidator;
 use App\Services\Ai\SelfConstruction\TaskQueue\TaskPacketCanonicalizer;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 
 /**

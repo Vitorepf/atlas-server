@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\MultiProject;
 
 use App\Support\CanonicalValue;
+
 /**
  * Compact governance dossier for one project stewardship lane. Groups all auditable evidence
  * (admission + 8 other sections + autonomy readiness) into a single deterministic JSON structure.

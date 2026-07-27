@@ -3,14 +3,10 @@
 namespace App\Services\Ai;
 
 use App\Services\Ai\Provider\ProviderCatalog;
-
 use App\Models\AiCompaction;
-use App\Models\AiDecision;
 use App\Models\AiJob;
 use App\Models\AiMessage;
-use App\Models\AiRouterDecision;
 use App\Models\AiSession;
-use App\Models\AiSpecialistFlowExecution;
 use App\Models\AiThread;
 use App\Models\AiTrace;
 use App\Models\Capture;

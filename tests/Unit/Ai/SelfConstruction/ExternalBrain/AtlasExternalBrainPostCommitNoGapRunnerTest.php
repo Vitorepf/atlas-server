@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\SelfConstruction\ExternalBrain;
 
-use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainNoGapEndToEndProof;
-use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainNoGapOriginatorGate;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainPostCommitNoGapRunner;
-use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainPostCommitWaveResequencer;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainPostMergeCompressionAuditor;
 use PHPUnit\Framework\TestCase;
 

@@ -7,7 +7,6 @@ namespace Tests\Unit\Ai\AgenticEngineeringOs;
 use App\Services\Ai\AgenticEngineeringOs\AaeosPhaseHandoffService;
 use App\Services\Ai\AgenticEngineeringOs\AtlasAaeosHttpPathFacadeService;
 use App\Services\Ai\Kernel\Architecture\AtlasFeaturePlacementService;
-use App\Services\Ai\Mission\MissionDetectionService;
 use Illuminate\Cache\ArrayStore;
 use Illuminate\Cache\Repository;
 use Tests\TestCase;

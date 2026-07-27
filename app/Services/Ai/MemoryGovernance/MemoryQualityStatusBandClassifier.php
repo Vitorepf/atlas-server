@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\MemoryGovernance;
 
-use App\Services\Ai\MemoryGovernance\MemoryQualityStatusPolicy;
-
 /**
  * Pure schema wrapper around the shared memory quality status policy.
  *

@@ -2,7 +2,6 @@
 
 namespace App\Services\Engineering\CodeGraph;
 
-
 /**
  * Read-only analytics over resolved code-graph edges (AP-811 P-7 / P-9).
  *

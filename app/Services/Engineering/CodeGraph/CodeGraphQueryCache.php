@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering\CodeGraph;
 
-
 /**
  * AP-815 · E-9 — In-memory memoizer for assembled code-graph query / context results.
  *

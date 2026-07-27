@@ -2,7 +2,6 @@
 
 namespace App\Services\Engineering\CodeGraph;
 
-
 /**
  * Compounding bridge for the Atlas Code Graph (AP-811/AP-812 M-6).
  *

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\Support;
 
-use App\Services\Ai\SelfConstruction\Support\FinalOperatorEvidenceSubmissionEnvelopeBuilder;
 use App\Services\Ai\SelfConstruction\FinalOperatorClosureCorridor\ClosureCorridorCanonicalHasher;
 
 /**

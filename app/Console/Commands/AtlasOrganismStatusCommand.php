@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
-
 use App\Services\Ai\Organism\ActuationReceiptStore;
 use App\Services\Ai\Organism\AtlasOrganismMissionService;
 use Illuminate\Console\Command;

@@ -5,12 +5,10 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\Memory;
 
 use App\Models\AtlasLedgerEvent;
-use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Memory\Substrate\AtlasMemorySubstrateDumpRunner;
 use App\Services\Ai\Memory\Substrate\AtlasMemorySubstrateRestoreProofRunner;
-use App\Services\Ai\Memory\Substrate\AtlasMemorySubstrateSnapshotService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;

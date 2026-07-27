@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\Cognition;
 
 use App\Services\Ai\Support\AiValueNormalizer;
-
 use App\Services\Ai\Aemor\AtlasAemorCertificationService;
 use App\Services\Ai\Aemor\AtlasAemorJudgmentService;
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;

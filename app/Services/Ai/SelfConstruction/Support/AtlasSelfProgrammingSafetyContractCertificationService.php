@@ -2,7 +2,6 @@
 
 namespace App\Services\Ai\SelfConstruction\Support;
 
-
 use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 use Carbon\CarbonImmutable;
 use App\Services\Ai\SelfConstruction\NativeImplementation\AtlasSelfConstructionCompletionFinalizationGateService;

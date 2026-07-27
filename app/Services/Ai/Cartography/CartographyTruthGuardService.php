@@ -8,7 +8,6 @@ use App\Models\AtlasEngineeringKnowledgeItem;
 use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use App\Services\Ai\Support\DatabaseTableAvailability;
-use App\Services\Engineering\EngineeringKnowledgeBaseService;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use DateTimeImmutable;
 use DateTimeInterface;

@@ -9,7 +9,6 @@ use App\Services\Ai\Compounding\AtlasRagFeedbackService;
 use App\Services\Ai\Context\AtlasContextRankingSystemService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\Schema;
 use Tests\Concerns\BootsCompoundingSchema;
 use Tests\TestCase;
 

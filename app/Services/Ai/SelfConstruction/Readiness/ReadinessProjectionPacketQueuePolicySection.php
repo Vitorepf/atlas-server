@@ -5,6 +5,7 @@ namespace App\Services\Ai\SelfConstruction\Readiness;
 use App\Services\Ai\SelfConstruction\Support\WriteSetOverlap;
 use App\Models\AtlasSelfConstructionAgentCostEvent;
 use App\Models\AtlasSelfConstructionAgentWorkProduct;
+
 /**
  * GOD-DEBULK extracted stateful packet-queue/session/automatic-policy family from AtlasSelfConstructionReadinessService (complete packet, ai session bootstrap, packet queue, collision matrix, agent automatic cost-import policy, agent automatic work-product-collection policy).
  * Bound via setMother(); undefined method calls bridge through __call and undefined

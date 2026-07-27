@@ -6,7 +6,6 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Support\Clamp01;
 use App\Services\Ai\Mission\MissionCanonicalHash;
-use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
  * AP-810 / LHL-11 — Cycle Quality Score.

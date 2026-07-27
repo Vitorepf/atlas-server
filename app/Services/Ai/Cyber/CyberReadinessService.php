@@ -10,9 +10,7 @@ use App\Models\AiCyberScopeRules;
 use App\Models\AiDefensiveSecurityReview;
 use App\Models\AiGrcMapping;
 use App\Models\AiRemediationPlan;
-use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Contracts\Container\Container;
-use Throwable;
 
 class CyberReadinessService
 {

@@ -9,7 +9,6 @@ use App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionAutonomyDep
 use App\Services\Ai\SelfConstruction\OperatorInterface\AtlasSelfConstructionEmergencyOverrideEnvelope;
 use App\Services\Ai\SelfConstruction\OperatorInterface\AtlasSelfConstructionOperatorDashboardSnapshot;
 use Illuminate\Console\Command;
-use Throwable;
 
 /**
  * Read-only operator surface for the Self-Construction Operator Interface.

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering;
 
-
 /**
  * Shared seam for documentation-reality services that finalize read-only
  * envelopes with tamper-evidence hashes.

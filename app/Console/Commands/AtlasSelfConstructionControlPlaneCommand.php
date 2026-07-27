@@ -11,7 +11,6 @@ use App\Services\Ai\SelfConstruction\ControlPlane\AtlasSelfConstructionNextActio
 use App\Services\Ai\SelfConstruction\ControlPlane\AtlasSelfConstructionOrganReadinessComposer;
 use App\Services\Ai\SelfConstruction\ControlPlane\AtlasSelfConstructionScopeRiskBudgetGate;
 use Illuminate\Console\Command;
-use Throwable;
 
 /**
  * Read-only operator CLI for the Self-Construction Control Plane.

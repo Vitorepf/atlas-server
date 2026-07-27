@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 namespace App\Services\Ai\Context;
+
 use App\Support\CanonicalValue;
 
 /**

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\Support;
 
 use App\Support\StableJson;
+
 /**
  * Pure sha256 hasher of a payload via JSON-encode with stable flags. The body
  * is byte-identical to the pure sub-family (sub-hash aaf8e4943b9a) of the

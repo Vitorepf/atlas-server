@@ -8,7 +8,6 @@ use App\Models\AiCodebaseWorldModel;
 use App\Models\AiCodebaseWorldModelEdge;
 use App\Models\AiCodebaseWorldModelNode;
 use App\Services\Engineering\CodeGraph\CodeGraphLanguageServer;
-use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceModelResolver;
 use Illuminate\Support\Facades\Schema;
 use Tests\TestCase;
 

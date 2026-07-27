@@ -2,10 +2,8 @@
 
 namespace App\Services\Ai\SelfConstruction\NativeImplementation;
 
-
 use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 use Carbon\CarbonImmutable;
-
 /**
  * Read-only final readiness gate for Atlas Self-Construction OS.
  *

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\LearningTransfer;
 
 use App\Support\CanonicalValue;
+
 /**
  * Pure planner — turns an ADMITTED lesson into a bounded, provider-safe FUTURE-context update plan.
  * NEVER writes docs, memory, prompts, or templates directly; only emits a plan + bounded targets.

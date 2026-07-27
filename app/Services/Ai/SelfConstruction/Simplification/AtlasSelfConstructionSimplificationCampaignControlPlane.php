@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\Simplification;
 
-use App\Services\Ai\SelfConstruction\Simplification\AtlasSelfConstructionSimplificationReadinessGate;
-use App\Services\Ai\SelfConstruction\Simplification\AtlasSelfConstructionSimplificationSignalRunner;
-
 /**
  * Pure, read-only decision snapshot for a governed circuit-consolidation
  * (simplification) campaign. Combines redundancy maps, equivalence dossiers,

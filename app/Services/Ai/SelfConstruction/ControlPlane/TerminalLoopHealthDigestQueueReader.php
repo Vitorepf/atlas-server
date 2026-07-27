@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\ControlPlane;
 
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository;
-use Closure;
-
 /**
  * Queue-tag-aware read-model access for the Agent Control Plane terminal-loop
  * health digest.

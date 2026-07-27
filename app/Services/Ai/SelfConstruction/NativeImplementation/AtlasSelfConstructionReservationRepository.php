@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Services\Ai\SelfConstruction\NativeImplementation;
+
 use App\Services\Ai\SelfConstruction\Support\WriteSetOverlap;
 
 final class AtlasSelfConstructionReservationRepository

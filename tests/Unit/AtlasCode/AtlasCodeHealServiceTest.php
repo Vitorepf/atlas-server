@@ -3,7 +3,6 @@
 declare(strict_types=1);
 
 use App\Services\AtlasCode\AtlasCodeHealService;
-use App\Services\AtlasCode\AtlasCodeViolationService;
 use Tests\TestCase;
 
 final class AtlasCodeHealServiceTest extends TestCase

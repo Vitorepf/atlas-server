@@ -4,12 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\AiJob;
 use App\Models\AiProviderCostRate;
-use App\Models\AiTelemetryEvent;
 use App\Models\AiTrace;
 use App\Services\Ai\Telemetry\AiTelemetryScorecardService;
 use App\Services\Ai\Telemetry\AiTraceMetricAggregator;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Tests\TestCase;

@@ -7,7 +7,6 @@ use App\Services\Ai\SelfConstruction\Support\FinalOperatorClosureCorridorHashSup
 use App\Services\Ai\SelfConstruction\Support\FinalOperatorEvidenceSubmissionEnvelopeBuilder;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Artisan;
-
 /**
  * Final Operator Evidence Closure Corridor v1.
  *

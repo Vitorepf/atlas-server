@@ -4,7 +4,6 @@ namespace Tests\Unit\Ai\SelfConstruction;
 
 use Illuminate\Support\Facades\Schema;
 use Mockery;
-use Mockery\MockInterface;
 use PHPUnit\Framework\TestCase;
 
 final class AtlasSelfImprovementMetaMetricServiceHardeningTest extends TestCase

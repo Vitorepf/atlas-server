@@ -2,12 +2,9 @@
 
 namespace App\Services\Ai\SelfConstruction\NativeImplementation;
 
-
-
 use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 use App\Services\Ai\SelfConstruction\Support\KsortsArraysByReference;
 use Carbon\CarbonImmutable;
-
 /**
  * Runtime Promotion Closure Execution Pack v1.
  *

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Unit\Services\Ai\AutonomousEvolution;
 
 use App\Services\Ai\AutonomousEvolution\AtlasAaelLoopExecutionBridge;
-use App\Services\Ai\AutonomousEvolution\AtlasAutonomousEvolutionLoopService;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopArmedCoverageReporter;
 use Closure;
 use Symfony\Component\Console\Output\BufferedOutput;

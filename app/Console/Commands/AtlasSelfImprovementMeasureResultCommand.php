@@ -9,7 +9,6 @@ use App\Console\Commands\Concerns\ResolvesJsonOptionWithComponentsError;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementProposalBacklogService;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementResultLedgerService;
 use Illuminate\Console\Command;
-use Throwable;
 
 /**
  * Atlas Self-Improvement Measure Result CLI (Level 7).

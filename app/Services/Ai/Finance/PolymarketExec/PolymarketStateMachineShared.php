@@ -6,7 +6,6 @@ namespace App\Services\Ai\Finance\PolymarketExec;
 
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Throwable;
 
 /**
  * Miolo comum das state machines de execucao Polymarket (Basket + MintSell): eventos,

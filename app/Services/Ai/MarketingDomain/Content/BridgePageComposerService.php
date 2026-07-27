@@ -13,7 +13,6 @@ use App\Services\Ai\MarketingDomain\Knowledge\PagePatternLibrary;
 use App\Services\Ai\MarketingDomain\Scoring\MessageMatchScorer;
 use App\Services\Ai\MarketingDomain\Scoring\PageAuditScorer;
 use Illuminate\Support\Str;
-use JsonException;
 use RuntimeException;
 
 /**

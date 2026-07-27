@@ -6,16 +6,10 @@ namespace App\Services\Ai\Programming;
 
 use App\Models\AtlasProgrammingWorkItem;
 use App\Models\AtlasProject;
-use App\Services\Ai\DualCore\ForgeIntakeRouteDecisionRecorder;
-use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;
-use App\Services\Ai\Programming\Governance\ProgrammingSpecCompiler;
-use App\Services\Ai\Programming\Sdd\Compilers\PlanCompiler;
-use App\Services\Ai\Programming\Sdd\Compilers\TaskCompiler;
 use App\Services\Ai\Programming\Support\ForgeFastPathReportSanitizer;
 use App\Services\Ai\Support\AiStringListNormalizer;
 use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
-use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Throwable;
 

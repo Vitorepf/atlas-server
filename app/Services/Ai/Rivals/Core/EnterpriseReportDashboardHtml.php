@@ -3,7 +3,6 @@
 namespace App\Services\Ai\Rivals\Core;
 
 use App\Services\Ai\Rivals\Core\EnterpriseReport\EnterpriseReportDashboardHtmlTemplate;
-use App\Support\YesNo;
 
 /**
  * Relatório de CAPACIDADES (não pipeline theater).

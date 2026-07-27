@@ -4,8 +4,6 @@ namespace App\Services\Ai\OperatorIntelligence;
 
 use App\Models\OperatorLearningSignal;
 use App\Services\Ai\OperatorIntelligence\Support\OperatorLearningClassifySupport;
-use App\Services\Ai\Support\AiValueNormalizer;
-use Illuminate\Support\Str;
 
 class OperatorLearningClassifier
 {

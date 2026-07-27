@@ -7,7 +7,6 @@ use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Console\Kernel as ConsoleKernel;
 use Illuminate\Support\Str;
 use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
-
 /**
  * Certification baseline for the Agent Control Plane.
  *

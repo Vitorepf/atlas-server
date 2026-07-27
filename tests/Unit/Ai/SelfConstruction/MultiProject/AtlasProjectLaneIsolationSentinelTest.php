@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SelfConstruction\MultiProject;
 
 use App\Services\Ai\SelfConstruction\MultiProject\AtlasProjectLaneIsolationSentinel;
-use App\Services\Ai\SelfConstruction\MultiProject\AtlasProjectLaneQueueNamespacePolicy;
 use App\Services\Ai\SelfConstruction\MultiProject\AtlasProjectLaneReceiptPolicy;
 use PHPUnit\Framework\TestCase;
 

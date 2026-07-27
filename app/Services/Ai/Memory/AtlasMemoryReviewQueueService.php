@@ -7,7 +7,6 @@ use App\Models\AtlasMemoryEntry;
 use App\Models\AtlasMemoryEntryRelation;
 use App\Models\AtlasVerbatimMemory;
 use App\Models\SemanticCurationProposal;
-use App\Services\Ai\Memory\MemoryQueryInput;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;

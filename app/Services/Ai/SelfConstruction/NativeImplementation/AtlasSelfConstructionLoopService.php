@@ -7,7 +7,6 @@ namespace App\Services\Ai\SelfConstruction\NativeImplementation;
 use App\Services\Ai\RealExecution\AtlasMissionService;
 use App\Services\Ai\RealExecution\GovernedBranchMaterializationService;
 use Throwable;
-
 /**
  * S3.F1 — THE RECURSIVE GOVERNED SELF-IMPROVEMENT LOOP ("Atlas improves Atlas").
  *

@@ -8,7 +8,6 @@ use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Commands\Concerns\ResolvesSilentJsonOption;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementDeltaScorecardService;
 use Illuminate\Console\Command;
-use Throwable;
 use App\Support\YesNo;
 
 /**

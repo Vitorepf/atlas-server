@@ -7,7 +7,6 @@ namespace App\Services\Ai\Governance;
 use App\Models\AiJob;
 use App\Services\Ai\AtlasDecide\AtlasDecideGatewayConsultationService;
 use App\Services\Ai\Caching\AiCallCostGuard;
-use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
 
 /**
  * Shared governance consult — the SAME cost/route governance the manager runs,

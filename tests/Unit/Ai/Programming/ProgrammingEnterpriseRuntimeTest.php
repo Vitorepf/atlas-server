@@ -12,7 +12,6 @@ use App\Services\Ai\Programming\ProgrammingLearningCandidateStore;
 use App\Services\Ai\Programming\ProgrammingLearningPromotionGate;
 use App\Services\Ai\Programming\ProgrammingPatchVerifier;
 use App\Services\Ai\Programming\ProgrammingPatchVerifierBenchmarkService;
-use App\Services\Ai\Programming\ProgrammingProfessionalCompletionAuditService;
 use App\Services\Ai\Programming\ProgrammingPythonRuntimeContract;
 use App\Services\Ai\Programming\ProgrammingPythonRuntimeExecutor;
 use App\Services\Ai\Programming\ProgrammingPythonRuntimeGraphProjector;

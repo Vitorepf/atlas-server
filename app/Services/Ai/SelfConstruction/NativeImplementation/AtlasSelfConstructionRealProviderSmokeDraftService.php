@@ -2,7 +2,6 @@
 
 namespace App\Services\Ai\SelfConstruction\NativeImplementation;
 
-
 use Carbon\CarbonImmutable;
 use App\Services\Ai\SelfConstruction\Support\ReadinessHash;
 

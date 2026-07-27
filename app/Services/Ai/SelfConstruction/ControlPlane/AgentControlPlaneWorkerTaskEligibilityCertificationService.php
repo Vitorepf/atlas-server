@@ -3,7 +3,6 @@
 namespace App\Services\Ai\SelfConstruction\ControlPlane;
 
 use Carbon\CarbonImmutable;
-
 /**
  * Read-only certification that the worker-facing queue does not contain
  * operator/provider-only completion blockers.

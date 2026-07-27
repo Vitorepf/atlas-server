@@ -13,7 +13,6 @@ use App\Models\AiOperatorDecision;
 use App\Models\AiReceipt;
 use App\Models\AiSourceRef;
 use App\Models\AiTestResult;
-use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Contracts\Container\Container;
 
 class EvidenceReadinessService

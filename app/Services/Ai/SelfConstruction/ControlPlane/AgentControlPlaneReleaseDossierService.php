@@ -6,7 +6,6 @@ use App\Services\Ai\SelfConstruction\Support\HashesKsortedPayloadCanonically;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
-
 /**
  * Bundles all certification layers (baseline, replay, snapshot, diff,
  * promotion gate, scenario simulator, mutation guard, chain integrity)

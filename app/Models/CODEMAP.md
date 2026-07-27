@@ -69,7 +69,6 @@ The target is the first public entry method — the door, not the whole surface.
 | AiProviderHandoff | `App\Models\AiProviderHandoff::thread` |
 | AiQualityAction | `App\Models\AiQualityAction::evaluation` |
 | AiQualityEvaluation | `App\Models\AiQualityEvaluation::trace` |
-| AiReportFinding | `App\Models\AiReportFinding::run` |
 | AiResearchClaim | `App\Models\AiResearchClaim::researchRun` |
 | AiResearchRun | `App\Models\AiResearchRun::sources` |
 | AiResearchSource | `App\Models\AiResearchSource::researchRun` |
@@ -214,4 +213,4 @@ The target is the first public entry method — the door, not the whole surface.
 | SemanticNoteLink | `App\Models\SemanticNoteLink::sourceNote` |
 | TranscriptionJob | `App\Models\TranscriptionJob::capture` |
 
-Façades: 204.
+Façades: 203.

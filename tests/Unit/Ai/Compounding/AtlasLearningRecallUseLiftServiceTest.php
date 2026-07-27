@@ -9,7 +9,6 @@ use App\Models\AiRagFeedbackEvent;
 use App\Models\AiRunOutcome;
 use App\Services\Ai\Compounding\AtlasLearningRecallUseLiftService;
 use Illuminate\Support\Facades\Artisan;
-use Illuminate\Support\Facades\Schema;
 use Tests\Concerns\BootsCompoundingSchema;
 use Tests\TestCase;
 

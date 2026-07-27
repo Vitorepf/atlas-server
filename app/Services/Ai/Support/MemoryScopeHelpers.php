@@ -7,7 +7,6 @@ namespace App\Services\Ai\Support;
 use App\Models\AtlasMemoryEntry;
 use Illuminate\Support\Str;
 
-
 /**
  * Parsing/normalizacao de escopo de memoria (scope id/type, uuid, workspace scope) —
  * clonado byte a byte entre AtlasMemoryRegistryService e AtlasVerbatimMemoryService

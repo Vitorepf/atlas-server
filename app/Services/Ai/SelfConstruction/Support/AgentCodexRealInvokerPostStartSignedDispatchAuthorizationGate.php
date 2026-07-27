@@ -10,7 +10,6 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use InvalidArgumentException;
-
 use function hash;
 
 class AgentCodexRealInvokerPostStartSignedDispatchAuthorizationGate

@@ -6,8 +6,6 @@ use App\Services\Ai\Support\CliInvocationModel;
 use App\Models\AiJob;
 use App\Services\Ai\Concerns\RunsCliProcesses;
 use App\Services\Ai\Policy\AtlasAiRuntimeSettings;
-use App\Support\AtlasSecurity;
-use Illuminate\Support\Facades\File;
 
 class JarvisMlxProvider implements AiProvider
 {

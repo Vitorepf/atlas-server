@@ -14,7 +14,6 @@ namespace App\Services\Ai\SelfConstruction\Readiness;
  * directly for deterministic payload hashing.
  */
 use App\Services\Ai\SelfConstruction\Support\ReadinessHash;
-use App\Services\Ai\SelfConstruction\Readiness\CodexReviewMerge;
 
 final class ReadinessProjectionCodexReviewMergeSection
 {

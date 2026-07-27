@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\LearningTransfer;
 
 use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
-use App\Services\Ai\SelfConstruction\LearningTransfer\SharedAtlasSelfConstructionLearningLedgerSeam;
 
 /**
  * Append-only JSONL ledger of admitted lesson plans. Idempotent on plan_hash: a second append

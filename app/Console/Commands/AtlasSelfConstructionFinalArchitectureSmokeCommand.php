@@ -6,7 +6,6 @@ namespace App\Console\Commands;
 
 use App\Console\Commands\Concerns\LoadsFactsJsonOption;
 use Illuminate\Console\Command;
-use Throwable;
 
 /**
  * Read-only final-architecture smoke CLI. Inspects the END-TO-END readiness of the Self-Construction

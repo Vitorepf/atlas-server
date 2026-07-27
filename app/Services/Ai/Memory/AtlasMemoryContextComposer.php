@@ -6,8 +6,6 @@ use App\Services\Ai\AgenticEngineeringOs\Scoring\AtlasMemoryRecallRelevanceScore
 use App\Services\Ai\AgenticEngineeringOs\Scoring\ContextParetoDominanceFilter;
 use App\Services\Ai\AgenticEngineeringOs\Scoring\MemoryFeedbackDecayScorer;
 use App\Services\Ai\AgenticEngineeringOs\Scoring\MemoryInjectionBudgetAllocator;
-use App\Services\Ai\Memory\MemoryMmrTopKSelector;
-use App\Services\Ai\Memory\MemoryRecallInput;
 use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Support\Str;
 

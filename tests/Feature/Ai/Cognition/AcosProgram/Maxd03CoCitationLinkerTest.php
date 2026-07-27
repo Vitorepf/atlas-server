@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\Cognition\AcosProgram;
 
 use App\Models\AtlasAurgEdge;
-use App\Models\AtlasAurgNode;
 use App\Models\AtlasMemoryEntry;
 use App\Services\Ai\MemoryGovernance\AtlasMemoryPrivacyService;
 use App\Services\Ai\CrossDomain\AtlasCrossDomainMeshService;

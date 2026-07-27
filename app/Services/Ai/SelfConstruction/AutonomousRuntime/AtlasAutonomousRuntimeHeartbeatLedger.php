@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\AutonomousRuntime;
 
 use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
-use Closure;
 
 /**
  * Append-only JSONL heartbeat + cycle-receipt writer for the Atlas-native autonomous runtime. Pure

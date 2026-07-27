@@ -10,7 +10,6 @@ use App\Services\Ai\SelfConstruction\GoalValue\AtlasGoalValueDecisionPolicy;
 use App\Services\Ai\SelfConstruction\GoalValue\AtlasGoalValueOutcomeEvidenceEvaluator;
 use App\Services\Ai\SelfConstruction\GoalValue\AtlasGoalValueRealLeverageContract;
 use Illuminate\Console\Command;
-use Throwable;
 
 /**
  * Read-only operator surface for the goal-value brain:

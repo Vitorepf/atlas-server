@@ -6,7 +6,6 @@ namespace Tests\Unit\Ai\SelfConstruction\TaskQueue;
 
 use App\Services\Ai\SelfConstruction\TaskQueue\TaskPacketCanonicalizer;
 use App\Services\Ai\SelfConstruction\TaskQueue\TaskQueueRegistryIndexStore;
-use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 

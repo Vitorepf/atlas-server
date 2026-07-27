@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\Memory;
 
 use App\Models\AtlasMemoryEntry;
-use App\Models\AtlasMemoryEntryUsage;
 use App\Services\Ai\Memory\AtlasHybridMemoryRetrievalService;
 use App\Services\Ai\Memory\AtlasMemoryUsageService;
 use App\Services\Ai\AtlasOpenBrainContextPackService;

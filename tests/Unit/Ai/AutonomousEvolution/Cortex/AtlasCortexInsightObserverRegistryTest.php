@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\AutonomousEvolution\Cortex;
 
-use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Insights\AtlasCortexInsightObserverContract;
 use App\Services\Ai\AutonomousEvolution\Discovery\Cortex\Insights\AtlasCortexInsightObserverRegistry;
 use InvalidArgumentException;
 use ReflectionClass;

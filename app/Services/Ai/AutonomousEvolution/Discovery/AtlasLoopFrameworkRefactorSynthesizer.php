@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\AutonomousEvolution\Discovery;
 
 use App\Services\Ai\AutonomousEvolution\AtlasEvolutionFrozenJudge;
-use App\Services\Ai\AutonomousEvolution\AtlasLoopDecompositionOutcomeRecorder;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopQualityGrader;
 use App\Services\Ai\AutonomousEvolution\Verify\AtlasLoopSignalAnalyzer;
 use Throwable;

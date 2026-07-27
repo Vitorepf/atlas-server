@@ -2,13 +2,11 @@
 
 namespace App\Services\Ai\SelfConstruction\NativeImplementation;
 
-
 use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 use App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionCompletionCriterionReporter;
 use App\Services\Ai\SelfConstruction\Completion\AtlasSelfConstructionTerminalLoopCertifier;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Storage;
-
 /**
  * Canonical completion audit for Atlas Self-Construction OS. It intentionally
  * refuses proxy completion and requires concrete evidence for every OQ-10

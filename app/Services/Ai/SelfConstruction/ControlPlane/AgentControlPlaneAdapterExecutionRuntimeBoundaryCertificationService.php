@@ -2,7 +2,6 @@
 
 namespace App\Services\Ai\SelfConstruction\ControlPlane;
 
-
 use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
 use Carbon\CarbonImmutable;
 use InvalidArgumentException;

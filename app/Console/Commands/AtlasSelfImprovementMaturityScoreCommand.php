@@ -8,7 +8,6 @@ use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Commands\Concerns\ResolvesSilentJsonOption;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementCapabilityMaturityScoreService;
 use Illuminate\Console\Command;
-use Throwable;
 use App\Support\YesNo;
 
 final class AtlasSelfImprovementMaturityScoreCommand extends Command

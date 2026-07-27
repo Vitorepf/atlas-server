@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Engineering\CodeGraph;
 
-
 /**
  * AP-815 · E-10 — Per-workspace token-economy ROI telemetry for the code graph.
  *

@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\SelfConstruction\Maestro\DynamicPriority;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch;
-
 use App\Services\Ai\SelfConstruction\Maestro\DynamicPriority\AtlasMaestroPriorityFactSnapshotter;
-use Illuminate\Support\Facades\Config;
 use Tests\TestCase;
 
 class AtlasMaestroPriorityFactSnapshotterTest extends TestCase

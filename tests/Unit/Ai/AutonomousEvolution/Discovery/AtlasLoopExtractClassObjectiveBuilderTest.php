@@ -6,7 +6,6 @@ namespace Tests\Unit\Ai\AutonomousEvolution\Discovery;
 
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopExtractClassObjectiveBuilder;
 use Tests\TestCase;
-use App\Services\Ai\AgenticEngineeringOs\Support\AtlasThresholdLadderNormalizer;
 
 /**
  * Pins the extract-class task contract: a refactor_* task (revert-recheck exempt) carrying BOTH

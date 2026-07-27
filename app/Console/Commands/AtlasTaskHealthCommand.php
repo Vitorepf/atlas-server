@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\SelfConstruction\TaskServing\AtlasTaskCoordinationHealthService;
 use App\Services\Ai\SelfConstruction\Maestro\Health\AtlasMaestroQueueHealthInterventionRunner;
 use Illuminate\Console\Command;
 use App\Console\Concerns\EmitsCanonicalJson;

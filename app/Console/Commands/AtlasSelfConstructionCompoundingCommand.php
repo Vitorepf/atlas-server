@@ -12,7 +12,6 @@ use App\Services\Ai\SelfConstruction\Compounding\AtlasSelfConstructionLeverageDe
 use App\Services\Ai\SelfConstruction\Compounding\AtlasSelfConstructionNextFrontierSelector;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainPostImplementationLessonExtractor;
 use Illuminate\Console\Command;
-use Throwable;
 
 /**
  * Read-only operator surface for the Self-Construction compounding flywheel.

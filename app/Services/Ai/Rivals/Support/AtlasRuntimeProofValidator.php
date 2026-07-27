@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Rivals\Support;
 
 use App\Support\IsNonEmptyString;
+
 /** Structural verifier shared by receipt attachment and uplift comparison. */
 final class AtlasRuntimeProofValidator
 {

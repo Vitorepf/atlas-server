@@ -8,7 +8,6 @@ use App\Services\Ai\Finance\PolymarketExec\OnChain\PolyOnChainClient;
 use App\Services\Ai\Finance\PolymarketShadow\PolymarketShadowFeed;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 

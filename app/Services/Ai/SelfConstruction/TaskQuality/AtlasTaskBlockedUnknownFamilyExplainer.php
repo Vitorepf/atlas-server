@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\SelfConstruction\TaskQuality;
 
 use App\Services\Ai\SelfConstruction\Support\WriteSetOverlap;
-
 /**
  * Pure, deterministic explainer for blocked queue packets that {@see AtlasTaskBlockedPacketFamilyClassifier}
  * left as `family=unknown`. Instead of an opaque "manual review required" bucket, this inspects the raw

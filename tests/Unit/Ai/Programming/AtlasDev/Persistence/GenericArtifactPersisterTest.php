@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\Programming\AtlasDev\Persistence;
 
-use App\Services\Ai\Programming\AtlasDev\Persistence\ArtifactNames;
 use App\Services\Ai\Programming\AtlasDev\Persistence\GenericArtifactPersister;
 use App\Services\Ai\Programming\AtlasDev\Persistence\ReceiptStorage;
 use App\Services\Ai\Programming\AtlasDev\Schemas\Components\CompletionSummary;

@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Console\Commands\Concerns\LoadsFactsFileOption;
-
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainBreakthroughPlanner;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCapabilityMapDriftDetector;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCapabilityDriftWorkProposer;
