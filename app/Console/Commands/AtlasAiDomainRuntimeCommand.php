@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Concerns\EmitsCanonicalJson;
+use App\Console\Concerns\RendersReadinessReport;
 use App\Models\AiDomainManifest;
 use App\Services\Ai\DomainRuntime\DomainCapabilityCatalogService;
 use App\Services\Ai\DomainRuntime\DomainHandoffService;
@@ -16,13 +17,12 @@ use App\Services\Ai\DomainRuntime\DomainRuntimeSelectionService;
 use App\Services\Ai\DomainRuntime\DomainSeedManifests;
 use Illuminate\Console\Command;
 use Throwable;
-use App\Support\YesNo;
 
 class AtlasAiDomainRuntimeCommand extends Command
 {
-    use ReadsNonEmptyStringOption;
-
     use EmitsCanonicalJson;
+    use ReadsNonEmptyStringOption;
+    use RendersReadinessReport;
 
     protected $signature = 'atlas:ai:domain-runtime
         {positional? : Optional positional action (alternative to --action)}
@@ -77,15 +77,7 @@ class AtlasAiDomainRuntimeCommand extends Command
 
     private function renderReadiness(DomainRuntimeReadinessService $readiness): int
     {
-        $payload = $readiness->report();
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('ok', YesNo::trueFalse($payload['ok']));
-            $this->components->twoColumnDetail('passed', (string) $payload['summary']['passed']);
-            $this->components->twoColumnDetail('failed', (string) $payload['summary']['failed']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+        return $this->renderReadinessReport($readiness->report());
     }
 
     private function renderSeedDefaults(DomainManifestRegistryService $registry): int
@@ -297,7 +289,6 @@ class AtlasAiDomainRuntimeCommand extends Command
         return $this->failWith("invalid action [{$action}] for atlas:ai:domain-runtime");
     }
 
-
     /**
      * @return array<mixed>|null
      */
@@ -329,5 +320,4 @@ class AtlasAiDomainRuntimeCommand extends Command
         }
         $human();
     }
-
 }

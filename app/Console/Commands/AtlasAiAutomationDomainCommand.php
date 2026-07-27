@@ -3,20 +3,22 @@
 namespace App\Console\Commands;
 
 use App\Console\Concerns\EmitsCanonicalJson;
-use App\Services\Ai\Holding\AutonomousHoldingEnterpriseBuildoutService;
+use App\Console\Concerns\RendersReadinessReport;
 use App\Services\Ai\AutomationDomain\AutomationControlPlaneProjection;
 use App\Services\Ai\AutomationDomain\AutomationDomainCanon;
 use App\Services\Ai\AutomationDomain\AutomationDomainException;
 use App\Services\Ai\AutomationDomain\AutomationDomainManifestSeeder;
 use App\Services\Ai\AutomationDomain\AutomationReadinessService;
 use App\Services\Ai\AutomationDomain\AutomationRuntimeService;
+use App\Services\Ai\Holding\AutonomousHoldingEnterpriseBuildoutService;
+use App\Services\Ai\Holding\EnterpriseFlowFixtureActionRuntimeService;
 use Illuminate\Console\Command;
 use Throwable;
-use App\Support\YesNo;
 
 class AtlasAiAutomationDomainCommand extends Command
 {
     use EmitsCanonicalJson;
+    use RendersReadinessReport;
 
     protected $signature = 'atlas:ai:automation-domain
         {positional? : Optional positional action (alternative to --action)}
@@ -38,7 +40,7 @@ class AtlasAiAutomationDomainCommand extends Command
         $action = is_string($positional) && trim($positional) !== ''
             ? trim($positional)
             : (string) $this->option('action');
-        $fixtureRuntime = app(\App\Services\Ai\Holding\EnterpriseFlowFixtureActionRuntimeService::class);
+        $fixtureRuntime = app(EnterpriseFlowFixtureActionRuntimeService::class);
 
         try {
             if ($fixtureRuntime->supports(AutomationDomainCanon::DOMAIN_ID, $action)) {
@@ -81,18 +83,7 @@ class AtlasAiAutomationDomainCommand extends Command
 
     private function renderReadiness(AutomationReadinessService $readiness): int
     {
-        $payload = $readiness->report();
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('ok', YesNo::trueFalse($payload['ok']));
-            $this->components->twoColumnDetail('passed', (string) $payload['summary']['passed']);
-            $this->components->twoColumnDetail('failed', (string) $payload['summary']['failed']);
-            foreach ($payload['checks'] as $check) {
-                $this->components->twoColumnDetail((string) $check['name'], (string) $check['status']);
-            }
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+        return $this->renderReadinessReport($readiness->report());
     }
 
     private function renderSeedManifest(AutomationDomainManifestSeeder $seeder): int

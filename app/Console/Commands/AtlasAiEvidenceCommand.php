@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Concerns\EmitsCanonicalJson;
+use App\Console\Concerns\RendersReadinessReport;
 use App\Services\Ai\Evidence\ArtifactRegistryService;
 use App\Services\Ai\Evidence\BlockerService;
 use App\Services\Ai\Evidence\CertificationRuntimeService;
@@ -17,13 +18,12 @@ use App\Services\Ai\Evidence\SourceRefService;
 use App\Services\Ai\Evidence\TestResultService;
 use Illuminate\Console\Command;
 use Throwable;
-use App\Support\YesNo;
 
 class AtlasAiEvidenceCommand extends Command
 {
-    use ReadsNonEmptyStringOption;
-
     use EmitsCanonicalJson;
+    use ReadsNonEmptyStringOption;
+    use RendersReadinessReport;
 
     protected $signature = 'atlas:ai:evidence
         {positional? : Optional positional action (alternative to --action)}
@@ -89,15 +89,7 @@ class AtlasAiEvidenceCommand extends Command
 
     private function renderReadiness(EvidenceReadinessService $readiness): int
     {
-        $payload = $readiness->report();
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('ok', YesNo::trueFalse($payload['ok']));
-            $this->components->twoColumnDetail('passed', (string) $payload['summary']['passed']);
-            $this->components->twoColumnDetail('failed', (string) $payload['summary']['failed']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+        return $this->renderReadinessReport($readiness->report());
     }
 
     private function renderPack(EvidencePackService $packs): int
@@ -342,10 +334,8 @@ class AtlasAiEvidenceCommand extends Command
         $human();
     }
 
-
     private function json(): bool
     {
         return (bool) $this->option('json');
     }
-
 }

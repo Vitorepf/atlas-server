@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Concerns\EmitsCanonicalJson;
+use App\Console\Concerns\RendersReadinessReport;
 use App\Models\AiMission;
 use App\Services\Ai\Mission\MissionCertificationService;
 use App\Services\Ai\Mission\MissionControlPlaneService;
@@ -16,13 +17,12 @@ use App\Services\Ai\Mission\ObjectiveDecomposerService;
 use App\Services\Ai\Mission\WorkOrderFactoryService;
 use Illuminate\Console\Command;
 use Throwable;
-use App\Support\YesNo;
 
 class AtlasAiMissionFoundationCommand extends Command
 {
-    use ReadsNonEmptyStringOption;
-
     use EmitsCanonicalJson;
+    use ReadsNonEmptyStringOption;
+    use RendersReadinessReport;
 
     protected $signature = 'atlas:ai:mission-foundation
         {positional? : Optional positional action (alternative to --action)}
@@ -99,18 +99,7 @@ class AtlasAiMissionFoundationCommand extends Command
 
     private function renderReadiness(MissionReadinessService $readiness): int
     {
-        $payload = $readiness->report();
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('ok', YesNo::trueFalse($payload['ok']));
-            $this->components->twoColumnDetail('passed', (string) $payload['summary']['passed']);
-            $this->components->twoColumnDetail('failed', (string) $payload['summary']['failed']);
-            foreach ($payload['checks'] as $check) {
-                $this->components->twoColumnDetail((string) $check['name'], (string) $check['status']);
-            }
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+        return $this->renderReadinessReport($readiness->report());
     }
 
     private function renderCreate(MissionFactoryService $factory): int
@@ -425,10 +414,8 @@ class AtlasAiMissionFoundationCommand extends Command
         $human();
     }
 
-
     private function json(): bool
     {
         return (bool) $this->option('json');
     }
-
 }

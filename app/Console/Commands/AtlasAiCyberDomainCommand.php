@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Console\Concerns\EmitsCanonicalJson;
-use App\Services\Ai\Holding\AutonomousHoldingEnterpriseBuildoutService;
+use App\Console\Concerns\RendersReadinessReport;
 use App\Services\Ai\Cyber\AppSecReviewService;
 use App\Services\Ai\Cyber\CyberControlPlaneProjection;
 use App\Services\Ai\Cyber\CyberDomainException;
@@ -14,13 +14,16 @@ use App\Services\Ai\Cyber\CyberRuntimeService;
 use App\Services\Ai\Cyber\DefensiveSecurityReviewService;
 use App\Services\Ai\Cyber\GRCMappingService;
 use App\Services\Ai\Cyber\RemediationPlanService;
+use App\Services\Ai\Holding\AutonomousHoldingEnterpriseBuildoutService;
+use App\Services\Ai\Holding\EnterpriseFlowFixtureActionRuntimeService;
+use App\Support\YesNo;
 use Illuminate\Console\Command;
 use Throwable;
-use App\Support\YesNo;
 
 class AtlasAiCyberDomainCommand extends Command
 {
     use EmitsCanonicalJson;
+    use RendersReadinessReport;
 
     protected $signature = 'atlas:ai:cyber-domain
         {positional? : Optional positional action (alternative to --action)}
@@ -42,7 +45,7 @@ class AtlasAiCyberDomainCommand extends Command
         $action = is_string($positional) && trim($positional) !== ''
             ? trim($positional)
             : (string) $this->option('action');
-        $fixtureRuntime = app(\App\Services\Ai\Holding\EnterpriseFlowFixtureActionRuntimeService::class);
+        $fixtureRuntime = app(EnterpriseFlowFixtureActionRuntimeService::class);
 
         try {
             if ($fixtureRuntime->supports(CyberDomainManifestSeeder::DOMAIN_ID, $action)) {
@@ -83,15 +86,7 @@ class AtlasAiCyberDomainCommand extends Command
 
     private function renderReadiness(CyberReadinessService $service): int
     {
-        $payload = $service->report();
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('ok', YesNo::trueFalse($payload['ok']));
-            $this->components->twoColumnDetail('passed', (string) $payload['summary']['passed']);
-            $this->components->twoColumnDetail('failed', (string) $payload['summary']['failed']);
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+        return $this->renderReadinessReport($service->report());
     }
 
     private function renderSmoke(

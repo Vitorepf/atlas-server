@@ -4,20 +4,22 @@ namespace App\Console\Commands;
 
 use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Concerns\EmitsCanonicalJson;
+use App\Console\Concerns\RendersReadinessReport;
 use App\Services\Ai\Finance\Kernel\FinanceControlPlaneProjection;
 use App\Services\Ai\Finance\Kernel\FinanceDomainException;
 use App\Services\Ai\Finance\Kernel\FinanceDomainReadinessService;
 use App\Services\Ai\Finance\Kernel\FinanceDomainSmokeService;
 use App\Services\Ai\Finance\Kernel\FinanceEnterpriseAnalysisService;
+use App\Services\Ai\Holding\EnterpriseFlowFixtureActionRuntimeService;
+use App\Support\YesNo;
 use Illuminate\Console\Command;
 use Throwable;
-use App\Support\YesNo;
 
 class AtlasAiFinanceDomainCommand extends Command
 {
-    use ReadsNonEmptyStringOption;
-
     use EmitsCanonicalJson;
+    use ReadsNonEmptyStringOption;
+    use RendersReadinessReport;
 
     protected $signature = 'atlas:ai:finance-domain
         {positional? : Optional positional action (alternative to --action)}
@@ -40,7 +42,7 @@ class AtlasAiFinanceDomainCommand extends Command
         $action = is_string($positional) && trim($positional) !== ''
             ? trim($positional)
             : (string) $this->option('action');
-        $fixtureRuntime = app(\App\Services\Ai\Holding\EnterpriseFlowFixtureActionRuntimeService::class);
+        $fixtureRuntime = app(EnterpriseFlowFixtureActionRuntimeService::class);
 
         try {
             if ($fixtureRuntime->supports('finance', $action)) {
@@ -68,16 +70,7 @@ class AtlasAiFinanceDomainCommand extends Command
 
     private function renderReadiness(FinanceDomainReadinessService $readiness): int
     {
-        $payload = $readiness->report();
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('ok', YesNo::trueFalse($payload['ok']));
-            $this->components->twoColumnDetail('passed', (string) $payload['summary']['passed']);
-            $this->components->twoColumnDetail('failed', (string) $payload['summary']['failed']);
-            $this->components->twoColumnDetail('live_trading_blocked_default', YesNo::trueFalse($payload['invariants']['live_trading_blocked_default']));
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+        return $this->renderReadinessReport($readiness->report());
     }
 
     private function renderSmoke(FinanceDomainSmokeService $smoke): int
@@ -148,7 +141,6 @@ class AtlasAiFinanceDomainCommand extends Command
         return $this->renderError('invalid_arguments', "invalid action [{$action}] for atlas:ai:finance-domain");
     }
 
-
     private function fixtureRequested(): bool
     {
         return (string) $this->input->getParameterOption('--runtime-mode', (string) $this->option('runtime-mode')) === 'fixture'
@@ -172,5 +164,4 @@ class AtlasAiFinanceDomainCommand extends Command
         }
         $human();
     }
-
 }

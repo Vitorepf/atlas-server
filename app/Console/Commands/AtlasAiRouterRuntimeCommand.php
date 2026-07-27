@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Concerns\EmitsCanonicalJson;
+use App\Console\Concerns\RendersReadinessReport;
 use App\Services\Ai\RouterRuntime\DecisionReceiptService;
 use App\Services\Ai\RouterRuntime\DomainRouterService;
 use App\Services\Ai\RouterRuntime\FlowRouterService;
@@ -14,13 +15,12 @@ use App\Services\Ai\RouterRuntime\RouterRuntimeReadinessService;
 use App\Services\Ai\RouterRuntime\RuntimeDispatchService;
 use Illuminate\Console\Command;
 use Throwable;
-use App\Support\YesNo;
 
 class AtlasAiRouterRuntimeCommand extends Command
 {
-    use ReadsNonEmptyStringOption;
-
     use EmitsCanonicalJson;
+    use ReadsNonEmptyStringOption;
+    use RendersReadinessReport;
 
     protected $signature = 'atlas:ai:router-runtime
         {positional? : Optional positional action (alternative to --action)}
@@ -82,18 +82,7 @@ class AtlasAiRouterRuntimeCommand extends Command
 
     private function renderReadiness(RouterRuntimeReadinessService $readiness): int
     {
-        $payload = $readiness->report();
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('ok', YesNo::trueFalse($payload['ok']));
-            $this->components->twoColumnDetail('passed', (string) $payload['summary']['passed']);
-            $this->components->twoColumnDetail('failed', (string) $payload['summary']['failed']);
-            foreach ($payload['checks'] as $check) {
-                $this->components->twoColumnDetail((string) $check['name'], (string) $check['status']);
-            }
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+        return $this->renderReadinessReport($readiness->report());
     }
 
     private function renderClassify(IntentKernelService $intentKernel): int
@@ -320,10 +309,8 @@ class AtlasAiRouterRuntimeCommand extends Command
         $human();
     }
 
-
     private function json(): bool
     {
         return (bool) $this->option('json');
     }
-
 }

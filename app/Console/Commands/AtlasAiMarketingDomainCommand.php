@@ -3,7 +3,9 @@
 namespace App\Console\Commands;
 
 use App\Console\Concerns\EmitsCanonicalJson;
+use App\Console\Concerns\RendersReadinessReport;
 use App\Services\Ai\Holding\AutonomousHoldingEnterpriseBuildoutService;
+use App\Services\Ai\Holding\EnterpriseFlowFixtureActionRuntimeService;
 use App\Services\Ai\MarketingDomain\MarketingControlPlaneProjection;
 use App\Services\Ai\MarketingDomain\MarketingDomainCanon;
 use App\Services\Ai\MarketingDomain\MarketingDomainManifestSeeder;
@@ -12,11 +14,11 @@ use App\Services\Ai\MarketingDomain\MarketingReadinessService;
 use App\Services\Ai\MarketingDomain\MarketingRuntimeService;
 use Illuminate\Console\Command;
 use Throwable;
-use App\Support\YesNo;
 
 class AtlasAiMarketingDomainCommand extends Command
 {
     use EmitsCanonicalJson;
+    use RendersReadinessReport;
 
     protected $signature = 'atlas:ai:marketing-domain
         {positional? : Optional positional action (alternative to --action)}
@@ -39,7 +41,7 @@ class AtlasAiMarketingDomainCommand extends Command
         $action = is_string($positional) && trim($positional) !== ''
             ? trim($positional)
             : (string) $this->option('action');
-        $fixtureRuntime = app(\App\Services\Ai\Holding\EnterpriseFlowFixtureActionRuntimeService::class);
+        $fixtureRuntime = app(EnterpriseFlowFixtureActionRuntimeService::class);
 
         try {
             if ($fixtureRuntime->supports(MarketingDomainCanon::DOMAIN_ID, $action)) {
@@ -75,18 +77,7 @@ class AtlasAiMarketingDomainCommand extends Command
 
     private function renderReadiness(MarketingReadinessService $readiness): int
     {
-        $payload = $readiness->report();
-        $this->emit($payload, function () use ($payload): void {
-            $this->components->twoColumnDetail('schema', (string) $payload['schema']);
-            $this->components->twoColumnDetail('ok', YesNo::trueFalse($payload['ok']));
-            $this->components->twoColumnDetail('passed', (string) $payload['summary']['passed']);
-            $this->components->twoColumnDetail('failed', (string) $payload['summary']['failed']);
-            foreach ($payload['checks'] as $check) {
-                $this->components->twoColumnDetail((string) $check['name'], (string) $check['status']);
-            }
-        });
-
-        return $payload['ok'] ? self::SUCCESS : self::FAILURE;
+        return $this->renderReadinessReport($readiness->report());
     }
 
     private function renderSeedManifest(MarketingDomainManifestSeeder $seeder): int
@@ -225,5 +216,4 @@ class AtlasAiMarketingDomainCommand extends Command
         return (string) $this->input->getParameterOption('--runtime-mode', (string) $this->option('runtime-mode')) === 'fixture'
             || (bool) $this->option('fixture');
     }
-
 }
