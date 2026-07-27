@@ -35,7 +35,7 @@ class OperatorProfileDigestService
             ->count();
 
         $summary = sprintf(
-            "Operator profile: %d active items, %d pending candidates, %d recent signals, %d recent feedback events.",
+            'Operator profile: %d active items, %d pending candidates, %d recent signals, %d recent feedback events.',
             $items->count(),
             $pending,
             $recentSignals,
@@ -57,7 +57,17 @@ class OperatorProfileDigestService
                 'id' => $item->id,
                 'taxonomy_item_id' => $item->taxonomy_item_id,
                 'profile_key' => $item->profile_key,
-                'summary' => $item->summary,
+                // Redacted HERE, at the source, so every consumer inherits it. The
+                // raw summary used to travel to all three: the digest projection
+                // file, the HTTP digest endpoint and the console command — while
+                // the projection's own receipt declared raw_private_context_included
+                // => false, and the two sibling projections in that same class
+                // (profileMarkdown, queueMarkdown) already redacted via safeSummary
+                // and safeClaim. Only this path did not, and privacy_class was
+                // carried right alongside without being consulted.
+                'summary' => in_array($item->privacy_class, ['sensitive', 'secret'], true)
+                    ? '[redacted '.$item->privacy_class.']'
+                    : $item->summary,
                 'confidence' => $item->confidence,
                 'privacy_class' => $item->privacy_class,
                 'automation_level' => $item->automation_level,
