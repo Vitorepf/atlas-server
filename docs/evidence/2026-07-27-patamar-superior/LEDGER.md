@@ -106,15 +106,54 @@ ganham o core fundido de graça.
 | Catálogo de modelos | `AiChatModelSection` era cópia verbatim do service | delegadores finos | **−7.137** |
 | Verifier context do recibo final | 2 cópias: human gate · closure pack | `CompletionVerifierContextSupport` | **−3.596** |
 
+## 1.4 Deleção com gate (7 órfãos, −2.432 LOC)
+
+Zero referência de código na árvore viva, verificado contra as armadilhas que as
+lições D6/D8 do Núcleo Essencial nomeiam — não só `grep` no nome da classe:
+
+- **string-paths / config keys** → busca no repo inteiro, não só PHP
+- **autoload por side-effect** → `RootSinglesLegacyAliases` também foi acusada de
+  morta pelo detector e **não foi deletada**: está em `composer.json`
+  `autoload.files`, então ninguém a nomeia e removê-la quebra o autoloader
+- **ruído de archive/worktree** → referência que só existe em `archive/` ou
+  `.claude/worktrees/` não é liveness
+
+Os 3 `AtlasRivals*` são órfãos do harness Rivals 1.0: o doc dono está
+`status: deprecated`, `superseded_by: atlas-rivals-product-v1`, e o comando, a
+certificação e os 18 testes já tinham sido deletados com ele.
+
+Gate: `composer dump-autoload -o` · boot do artisan · comandos 940 → 940 (nenhum
+perdido) · linter bind-to-missing sobre providers+config · gates inalterados.
+
+## 1.5 Contratos sem dono
+
+`CONTRACT-GAPS.md` — 10 interfaces com zero classe concreta em `app/` mas com
+consumidores reais. Classificadas pelo que importa: **como** o consumidor pega a
+porta. Todas usam `?Nullable`/`instanceof`, logo degradam. A mais pesada é
+`AtlasNativeWorkerProductionRuntime` (execução nativa dos Autônomos), cujo único
+implementador hoje é classe anônima de teste.
+
+## Correção ao censo de capability
+
+A tabela de §2 do plano listava `Receipt`+`Evidence`+`Ledger` como "260 classes
+em 8 camadas" — o maior alvo de fusão. **Falso positivo:** aquele censo conta
+*nome* de classe, não implementação. Medido no seam de escrita, a espinha de
+evidência já tem porta única: `AtlasEvidenceLedger` com 178 consumidores,
+`AppendOnlyJsonlStore` com 91, e **zero** `file_put_contents` direto em `.jsonl`
+fora do store. Nada a fundir ali.
+
 ## Balanço da sessão
 
 | | |
 |---|---|
-| Commits escopados na `main` | 18 |
-| PHP em `app/` | +1.430 −1.304 = **+126 líquido** (as fusões pagaram os helpers) |
-| Mapas de navegação gerados | +3.734 linhas |
+| Commits escopados na `main` | 22 |
+| **PHP em `app/`** | +1.430 −3.736 = **−2.306 líquido** |
+| Arquivos PHP | 6.656 → 6.656 (7 deletados, 7 novos donos únicos) |
+| Mapas de navegação gerados | +3.734 linhas, sob gate de drift |
 | Cobertura de teste restaurada | +4.689 linhas |
 | Grupos de método duplicado | 214 → **203** |
+| Gates de arquitetura | 8 falhas → **1** (o ratchet de docs) |
+| Checks estáticos do kernel | 45 vermelhos → **0** |
 
 ## Achados que não eram "gate velho"
 
