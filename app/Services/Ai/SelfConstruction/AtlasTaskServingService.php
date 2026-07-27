@@ -7,14 +7,15 @@ namespace App\Services\Ai\SelfConstruction;
 use App\Models\AtlasDevFailureCapsule;
 use App\Services\Ai\Aemor\AtlasEngineeringOutcomeRecorder;
 use App\Services\Ai\AtlasAobgBlackboardService;
-use App\Services\Ai\Memory\AtlasHybridMemoryRetrievalService;
 use App\Services\Ai\AtlasOpenBrainWriteBackService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopComprehensionCadenceService;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopSiblingTestResolver;
 use App\Services\Ai\Brain\AtlasEvolutionDiaryRecorder;
-use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
 use App\Services\Ai\Context\AtlasContextRuntime;
 use App\Services\Ai\EngineeringKernel\BudgetMeter;
+use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
+use App\Services\Ai\ExecutionAuthority\AwisExecutionGatePort;
+use App\Services\Ai\Memory\AtlasHybridMemoryRetrievalService;
 use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevFailureCapsulePromptInjector;
 use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevFailureCapsuleRuntimeService;
 use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevTaskPacketRuntimeService;
@@ -25,7 +26,7 @@ use App\Services\Ai\SelfConstruction\Governance\AtlasTaskGovernancePolicyPlane;
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskPostLandCanarySentinel;
 use App\Services\Ai\SelfConstruction\TaskServing\AtlasRefactorProofGate;
 use App\Services\Ai\SelfConstruction\VerificationCourt\AtlasVerificationCourtEvidenceContract;
-use App\Services\Ai\ExecutionAuthority\AwisExecutionGatePort;
+use App\Services\Ai\ValueObjects\AiTaskRequest;
 use App\Services\Ai\WorkspaceIntelligence\AtlasWorkspaceIntelligenceExecutionGateService;
 use Closure;
 use Illuminate\Support\Facades\Artisan;
@@ -343,8 +344,7 @@ final class AtlasTaskServingService
     public function renew(string $clientId, string $taskPacketId, string $leaseId, int $ttlSeconds = 900): bool
     {
         $active = $this->orchestrator->activeLeasesForAgent($clientId);
-        $matches = array_values(array_filter($active, static fn (array $lease): bool =>
-            hash_equals($taskPacketId, (string) ($lease['task_packet_id'] ?? ''))
+        $matches = array_values(array_filter($active, static fn (array $lease): bool => hash_equals($taskPacketId, (string) ($lease['task_packet_id'] ?? ''))
             && hash_equals($leaseId, (string) ($lease['lease_id'] ?? ''))
         ));
         if (count($matches) !== 1) {
@@ -393,6 +393,7 @@ final class AtlasTaskServingService
     {
         try {
             $gateService = $this->awisGate ?? app(AwisExecutionGatePort::class);
+
             return $gateService->gate(
                 workspace: base_path(),
                 // R102: TaskServing is Autônomos — never present as Dev.
@@ -1071,7 +1072,6 @@ final class AtlasTaskServingService
             return $this->reportSuccessWithCommit($clientId, $taskPacketId, $leaseId, $payload);
         }
 
-
         if ($outcome === 'success') {
             return $this->reportSuccessDryRun($clientId, $taskPacketId, $leaseId, $payload);
         }
@@ -1625,9 +1625,29 @@ final class AtlasTaskServingService
         $allowedFiles = array_values(array_map('strval', (array) ($scope['allowed_files'] ?? [])));
         $preCommit = ($commit['pre_commit'] ?? false) === true;
 
+        // Fail closed: an Autônomos mutation may never certify while the shared
+        // seams are absent. Added by 34e9e79290, dropped by 73a4f16f5 (GOD-DEBULK
+        // "restore optional serving gates"), which left the path continuing past
+        // a null kernel instead of refusing.
+        if ($this->contextRuntime === null) {
+            return [
+                'ok' => false,
+                'reason' => 'atlas_context_runtime_unavailable',
+                'blockers' => ['context_runtime_required_for_mutation'],
+            ];
+        }
+
+        if (! $preCommit && $this->eliteKernel === null) {
+            return [
+                'ok' => false,
+                'reason' => 'elite_executor_kernel_unavailable',
+                'blockers' => ['elite_kernel_required_for_mutation'],
+            ];
+        }
+
         if ($this->contextRuntime !== null) {
             try {
-                $task = \App\Services\Ai\ValueObjects\AiTaskRequest::fromInput($objective, [
+                $task = AiTaskRequest::fromInput($objective, [
                     'agent_slug' => 'autonomos',
                     'provider' => 'local',
                     'source_type' => 'task_serving',
@@ -1642,7 +1662,7 @@ final class AtlasTaskServingService
                     'changed_files' => $allowedFiles,
                 ]);
                 $composeAudit = method_exists($pack, 'toArray') ? $pack->toArray() : ['schema' => 'composed'];
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 // Compose is best-effort on Autônomos (AOBG-style); certify still fail-closes.
                 $composeAudit = ['error' => $e->getMessage()];
             }
@@ -1683,7 +1703,7 @@ final class AtlasTaskServingService
                         'files_committed' => (array) ($commit['files_committed'] ?? []),
                     ],
                 ], 'autonomos');
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 return [
                     'ok' => false,
                     'reason' => 'elite_kernel_fake_green',
