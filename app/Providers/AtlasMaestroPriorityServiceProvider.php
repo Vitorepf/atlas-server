@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Console\Commands\AtlasAaelExecutionRollbackDefaultOperatorPort;
+use App\Console\Commands\AtlasAaelExecutionRollbackOperatorPort;
 use App\Services\Ai\AutonomousEvolution\Aael\Execution\InFlight\AtlasAaelInFlightReceiptLedger;
 use App\Services\Ai\AutonomousEvolution\Aael\Parallel\AtlasAaelParallelLockManager;
 use App\Services\Ai\SelfConstruction\Maestro\DynamicPriority\AtlasMaestroPriorityFactSnapshotter;
@@ -63,5 +65,13 @@ final class AtlasMaestroPriorityServiceProvider extends ServiceProvider
 
             return new AtlasAaelParallelLockManager($path);
         });
+
+        // atlas:aael:rollback type-hints the port on handle(); the port and its
+        // only implementation are declared side by side in the command file, but
+        // nothing ever bound one to the other, so the command could not resolve.
+        $this->app->bind(
+            AtlasAaelExecutionRollbackOperatorPort::class,
+            AtlasAaelExecutionRollbackDefaultOperatorPort::class,
+        );
     }
 }

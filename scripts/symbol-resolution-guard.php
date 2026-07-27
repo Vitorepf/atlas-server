@@ -1,6 +1,8 @@
 <?php
 
 declare(strict_types=1);
+use Illuminate\Contracts\Console\Kernel;
+use Illuminate\Support\Facades\Artisan;
 
 /*
 | Symbol-resolution guard for app/.
@@ -25,10 +27,20 @@ declare(strict_types=1);
 | still may be harmless when every consumer guards it with ?nullable or
 | try/catch (see the Núcleo Essencial D8 lesson). Hence: report, never fail.
 |
-| Run standalone — never through phpunit:
-|   php scripts/symbol-resolution-guard.php
+| BLOCKING check — a registered `atlas:*` command whose handle() dependencies the
+| container cannot build. Laravel injects handle() arguments BEFORE the body
+| runs, so such a command is dead on arrival: the operator sees it in
+| `artisan list` and it throws the moment they invoke it — even when the command
+| would have returned early on its own feature flag. Five were found this way,
+| each dead since a different mass-deletion campaign: aael:parallel, aael:trace,
+| aael:rollback, code:deadcode-check, memory:maintain.
 |
-| Exit 0 = no unresolvable trait use. Exit 1 = at least one (a real fatal).
+| Run standalone — never through phpunit (needs -d memory_limit=1G, since it
+| holds the corpus statically and then boots the app):
+|   php -d memory_limit=1G scripts/symbol-resolution-guard.php
+|
+| Exit 0 = every trait resolves and every command can be built.
+| Exit 1 = at least one real fatal.
 */
 
 $root = dirname(__DIR__);
@@ -86,8 +98,23 @@ foreach ($sources as $path => $source) {
         }
     }
 
-    preg_match_all('/^[ \t]+use\s+([A-Z][A-Za-z0-9_]*)\s*;/m', $source, $traits);
-    foreach (array_unique($traits[1] ?? []) as $trait) {
+    // Indented `use X;` is a trait use inside the class body. Three shapes reach
+    // here: bare (`use Foo;`), fully qualified (`use \App\...\Foo;`) and relative
+    // (`use Concerns\Foo;`). All three have been seen broken in this corpus.
+    preg_match_all('/^[ \t]+use\s+(\\\\?[A-Z][A-Za-z0-9_\\\\]*)\s*;/m', $source, $traits);
+    foreach (array_unique($traits[1] ?? []) as $traitRef) {
+        $trait = ltrim($traitRef, '\\');
+
+        // qualified — resolve absolutely, or relative to this namespace
+        if (str_contains($trait, '\\')) {
+            if (isset($declared[$trait]) || isset($declared[$namespace.'\\'.$trait])) {
+                continue;
+            }
+            $fatals[] = "{$relative}: uses trait [{$traitRef}] which is declared nowhere under app/";
+
+            continue;
+        }
+
         if (isset($importedShort[$trait]) || isset($declared[$namespace.'\\'.$trait])) {
             continue;
         }
@@ -118,7 +145,7 @@ gc_collect_cycles();
 if ($candidateImports !== []) {
     require $root.'/vendor/autoload.php';
     $app = require $root.'/bootstrap/app.php';
-    $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+    $app->make(Kernel::class)->bootstrap();
 
     foreach ($candidateImports as $fqcn => $consumers) {
         try {
@@ -129,6 +156,47 @@ if ($candidateImports !== []) {
         if (! $resolves) {
             $unresolved[$fqcn] = $consumers;
         }
+    }
+}
+
+// BLOCKING: a registered command whose handle() dependencies the container
+// cannot build is dead on arrival — the operator sees it in `artisan list` and
+// it throws the moment they run it. Five such commands were found this way
+// (aael:parallel, aael:trace, aael:rollback, code:deadcode-check,
+// memory:maintain), each dead since a different mass-deletion campaign.
+if (! isset($app)) {
+    require $root.'/vendor/autoload.php';
+    $app = require $root.'/bootstrap/app.php';
+    $app->make(Kernel::class)->bootstrap();
+}
+
+$commandCount = 0;
+foreach (Artisan::all() as $name => $command) {
+    if (! str_starts_with($name, 'atlas:')) {
+        continue;
+    }
+    $commandCount++;
+
+    try {
+        $reflection = new ReflectionClass($command);
+        if (! $reflection->hasMethod('handle')) {
+            continue;
+        }
+        foreach ($reflection->getMethod('handle')->getParameters() as $parameter) {
+            $type = $parameter->getType();
+            if (! $type instanceof ReflectionNamedType || $type->isBuiltin() || $parameter->isOptional()) {
+                continue;
+            }
+            try {
+                $app->make($type->getName());
+            } catch (Throwable $e) {
+                $fatals[] = "command [{$name}]: cannot resolve handle() dependency ["
+                    .$type->getName().'] — '.strtok($e->getMessage(), "\n");
+                break;
+            }
+        }
+    } catch (Throwable $e) {
+        $fatals[] = "command [{$name}]: not reflectable — ".strtok($e->getMessage(), "\n");
     }
 }
 
@@ -152,5 +220,5 @@ if ($fatals !== []) {
 }
 
 echo 'ATLAS_SYMBOL_RESOLUTION_OK files='.$scannedFiles.' symbols='.$scannedSymbols
-    .' advisory='.count($unresolved)."\n";
+    .' commands='.$commandCount.' advisory='.count($unresolved)."\n";
 exit(0);

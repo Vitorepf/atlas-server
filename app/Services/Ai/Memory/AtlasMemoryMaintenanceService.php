@@ -2,7 +2,7 @@
 
 namespace App\Services\Ai\Memory;
 
-use App\Services\Ai\Memory\MemoryQueryInput;
+use App\Services\Ai\AtlasOpenBrainMcpService;
 use App\Services\Ai\Instrumentation\AtlasProviderProjectionAuditService;
 use App\Services\Ai\Instrumentation\AtlasProviderProjectionService;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
