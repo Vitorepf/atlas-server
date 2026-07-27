@@ -10,15 +10,28 @@ namespace App\Services\Ai\OperatorIntelligence\Support;
 final class OperatorLearningRuntimeCaptureSupport
 {
     /**
-     * Prefer payload.operator_text (what the operator typed) over surface-prefixed input_text.
+     * What the OPERATOR wrote, or null when nobody declared it.
+     *
+     * This used to fall back to `input_text`, which is not the operator's words —
+     * it is the assembled model prompt. Measured on the 13 signals in the live
+     * table: `operator_input` held ~1.5k chars of Atlas's own collected git facts
+     * plus a system preamble, and the operator's actual message was the four words
+     * at the end. The organ learned the preamble ("Você NÃO pode editar, commitar
+     * ou executar nada neste repositório…") as a RULE OF HIS.
+     *
+     * The fallback made the guard inert in both directions: no surface has ever
+     * sent `payload.operator_text` (zero producers in this repo), so 100% of
+     * captures learned the assembled prompt. Undeclared now means unknown, and
+     * unknown is not learned — an organ that learns nothing is recoverable; one
+     * that writes the machine's own voice into the operator's profile is not.
      *
      * @param  array<string,mixed>  $options
      */
-    public static function operatorWords(string $input, array $options): string
+    public static function declaredOperatorWords(array $options): ?string
     {
         $written = data_get($options, 'payload.operator_text');
 
-        return is_string($written) && trim($written) !== '' ? trim($written) : $input;
+        return is_string($written) && trim($written) !== '' ? trim($written) : null;
     }
 
     /**

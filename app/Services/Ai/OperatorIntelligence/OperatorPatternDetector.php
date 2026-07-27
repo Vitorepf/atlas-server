@@ -66,6 +66,15 @@ final class OperatorPatternDetector
         $signals = OperatorLearningSignal::query()
             ->where('operator_id', $operatorId)
             ->whereIn('source_type', self::OPERATOR_SOURCE_TYPES)
+            // ORIGEM, NÃO CONTEÚDO. Um sinal capturado do gateway só é do operador
+            // se a superfície disse que aquele texto era dele. As 13 linhas gravadas
+            // antes dessa marca vieram do prompt montado — fatos que o próprio Atlas
+            // colheu, mais o preâmbulo de sistema — e viraram "regra do operador".
+            // Filtrar por palavra seria frágil (o preâmbulo muda a cada versão);
+            // a procedência não muda.
+            ->where(fn ($q) => $q
+                ->whereNull('metadata->runtime_capture')
+                ->orWhere('metadata->operator_text_declared', true))
             ->where('created_at', '>=', now()->subDays($window))
             ->orderBy('created_at')
             ->get(['id', 'taxonomy_item_id', 'normalized_claim', 'signal_kind', 'confidence', 'privacy_class', 'created_at']);

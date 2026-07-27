@@ -19,38 +19,50 @@ final class OperatorLearningOperatorWordsTest extends TestCase
 {
     public function test_the_machine_prose_prefixed_to_the_wire_is_not_the_operator_speaking(): void
     {
-        $dossie = "[Fatos lidos do git de atlas-server agora…]\n23 exceções: 18 worktrees fora do lugar.";
-        $fio = $dossie."\n\ntem algum problema?";
-
         self::assertSame(
             'tem algum problema?',
-            OperatorLearningRuntimeCaptureService::operatorWords($fio, [
+            OperatorLearningRuntimeCaptureService::operatorWords([
                 'payload' => ['operator_text' => 'tem algum problema?'],
             ]),
             'o que a superfície anexou nunca é a voz do operador'
         );
     }
 
-    public function test_without_the_surface_saying_the_wire_text_still_counts(): void
+    /**
+     * Esta é a lei invertida por medição. A versão anterior aceitava o
+     * `input_text` quando a superfície calava, "porque é o melhor que existe
+     * ali". Duas medições derrubaram a premissa:
+     *
+     *   • nenhuma superfície jamais mandou `operator_text` — zero produtores no
+     *     repo — então o galho do fallback era 100% das capturas, e a guarda
+     *     inteira era inerte;
+     *   • `input_text` não é o melhor que existe: é o prompt montado. Nos 13
+     *     sinais vivos ele trazia ~1,5k de fatos que o próprio Atlas colheu mais
+     *     o preâmbulo de sistema, e a fala do operador eram as quatro palavras
+     *     no fim — e o preâmbulo virou proposta de skill com o título "O
+     *     operador repete: Você NÃO pode editar, commitar ou executar nada
+     *     neste repositório".
+     *
+     * Não aprender é recuperável. Gravar a voz da máquina como regra dele não é.
+     */
+    public function test_undeclared_text_is_unknown_and_unknown_is_never_learned(): void
     {
-        // Ausência não vira silêncio inventado: superfície que não diz o que o
-        // operador digitou (CLI, MCP, qualquer porta futura) continua sendo
-        // aprendida pelo input_text, que é o melhor que existe ali.
-        self::assertSame(
-            'sempre rode os testes antes de commitar',
-            OperatorLearningRuntimeCaptureService::operatorWords('sempre rode os testes antes de commitar', [])
+        $dossie = "[Fatos lidos do git de atlas-server agora…]\n23 exceções: 18 worktrees fora do lugar.";
+
+        self::assertNull(
+            OperatorLearningRuntimeCaptureService::operatorWords([]),
+            'sem a superfície declarar, o fio não é atribuível ao operador'
+        );
+        self::assertNull(
+            OperatorLearningRuntimeCaptureService::operatorWords(['payload' => ['input_text' => $dossie]]),
+            'o prompt montado nunca vira sinal do operador por falta de alternativa'
         );
     }
 
-    public function test_an_empty_claim_of_operator_text_does_not_erase_the_operator(): void
+    public function test_an_empty_claim_of_operator_text_is_a_non_declaration(): void
     {
-        // Superfície mandando vazio (bug dela) não pode APAGAR o operador: seria
-        // trocar uma contaminação por um emudecimento.
         foreach ([['payload' => ['operator_text' => '   ']], ['payload' => ['operator_text' => null]], ['payload' => []]] as $options) {
-            self::assertSame(
-                'o que eu escrevi',
-                OperatorLearningRuntimeCaptureService::operatorWords('o que eu escrevi', $options)
-            );
+            self::assertNull(OperatorLearningRuntimeCaptureService::operatorWords($options));
         }
     }
 }

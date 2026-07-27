@@ -11,18 +11,16 @@ use Tests\TestCase;
 final class OperatorLearningRuntimeCaptureSupportTest extends TestCase
 {
     #[Test]
-    public function operator_words_prefers_payload_operator_text(): void
+    public function declared_operator_words_only(): void
     {
         $this->assertSame(
             'o que eu digitei',
-            OperatorLearningRuntimeCaptureSupport::operatorWords('prefixo da maquina', [
+            OperatorLearningRuntimeCaptureSupport::declaredOperatorWords([
                 'payload' => ['operator_text' => '  o que eu digitei  '],
             ]),
         );
-        $this->assertSame(
-            'fallback input',
-            OperatorLearningRuntimeCaptureSupport::operatorWords('fallback input', ['payload' => []]),
-        );
+        // Sem declaração não há fallback: o texto do fio é o prompt montado.
+        $this->assertNull(OperatorLearningRuntimeCaptureSupport::declaredOperatorWords(['payload' => []]));
     }
 
     #[Test]

@@ -54,14 +54,22 @@ class OperatorLearningRuntimeCaptureService
      * precisar saber que ela existe.
      *
      * Quem sabe o que o operador digitou é a superfície. Quando ela diz
-     * (`payload.operator_text`), é isso que vale; quando não diz, `input_text` é
-     * o melhor que existe e continua valendo — nunca inventamos um silêncio.
+     * (`payload.operator_text`), é isso que vale. Quando não diz, NÃO
+     * aprendemos — a versão anterior desta guarda caía em `input_text` "porque
+     * é o melhor que existe ali", e a medição derrubou essa premissa: nenhuma
+     * superfície jamais mandou `operator_text` (zero produtores no repo), então
+     * o galho do fallback era 100% das capturas, e `input_text` não é o melhor
+     * que existe — é o prompt montado. Nos 13 sinais vivos ele trazia ~1,5k de
+     * fatos que o próprio Atlas colheu mais o preâmbulo de sistema; a fala do
+     * operador eram as quatro palavras no fim.
+     *
+     * Não aprender é recuperável; gravar a voz da máquina como regra dele não é.
      *
      * @param  array<string,mixed>  $options
      */
-    public static function operatorWords(string $input, array $options): string
+    public static function operatorWords(array $options): ?string
     {
-        return OperatorLearningRuntimeCaptureSupport::operatorWords($input, $options);
+        return OperatorLearningRuntimeCaptureSupport::declaredOperatorWords($options);
     }
 
     /**
@@ -70,7 +78,20 @@ class OperatorLearningRuntimeCaptureService
      */
     public function captureFromTrace(AiTrace $trace, string $input, array $options = []): ?array
     {
-        $input = self::operatorWords($input, $options);
+        $declared = self::operatorWords($options);
+        if ($declared === null) {
+            // Não é silêncio inventado: é recusa a atribuir ao operador um texto
+            // que ninguém disse ser dele. O recibo torna a lacuna CONTÁVEL, para
+            // a superfície que falta aparecer como número e não como sumiço.
+            return [
+                'schema_version' => 'atlas.operator_learning_runtime_capture.v1',
+                'status' => 'skipped',
+                'reason' => 'operator_text_not_declared',
+                'trace_id' => (string) $trace->id,
+                'source_type' => (string) $trace->source_type,
+            ];
+        }
+        $input = $declared;
         $availability = $this->runtimeCaptureAvailability($trace, $options);
         if (! (bool) $availability['available']) {
             if (($availability['reason'] ?? null) === 'missing_operator_tables') {
@@ -131,6 +152,10 @@ class OperatorLearningRuntimeCaptureService
                 ],
                 'metadata' => array_merge((array) ($detected['metadata'] ?? []), [
                     'runtime_capture' => 'ai_gateway.enqueue_interaction',
+                    // Marca de origem: a superfície declarou este texto como do
+                    // operador. Quem minerar amanhã distingue isto das linhas
+                    // antigas, gravadas do prompt montado, sem reler o conteúdo.
+                    'operator_text_declared' => true,
                     'gateway_source_type' => $trace->source_type,
                     'gateway_kind' => $options['kind'] ?? 'interaction',
                     'app_surface' => data_get($options, 'payload.app_surface'),
