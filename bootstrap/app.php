@@ -503,12 +503,13 @@ return Application::configure(basePath: dirname(__DIR__))
                 ->withoutOverlapping();
         }
 
-        if (config('atlas_ai.autonomous_holding.operating_cycle_enabled', true)) {
-            $schedule->command('atlas:ai:autonomous-holding observe-cycle --json')
-                ->dailyAt((string) config('atlas_ai.autonomous_holding.operating_cycle_time', '05:40'))
-                ->timezone((string) config('atlas_ai.autonomous_holding.timezone', config('app.timezone', 'UTC')))
-                ->withoutOverlapping();
-        }
+        // atlas:ai:autonomous-holding was scheduled daily here, defaulting to ON.
+        // The command is quarantined — it lives at archive/app/Console/Commands/
+        // AtlasAiAutonomousHoldingCommand.php — so the entry pointed at nothing and
+        // would fail every day at 05:40 the moment the scheduler comes back up.
+        // Reviving from archive/ is an AAEOS §0.4 hard ban, so the schedule goes
+        // instead. AutonomousHoldingEnterpriseBuildoutService is untouched and still
+        // reachable from its own callers; only the dead CLI schedule is removed.
 
         $schedule->command('atlas:ai:telemetry:rollup --hours=48')
             ->hourly()
