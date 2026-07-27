@@ -13,7 +13,6 @@ use App\Models\AtlasAemorMemoryCandidate;
 use App\Models\AtlasAemorOutcome;
 use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\IntelligenceFactory\AtlasIntelligenceFactoryRuntimeService;
-use App\Services\Ai\Kernel\Evidence\LedgerEventType;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Skills\AtlasSkillEvolutionRuntimeService;
 use App\Services\Ai\Support\AiStringListNormalizer;
@@ -706,13 +705,11 @@ final class AtlasAemorRuntimeService
         $payload = is_array($event->payload) ? $event->payload : [];
         $eventType = (string) $event->event_type;
 
-        if ($eventType === LedgerEventType::GatePassed->value) {
-            return [
-                'tests_passed' => (bool) (data_get($payload, 'tests_passed') ?? data_get($payload, 'gate_passed') ?? true),
-                'attribution_reviewed' => (bool) data_get($payload, 'attribution_reviewed', false),
-            ];
-        }
-
+        // O ramo GATE_PASSED foi removido: 0 de 44.717 eventos no ledger têm esse tipo, e
+        // o seu `?? true` fabricava prova — DevGateLedgerEmitter mapeia 'skipped' para
+        // GatePassed, e um payload de gate PULADO, sem campo tests_passed, saía daqui como
+        // tests_passed=true. Um GATE_PASSED real cai no teste abaixo e só conta se disser
+        // explicitamente que o teste passou.
         if ((bool) data_get($payload, 'tests_passed') || (bool) data_get($payload, 'verification_passed')) {
             return [
                 'tests_passed' => true,
