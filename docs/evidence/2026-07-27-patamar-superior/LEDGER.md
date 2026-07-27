@@ -142,17 +142,65 @@ evidência já tem porta única: `AtlasEvidenceLedger` com 178 consumidores,
 `AppendOnlyJsonlStore` com 91, e **zero** `file_put_contents` direto em `.jsonl`
 fora do store. Nada a fundir ali.
 
+---
+
+# FASE 2 — Fatais vivos na superfície do operador
+
+Um teste de 17 minutos que ficou rodando em segundo plano voltou com 12 erros.
+Puxando o fio: **5 comandos `atlas:*` registrados estavam mortos na chegada** —
+o operador os via no `artisan list` e eles estouravam na invocação. Cada um de
+uma campanha de deleção diferente, nenhum detectado por nada.
+
+| Comando | Causa | Desde |
+|---|---|---|
+| `atlas:aael:parallel` | `AtlasAaelParallelLockManager` (+`LockHandle`) deletado; e sem binding — o Laravel injeta deps de `handle()` **antes** do corpo, então morria mesmo com o próprio `cli_enabled=false` | `cd018c6b3f` |
+| `atlas:aael:trace` | `AaelStepActor` deletado, mas o comando ainda faz `new class implements AaelStepActor` | `93344736dc` |
+| `atlas:aael:rollback` | port e sua única implementação lado a lado no mesmo arquivo, sem binding entre eles; ao ligar, apareceu o trait `SortsReceiptPayloadsCanonically` também deletado | — / `93344736dc` |
+| `atlas:code:deadcode-check` | `AtlasDeadCodeAnalyzer` foi restaurado em `829438a0c`, o `…Support` dele não. **O verificador de dead-code estava morto.** | `cd018c6b3f` |
+| `atlas:memory:maintain` | `AtlasMemoryMaintenanceService` type-hinta `AtlasOpenBrainMcpService` **sem import** → PHP resolvia em `Memory\`. Caminho vivo de manutenção de memória | — |
+
+Junto, os dois verificadores de recibo de conclusão humana (`…Endgame`,
+`…PreSubmission`) não carregavam: `use HumanCompletionReceiptChecks;` sem
+import, com o trait morando em `Support/`.
+
+Restaurados: 4 símbolos, todos verbatim do commit anterior à deleção.
+**946 comandos, 0 quebrados.**
+
+## O gate que faltava
+
+`scripts/symbol-resolution-guard.php` — duas checagens bloqueantes:
+
+1. **Trait `use` não resolvível**, nas três formas (simples, qualificada,
+   relativa). A qualificada era justamente a que meu primeiro rascunho não pegava.
+2. **Comando registrado cuja dep de `handle()` o container não constrói.**
+
+Mais uma lista **advisory** (nunca bloqueante) de símbolos genuinamente ausentes.
+O caminho até ela é a parte que importa: a versão ingênua acusava **97**
+violações. Dessas, **83 eram falso positivo de alias** (resolvem em runtime pelos
+`class_alias` de `RootSinglesLegacyAliases`/`AcosMax`/`Cognitive`) e **6 eram
+import de segmento de namespace** — `use App\X\Y;` onde `Y` é pasta, o que é PHP
+legal. Sobraram **5** reais, todos já cobertos por `?nullable`/`try-catch`.
+
+Um gate que grita lobo é pior que gate nenhum. Ambas as checagens foram provadas
+**não-vazias** re-quebrando o código e confirmando que acusam.
+
+```bash
+php -d memory_limit=1G scripts/symbol-resolution-guard.php
+```
+
 ## Balanço da sessão
 
 | | |
 |---|---|
-| Commits escopados na `main` | 22 |
+| Commits escopados na `main` | 27 |
 | **PHP em `app/`** | +1.430 −3.736 = **−2.306 líquido** |
 | Arquivos PHP | 6.656 → 6.656 (7 deletados, 7 novos donos únicos) |
 | Mapas de navegação gerados | +3.734 linhas, sob gate de drift |
 | Cobertura de teste restaurada | +4.689 linhas |
 | Grupos de método duplicado | 214 → **203** |
 | Gates de arquitetura | 8 falhas → **1** (o ratchet de docs) |
+| **Comandos mortos na chegada** | 5 → **0** (de 946) |
+| Símbolos ausentes restaurados | 4 |
 | Checks estáticos do kernel | 45 vermelhos → **0** |
 
 ## Achados que não eram "gate velho"
