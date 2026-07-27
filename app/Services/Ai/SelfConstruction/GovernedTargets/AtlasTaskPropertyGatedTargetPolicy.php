@@ -54,6 +54,13 @@ final class AtlasTaskPropertyGatedTargetPolicy
         'app/Console/Commands/AtlasBrainAuditCommand.php',
         'app/Console/Commands/AtlasBrainSummaryCommand.php',
         'app/Services/Ai/AutonomousEvolution/Brain/AtlasBrainSeedQualityGate.php',
+
+        // SEV-1: a própria denylist classificava a si mesma como ordinary — um commit
+        // autônomo podia reescrever a lista dos próprios alvos proibidos e, no ciclo
+        // seguinte, tudo virava ordinary. 'Constitution/' acima só casa o cadáver ACDE
+        // em AutonomousEvolution/Constitution/; a constituição VIVA mora em Governance/.
+        'AtlasTaskPropertyGatedTargetPolicy', // a própria denylist — o réu nunca edita a lista
+        'app/Services/Ai/Governance/',        // constituição viva (Kernel · Admissão · Vault · TrustBudget)
     ];
 
     /**
