@@ -134,12 +134,18 @@ class ResultLedger
         ], ['entry_type' => 'supersede']);
     }
 
-    /** @return array{verified: bool, entries: int, failures: list<string>} */
+    /** @return array{verified: bool, evidence_present: bool, entries: int, failures: list<string>} */
     public function verifyChain(): array
     {
         $path = RunPaths::ledgerPath();
         if (! is_file($path)) {
-            return ['verified' => true, 'entries' => 0, 'failures' => []];
+            // `verified` stays true here on purpose: a fresh install has no
+            // ledger yet and `atlas:rivals doctor` is right to call that healthy.
+            // What was missing is the distinction between "nothing to verify" and
+            // "verified evidence" — without it, `rm` on the ledger (or
+            // quarantineCorruptEpoch truncating it after real corruption) read as
+            // intact tamper-evidence to anyone gating on `verified` alone.
+            return ['verified' => true, 'evidence_present' => false, 'entries' => 0, 'failures' => []];
         }
 
         $failures = [];
@@ -168,7 +174,7 @@ class ResultLedger
             $prevHash = $recorded;
         }
 
-        return ['verified' => $failures === [], 'entries' => $count, 'failures' => $failures];
+        return ['verified' => $failures === [], 'evidence_present' => $count > 0, 'entries' => $count, 'failures' => $failures];
     }
 
     /** @return array{verified: bool, entries: int, current_runs: int, legacy_entries: int, failures: list<string>} */

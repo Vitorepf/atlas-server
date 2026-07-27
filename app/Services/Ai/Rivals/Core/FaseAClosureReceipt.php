@@ -5,6 +5,7 @@ namespace App\Services\Ai\Rivals\Core;
 use App\Services\Ai\Rivals\Benchmarks\BenchmarkRepoManager;
 use App\Services\Ai\Rivals\Support\AtomicWriter;
 use App\Services\Ai\Rivals\Support\RunPaths;
+use App\Services\Ai\Rivals\Support\SchemaContract;
 use Illuminate\Support\Facades\Process;
 
 /** Machine-generated authority for the exact phrase "Fase A 100%". */
@@ -41,7 +42,10 @@ final class FaseAClosureReceipt
             'enterprise_report_present' => $enterprise['ready'],
             'tests_green' => ($codeGates['tests']['passed'] ?? false) === true,
             'docs_health_green' => ($codeGates['docs_health']['passed'] ?? false) === true,
-            'ledger_verified' => $ledger['verified'],
+            // Verified AND non-empty: verifyChain() reports verified=true when the
+            // ledger file is absent (a fresh install is healthy), so gating on
+            // `verified` alone let `rm` on the ledger pass as tamper-evidence.
+            'ledger_verified' => $ledger['verified'] && ($ledger['evidence_present'] ?? false),
             'workspace_clean' => $workspace['clean'],
             'operational_prerequisites' => $operational['ready'],
         ];
@@ -153,7 +157,10 @@ final class FaseAClosureReceipt
             'enterprise_report_present' => $enterprise['ready'],
             'tests_green' => ($receipt['code_gates']['tests']['passed'] ?? false) === true,
             'docs_health_green' => ($receipt['code_gates']['docs_health']['passed'] ?? false) === true,
-            'ledger_verified' => $ledger['verified'],
+            // Verified AND non-empty: verifyChain() reports verified=true when the
+            // ledger file is absent (a fresh install is healthy), so gating on
+            // `verified` alone let `rm` on the ledger pass as tamper-evidence.
+            'ledger_verified' => $ledger['verified'] && ($ledger['evidence_present'] ?? false),
             'workspace_clean' => $workspace['clean'],
             'operational_prerequisites' => $operational['ready'],
             'generator_git_head_current' => hash_equals(
@@ -368,7 +375,7 @@ final class FaseAClosureReceipt
         }
         $payload = json_decode((string) file_get_contents($path), true) ?? [];
         $blockers = [];
-        if (($payload['schema_version'] ?? null) !== \App\Services\Ai\Rivals\Support\SchemaContract::ENTERPRISE_REPORT) {
+        if (($payload['schema_version'] ?? null) !== SchemaContract::ENTERPRISE_REPORT) {
             $blockers[] = 'enterprise_report_schema_mismatch';
         }
         if (($payload['claim_allowed'] ?? true) !== false) {
