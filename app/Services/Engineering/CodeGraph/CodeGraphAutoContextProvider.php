@@ -56,6 +56,8 @@ class CodeGraphAutoContextProvider
 
     public const MODE_QUERY = 'query';     // free-text query → E-3 keyword-ranked pack
 
+    public const MODE_ERROR = 'error';     // enabled but the assembly threw — NOT the same as OFF
+
     /** Default token budget when the descriptor does not carry one (mirrors atlas:ctx). */
     private const DEFAULT_BUDGET = 4000;
 
@@ -129,10 +131,12 @@ class CodeGraphAutoContextProvider
             // Enabled but the descriptor named nothing to retrieve → an empty (enabled)
             // pack: honest "nothing to pull", not a failure.
             return $this->emptyEnabledResult();
-        } catch (Throwable) {
-            // Any unexpected error degrades to the disabled/empty pack — auto-pull is
-            // best-effort recall and must never break the flow it is wired into.
-            return $this->disabledResult();
+        } catch (Throwable $e) {
+            // Still degrades to an empty pack — auto-pull is best-effort recall and must
+            // never break the flow it is wired into — but it says so. Before this, "flag
+            // is OFF" and "the assembly exploded" produced a byte-identical payload, so
+            // there was no way to tell a silent no-op from a silent failure.
+            return $this->errorResult($e);
         }
     }
 
@@ -484,8 +488,8 @@ class CodeGraphAutoContextProvider
     }
 
     /**
-     * The disabled / fatal-degrade result: not enabled, no mode, an empty E-3-shaped pack.
-     * Identical for flag-OFF and any caught error so a caller's merge is always a no-op.
+     * The disabled result: flag OFF, no mode, an empty E-3-shaped pack — a caller's merge
+     * is a no-op. A caught error returns {@see errorResult()} instead, never this.
      *
      * @return array{schema_version:string,enabled:bool,mode:string,pack:array<string,mixed>,stats:array<string,int>}
      */
@@ -495,6 +499,25 @@ class CodeGraphAutoContextProvider
             'schema_version' => self::SCHEMA,
             'enabled' => false,
             'mode' => self::MODE_DISABLED,
+            'pack' => $this->emptyPack(0),
+            'stats' => $this->zeroStats(),
+        ];
+    }
+
+    /**
+     * The error result: the flag was ON and the assembly threw. Same empty pack as
+     * disabled (callers still degrade to a no-op merge), but `enabled === true`,
+     * `mode === 'error'` and `error_class` name what actually happened.
+     *
+     * @return array{schema_version:string,enabled:bool,mode:string,error_class:string,pack:array<string,mixed>,stats:array<string,int>}
+     */
+    private function errorResult(Throwable $e): array
+    {
+        return [
+            'schema_version' => self::SCHEMA,
+            'enabled' => true,
+            'mode' => self::MODE_ERROR,
+            'error_class' => $e::class,
             'pack' => $this->emptyPack(0),
             'stats' => $this->zeroStats(),
         ];
