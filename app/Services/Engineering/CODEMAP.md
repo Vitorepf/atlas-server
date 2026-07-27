@@ -49,6 +49,7 @@ The target is the first public entry method — the door, not the whole surface.
 | CodeGraphWorkspaceModelResolver | `App\Services\Engineering\CodeGraph\CodeGraphWorkspaceModelResolver::symbolModel` |
 | CodeGraphWorkspacePrivacy | `App\Services\Engineering\CodeGraph\CodeGraphWorkspacePrivacy::classOf` |
 | CodeRealityDuplicateClassSection | `App\Services\Engineering\CodeRealityUsageIntelligence\CodeRealityDuplicateClassSection::duplicationTriageQueue` |
+| CommandCodeMapBuilder | `App\Services\Engineering\CodeMap\CommandCodeMapBuilder::build` |
 | CrossDomainGraphIngestionService | `App\Services\Engineering\CodeGraph\CrossDomainGraphIngestionService::gather` |
 | CrossDomainGraphTraversalService | `App\Services\Engineering\CodeGraph\CrossDomainGraphTraversalService::traverse` |
 | CrossDomainTaxonomyMap | `App\Services\Engineering\CodeGraph\CrossDomainTaxonomyMap::canonical` |
@@ -100,4 +101,4 @@ The target is the first public entry method — the door, not the whole surface.
 | PostgresEngineeringReviewService | `App\Services\Engineering\PostgresEngineeringReviewService::review` |
 | ZoneCodeMapBuilder | `App\Services\Engineering\CodeMap\ZoneCodeMapBuilder::build` |
 
-Façades: 90.
+Façades: 91.

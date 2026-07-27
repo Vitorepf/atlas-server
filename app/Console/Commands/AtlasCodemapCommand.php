@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Console\Concerns\EmitsCanonicalJson;
+use App\Services\Engineering\CodeMap\CommandCodeMapBuilder;
 use App\Services\Engineering\CodeMap\ZoneCodeMapBuilder;
 use Illuminate\Console\Command;
 
@@ -28,7 +29,9 @@ class AtlasCodemapCommand extends Command
     public function handle(): int
     {
         $builder = new ZoneCodeMapBuilder(base_path());
-        $maps = $builder->build();
+        // Commands need their own index: they are dispatched by signature, never
+        // named by another class, so the façade heuristic reports an empty zone.
+        $maps = $builder->build() + (new CommandCodeMapBuilder(base_path()))->build();
 
         $written = [];
         $missing = [];
