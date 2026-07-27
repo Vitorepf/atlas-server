@@ -7,8 +7,8 @@ namespace App\Console\Commands;
 use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Programming\AtlasForgeContinuumCertificationService;
-use Illuminate\Console\Command;
 use App\Support\YesNo;
+use Illuminate\Console\Command;
 
 /**
  * Atlas Forge Continuum Certify CLI.
@@ -26,9 +26,8 @@ use App\Support\YesNo;
  */
 final class AtlasForgeContinuumCertifyCommand extends Command
 {
-    use ReadsNonEmptyStringOption;
-
     use EmitsCanonicalJson;
+    use ReadsNonEmptyStringOption;
 
     protected $signature = 'atlas:forge:continuum-certify
         {--obra= : UUID da Obra (opcional; obrigatorio em --strict)}
@@ -109,7 +108,7 @@ final class AtlasForgeContinuumCertifyCommand extends Command
             $this->components->twoColumnDetail('action', (string) ($lastEvent['action'] ?? '—'));
             $this->components->twoColumnDetail('blocker', (string) ($lastEvent['blocker'] ?? '—'));
             $this->components->twoColumnDetail('selected_fallback_role', (string) ($lastEvent['selected_fallback_role'] ?? '—'));
-            $this->components->twoColumnDetail('silent', $lastEvent['silent'] === YesNo::format(true));
+            $this->components->twoColumnDetail('silent', YesNo::format($lastEvent['silent'] ?? false));
         }
     }
 
@@ -130,6 +129,4 @@ final class AtlasForgeContinuumCertifyCommand extends Command
 
         return in_array($status, $okStatuses, true) ? self::SUCCESS : self::FAILURE;
     }
-
-
 }

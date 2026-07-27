@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
+use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\Programming\AtlasForgeMultiNodeL410ProofService;
+use App\Support\YesNo;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
-use App\Support\YesNo;
-use App\Console\Concerns\EmitsCanonicalJson;
 
 /**
  * L4-10: Forge multi-node proof report.
@@ -17,7 +17,6 @@ use App\Console\Concerns\EmitsCanonicalJson;
 final class AtlasForgeMultiNodeL410ProofCommand extends Command
 {
     use EmitsCanonicalJson;
-
     use ReadsNonEmptyStringOption;
 
     protected $signature = 'atlas:forge:l4-10-proof
@@ -64,7 +63,7 @@ final class AtlasForgeMultiNodeL410ProofCommand extends Command
     {
         $this->components->twoColumnDetail('<fg=bright-blue;options=bold>Forge L4-10 Proof</>', (string) ($report['schema_version'] ?? 'unknown'));
         $this->components->twoColumnDetail('Status', (string) ($report['status'] ?? 'unknown'));
-        $this->components->twoColumnDetail('Certified', ($report['certified'] ?? false) === YesNo::format(true));
+        $this->components->twoColumnDetail('Certified', YesNo::format($report['certified'] ?? false));
         $this->components->twoColumnDetail('Planned nodes', (string) data_get($report, 'planned_obra.work_node_count', 0));
         $this->components->twoColumnDetail('Recommended agents', (string) data_get($report, 'planned_obra.schedule.recommended_agent_count', 0));
         $this->components->twoColumnDetail('Digest command', data_get($report, 'delivered_item.local_digest_command_available') ? 'available' : 'missing');
@@ -90,5 +89,4 @@ final class AtlasForgeMultiNodeL410ProofCommand extends Command
 
         return ctype_digit($value) ? (int) $value : null;
     }
-
 }

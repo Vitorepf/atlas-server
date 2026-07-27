@@ -44,7 +44,7 @@ class VslAwarenessAlignmentAuditor
             : ($leadUsed === null ? 'partial' : 'no');
 
         $sophPrescribed = $route['sophistication'];
-        $sophMatch = $declaredSoph !== '' ? ($declaredSoph === YesNo::format($sophPrescribed)) : 'partial';
+        $sophMatch = $declaredSoph !== '' ? YesNo::format($declaredSoph === $sophPrescribed) : 'partial';
 
         // Sophistication mechanism/unique_mechanism REQUIRES a named mechanism.
         $needsMechanismName = in_array($sophPrescribed, ['mechanism', 'unique_mechanism'], true)

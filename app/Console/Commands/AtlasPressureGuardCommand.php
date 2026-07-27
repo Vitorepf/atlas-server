@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\Ai\EngineeringKernel\PressureLayerGuards;
-use Illuminate\Console\Command;
-use App\Support\YesNo;
 use App\Console\Concerns\EmitsCanonicalJson;
+use App\Services\Ai\EngineeringKernel\PressureLayerGuards;
+use App\Support\YesNo;
+use Illuminate\Console\Command;
 
 /**
  * atlas:pressure:guard — run ONE of the 3 Cognitive Pressure Layer advisory guards
@@ -80,7 +80,7 @@ final class AtlasPressureGuardCommand extends Command
             $this->components->twoColumnDetail('blocked (land)', $gate['blocked'] ? 'YES' : 'no');
             $this->components->twoColumnDetail('proven_real', YesNo::format($verdict['proven_real']));
             $this->components->twoColumnDetail('detail', (string) $verdict['detail']);
-            $this->components->twoColumnDetail('recorded to ledger', $recorded !== YesNo::format(null));
+            $this->components->twoColumnDetail('recorded to ledger', YesNo::format($recorded !== null));
         }
 
         return $gate['blocked'] ? self::FAILURE : self::SUCCESS;
