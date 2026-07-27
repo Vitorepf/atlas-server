@@ -17,7 +17,16 @@ use App\Services\Ai\Support\AiStringListNormalizer;
 class SpecCritic
 {
     /** @var list<string> */
-    private const VAGUE_WORDS = ['various', 'maybe', 'something', 'stuff', 'qualquer', 'talvez', 'algo', 'meio que'];
+    /**
+     * Single vocabulary for "this objective is vague". ProgrammingSpecCompiler
+     * kept its own copy and it had drifted: 'meio que' was missing there, so a
+     * spec saying "meio que refatorar o gate" came back flagged by the SDD
+     * pipeline and clean by the governance compiler — two answers to the same
+     * question, in Portuguese, which is the language the operator writes in.
+     *
+     * @var list<string>
+     */
+    public const VAGUE_WORDS = ['various', 'maybe', 'something', 'stuff', 'qualquer', 'talvez', 'algo', 'meio que'];
 
     /** @var list<string> */
     private const REQUIRED_LIST_FIELDS = [

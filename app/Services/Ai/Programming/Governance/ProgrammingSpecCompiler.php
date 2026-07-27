@@ -4,6 +4,7 @@ namespace App\Services\Ai\Programming\Governance;
 
 use App\Models\AtlasProgrammingWorkItem;
 use App\Services\Ai\Kernel\Architecture\AtlasFeaturePlacementService;
+use App\Services\Ai\Programming\Sdd\Compilers\SpecCritic;
 use App\Services\Engineering\EngineeringCodeIntelligenceService;
 use Throwable;
 
@@ -88,7 +89,7 @@ class ProgrammingSpecCompiler
             }
         }
 
-        $vagueWords = ['various', 'maybe', 'something', 'stuff', 'qualquer', 'talvez', 'algo'];
+        $vagueWords = SpecCritic::VAGUE_WORDS;
         $objective = strtolower((string) ($spec['objective'] ?? ''));
         foreach ($vagueWords as $word) {
             if (str_contains($objective, $word)) {
