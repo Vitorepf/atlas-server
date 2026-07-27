@@ -601,3 +601,17 @@ Schedule::command('atlas:task:review:publish --limit=20 --json')
         'atlas.terminal.review_publish_enabled',
         (bool) env('ATLAS_TERMINAL_REVIEW_PUBLISH_ENABLED', false),
     ));
+
+// A tese "construído e não provado" vira SÉRIE. Medida uma vez à mão em 27/07/2026
+// (286 de 463 tabelas vazias, 62%), ela não dizia nada sobre direção: um órgão que
+// acabou de começar a escrever é indistinguível de um que sempre escreveu.
+//
+// O append é o ponto todo. Agendar um comando cujo stdout vai para lugar nenhum
+// seria repetir, aqui mesmo, o defeito que este censo existe para contar: "roda
+// diariamente" sem tabela de saída. Uma linha JSON por dia é a série mais barata
+// que sobrevive — sem tabela nova, sem migration.
+Schedule::command('atlas:signal:table-census --jsonl')
+    ->dailyAt((string) config('atlas.signal.table_census_schedule_time', '05:20'))
+    ->withoutOverlapping()
+    ->appendOutputTo(storage_path('atlas/signal/table-census.jsonl'))
+    ->when(static fn (): bool => (bool) config('atlas.signal.table_census_schedule_enabled', true));
