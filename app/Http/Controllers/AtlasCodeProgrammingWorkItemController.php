@@ -84,13 +84,13 @@ final class AtlasCodeProgrammingWorkItemController extends Controller
         try {
             $item = $governance->find($workItem);
         } catch (\RuntimeException) {
-            return response()->json($this->blockResponse($project, null, [
+            return response()->json(ProgrammingWorkItemContractSupport::blockResponse($project, null, [
                 'work_item_not_found',
             ], 'work_item_not_found'), 404);
         }
 
         if (! ProgrammingWorkItemContractSupport::workItemBelongsToProject($project, $item)) {
-            return response()->json($this->blockResponse($project, $item, [
+            return response()->json(ProgrammingWorkItemContractSupport::blockResponse($project, $item, [
                 'work_item_not_bound_to_obra',
             ], 'work_item_not_bound_to_obra'), 403);
         }
@@ -106,15 +106,15 @@ final class AtlasCodeProgrammingWorkItemController extends Controller
         }
 
         try {
-            $spec = $this->specForWorkItem($item, $specCompiler, $data);
+            $spec = ProgrammingWorkItemContractSupport::specForWorkItem($item, $specCompiler, $data);
             $critique = $specCompiler->critique(['spec' => $spec]);
         } catch (Throwable $e) {
-            return response()->json($this->blockResponse($project, $item, [
+            return response()->json(ProgrammingWorkItemContractSupport::blockResponse($project, $item, [
                 'spec_compiler_failed',
             ], $e->getMessage()), 500);
         }
 
-        $scopeBlockers = $this->specScopeBlockers($spec);
+        $scopeBlockers = ProgrammingWorkItemContractSupport::specScopeBlockers($spec);
         $critiqueBlockers = collect((array) ($critique['blocking_issues'] ?? []))
             ->map(fn (mixed $issue): string => is_array($issue)
                 ? (string) (($issue['field'] ?? 'spec').':'.($issue['reason'] ?? 'invalid'))
@@ -123,7 +123,7 @@ final class AtlasCodeProgrammingWorkItemController extends Controller
             ->all();
         $blockers = array_values(array_unique(array_merge($scopeBlockers, $critiqueBlockers)));
         if ($blockers !== []) {
-            return response()->json($this->blockResponse($project, $item, $blockers, 'spec_or_context_insufficient', [
+            return response()->json(ProgrammingWorkItemContractSupport::blockResponse($project, $item, $blockers, 'spec_or_context_insufficient', [
                 'critique' => $critique,
                 'spec' => $spec,
             ]), 422);
@@ -142,7 +142,7 @@ final class AtlasCodeProgrammingWorkItemController extends Controller
         $tasks = ProgrammingWorkItemContractSupport::taskContractsFromCompiledTasks($compiledTasks, $plan, $spec, $item, $data);
 
         if ($tasks === []) {
-            return response()->json($this->blockResponse($project, $item, [
+            return response()->json(ProgrammingWorkItemContractSupport::blockResponse($project, $item, [
                 'plan_compiler_produced_no_tasks',
             ], 'plan_compiler_produced_no_tasks', [
                 'plan' => $plan,
@@ -164,101 +164,6 @@ final class AtlasCodeProgrammingWorkItemController extends Controller
             contextPack: $contextPack->toArray(),
             critique: $critique,
         ), 201);
-    }
-
-    private function existingWorkItem(AtlasProject $project): ?AtlasProgrammingWorkItem
-    {
-        $metadata = is_array($project->metadata) ? $project->metadata : [];
-        $id = (string) data_get($metadata, 'programming_work_item_id', '');
-        if ($id !== '') {
-            $item = AtlasProgrammingWorkItem::query()->where('id', $id)->first();
-            if ($item) {
-                return $item;
-            }
-        }
-
-        $code = (string) data_get($metadata, 'programming_work_item_code', '');
-        if ($code !== '') {
-            $item = AtlasProgrammingWorkItem::query()->where('code', $code)->first();
-            if ($item) {
-                return $item;
-            }
-        }
-
-        $projectId = (string) $project->getKey();
-        $workspace = trim((string) data_get($metadata, 'workspace_path', ''));
-
-        return AtlasProgrammingWorkItem::query()
-            ->orderByDesc('updated_at')
-            ->orderByDesc('created_at')
-            ->limit(50)
-            ->get()
-            ->first(function (AtlasProgrammingWorkItem $item) use ($projectId, $workspace): bool {
-                $itemMetadata = is_array($item->metadata_json) ? $item->metadata_json : [];
-                if ((string) data_get($itemMetadata, 'obra_id', '') === $projectId
-                    || (string) data_get($itemMetadata, 'atlas_project_id', '') === $projectId
-                ) {
-                    return true;
-                }
-
-                return $workspace !== '' && trim((string) ($item->workspace ?? '')) === $workspace;
-            });
-    }
-
-    /**
-     * @param  array<string,mixed>  $data
-     * @return array<string,mixed>
-     */
-    private function specForWorkItem(
-        AtlasProgrammingWorkItem $workItem,
-        ProgrammingSpecCompiler $compiler,
-        array $data,
-    ): array {
-        if ($workItem->spec_hash !== null && (array) $workItem->spec_json !== []) {
-            return (array) $workItem->spec_json;
-        }
-
-        $compiled = $compiler->compile($workItem);
-        $spec = (array) ($compiled['spec'] ?? []);
-
-        foreach ([
-            'likely_files' => 'likely_files',
-            'validation_commands' => 'tests',
-            'acceptance_criteria' => 'completion_criteria',
-            'evidence_required' => 'evidence_required',
-        ] as $inputKey => $specKey) {
-            $value = AiStringListNormalizer::trimmedStringsFromArrayCast($data[$inputKey] ?? []);
-            if ($value !== []) {
-                $spec[$specKey] = $value;
-            }
-        }
-
-        return $spec;
-    }
-
-    /**
-     * @param  array<string,mixed>  $spec
-     * @return list<string>
-     */
-    private function specScopeBlockers(array $spec): array
-    {
-        $likely = AiStringListNormalizer::trimmedStringsFromArrayCast($spec['likely_files'] ?? []);
-        if ($likely === []) {
-            return ['likely_files_required'];
-        }
-
-        $unknown = collect($likely)
-            ->contains(fn (string $file): bool => str_contains(strtolower($file), 'unknown') || str_contains($file, 'fill in'));
-        if ($unknown) {
-            return ['likely_files_must_be_explicit'];
-        }
-
-        $tests = AiStringListNormalizer::trimmedStringsFromArrayCast($spec['tests'] ?? []);
-        if ($tests === []) {
-            return ['validation_commands_required'];
-        }
-
-        return [];
     }
 
     /**
@@ -308,56 +213,6 @@ final class AtlasCodeProgrammingWorkItemController extends Controller
         return $workItem->refresh();
     }
 
-    private function intentFor(AtlasProject $project, ?string $explicit): string
-    {
-        foreach ([
-            $explicit,
-            $project->goal,
-            $project->desired_outcome,
-            $project->description,
-            $project->title,
-        ] as $candidate) {
-            if (! is_string($candidate)) {
-                continue;
-            }
-            $trimmed = trim($candidate);
-            if ($trimmed !== '') {
-                return $trimmed;
-            }
-        }
-
-        return '';
-    }
-
-    /**
-     * @param  array<string,mixed>  $metadata
-     * @return array<string,mixed>
-     */
-    private function workItemMetadata(AtlasProject $project, array $metadata): array
-    {
-        return array_merge($metadata, [
-            'obra_id' => (string) $project->getKey(),
-            'atlas_project_id' => (string) $project->getKey(),
-            'atlas_code_binding' => [
-                'schema_version' => 'atlas.code.programming_work_item_binding.v1',
-                'surface_id' => 'atlas_code',
-                'flow_id' => 'programming.forge',
-                'source_authority' => 'AtlasProject.metadata.programming_work_item_id',
-                'bound_at' => now()->toJSON(),
-            ],
-        ]);
-    }
-
-    private function rememberBinding(AtlasProject $project, AtlasProgrammingWorkItem $workItem): void
-    {
-        $metadata = is_array($project->metadata) ? $project->metadata : [];
-        $metadata['programming_work_item_id'] = (string) $workItem->id;
-        $metadata['programming_work_item_code'] = (string) $workItem->code;
-        $metadata['latest_programming_work_item_bound_at'] = now()->toJSON();
-
-        $project->forceFill(['metadata' => $metadata])->save();
-    }
-
     /**
      * @return array<string,mixed>
      */
@@ -398,37 +253,6 @@ final class AtlasCodeProgrammingWorkItemController extends Controller
                 'degraded_reason' => null,
             ],
         ];
-    }
-
-    /**
-     * @param  list<string>  $blockers
-     * @param  array<string,mixed>  $extra
-     * @return array<string,mixed>
-     */
-    private function blockResponse(
-        AtlasProject $project,
-        ?AtlasProgrammingWorkItem $workItem,
-        array $blockers,
-        string $reason,
-        array $extra = [],
-    ): array {
-        return array_merge([
-            'schema_version' => 'atlas.code.programming_work_item_spec_binding_response.v1',
-            'work_id' => (string) $project->getKey(),
-            'obra_id' => (string) $project->getKey(),
-            'status' => 'blocked',
-            'compiled' => false,
-            'work_item_id' => $workItem ? (string) $workItem->id : null,
-            'work_item_code' => $workItem ? (string) $workItem->code : null,
-            'spec_hash' => $workItem?->spec_hash,
-            'plan_hash' => $workItem?->plan_hash,
-            'tasks_count' => $workItem ? count((array) $workItem->tasks_json) : 0,
-            'gate_requirements' => [],
-            'blockers' => $blockers,
-            'reason' => $reason,
-            'next_action' => 'fix_spec_context_then_retry',
-            'evidence_refs' => [],
-        ], $extra);
     }
 
     /**

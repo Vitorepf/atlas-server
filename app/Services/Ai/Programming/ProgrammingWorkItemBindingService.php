@@ -6,6 +6,7 @@ namespace App\Services\Ai\Programming;
 
 use App\Models\AtlasProgrammingWorkItem;
 use App\Models\AtlasProject;
+use App\Services\Ai\DualCore\CanonicalRouteDecisionEnvelope;
 use App\Services\Ai\Programming\Governance\ProgrammingGovernanceService;
 
 /**
@@ -27,7 +28,7 @@ final class ProgrammingWorkItemBindingService
      */
     public function bindOrCreate(AtlasProject $project, ?string $intent = null, ?string $owner = null, ?string $type = null, ?string $mode = null, ?string $risk = null): array
     {
-        $existing = $this->existingWorkItem($project);
+        $existing = ProgrammingWorkItemContractSupport::existingWorkItem($project);
         if ($existing) {
             $payload = $this->responsePayload($project, $existing, created: false);
 
@@ -40,7 +41,7 @@ final class ProgrammingWorkItemBindingService
             ];
         }
 
-        $resolvedIntent = $this->intentFor($project, $intent);
+        $resolvedIntent = ProgrammingWorkItemContractSupport::intentFor($project, $intent);
         if ($resolvedIntent === '') {
             return [
                 'status' => 'blocked',
@@ -52,7 +53,7 @@ final class ProgrammingWorkItemBindingService
                     'created' => false,
                     'status' => 'blocked',
                     'error' => 'programming_intent_required',
-                    'route_decision' => \App\Services\Ai\DualCore\CanonicalRouteDecisionEnvelope::emit(
+                    'route_decision' => CanonicalRouteDecisionEnvelope::emit(
                         route: 'programming',
                         reason: 'programming_work_item_binding_service',
                     ),
@@ -71,10 +72,10 @@ final class ProgrammingWorkItemBindingService
 
         $workItem = AtlasProgrammingWorkItem::query()->findOrFail((string) $snapshot['id']);
         $workItem->forceFill([
-            'metadata_json' => $this->workItemMetadata($project, (array) $workItem->metadata_json),
+            'metadata_json' => ProgrammingWorkItemContractSupport::workItemMetadata($project, (array) $workItem->metadata_json),
         ])->save();
 
-        $this->rememberBinding($project, $workItem);
+        ProgrammingWorkItemContractSupport::rememberBinding($project, $workItem);
         $workItem = $workItem->refresh();
         $payload = $this->responsePayload($project->refresh(), $workItem, created: true);
 
@@ -85,95 +86,6 @@ final class ProgrammingWorkItemBindingService
             'http_status' => 201,
             'payload' => $payload,
         ];
-    }
-
-    private function existingWorkItem(AtlasProject $project): ?AtlasProgrammingWorkItem
-    {
-        $metadata = is_array($project->metadata) ? $project->metadata : [];
-        $id = (string) data_get($metadata, 'programming_work_item_id', '');
-        if ($id !== '') {
-            $item = AtlasProgrammingWorkItem::query()->where('id', $id)->first();
-            if ($item) {
-                return $item;
-            }
-        }
-
-        $code = (string) data_get($metadata, 'programming_work_item_code', '');
-        if ($code !== '') {
-            $item = AtlasProgrammingWorkItem::query()->where('code', $code)->first();
-            if ($item) {
-                return $item;
-            }
-        }
-
-        $projectId = (string) $project->getKey();
-        $workspace = trim((string) data_get($metadata, 'workspace_path', ''));
-
-        return AtlasProgrammingWorkItem::query()
-            ->orderByDesc('updated_at')
-            ->orderByDesc('created_at')
-            ->limit(50)
-            ->get()
-            ->first(function (AtlasProgrammingWorkItem $item) use ($projectId, $workspace): bool {
-                $itemMetadata = is_array($item->metadata_json) ? $item->metadata_json : [];
-                if ((string) data_get($itemMetadata, 'obra_id', '') === $projectId
-                    || (string) data_get($itemMetadata, 'atlas_project_id', '') === $projectId
-                ) {
-                    return true;
-                }
-
-                return $workspace !== '' && trim((string) ($item->workspace ?? '')) === $workspace;
-            });
-    }
-
-    private function intentFor(AtlasProject $project, ?string $explicit): string
-    {
-        foreach ([
-            $explicit,
-            $project->goal,
-            $project->desired_outcome,
-            $project->description,
-            $project->title,
-        ] as $candidate) {
-            if (! is_string($candidate)) {
-                continue;
-            }
-            $trimmed = trim($candidate);
-            if ($trimmed !== '') {
-                return $trimmed;
-            }
-        }
-
-        return '';
-    }
-
-    /**
-     * @param  array<string,mixed>  $metadata
-     * @return array<string,mixed>
-     */
-    private function workItemMetadata(AtlasProject $project, array $metadata): array
-    {
-        return array_merge($metadata, [
-            'obra_id' => (string) $project->getKey(),
-            'atlas_project_id' => (string) $project->getKey(),
-            'atlas_code_binding' => [
-                'schema_version' => 'atlas.code.programming_work_item_binding.v1',
-                'surface_id' => 'atlas_code',
-                'flow_id' => 'programming.forge',
-                'source_authority' => 'AtlasProject.metadata.programming_work_item_id',
-                'bound_at' => now()->toJSON(),
-            ],
-        ]);
-    }
-
-    private function rememberBinding(AtlasProject $project, AtlasProgrammingWorkItem $workItem): void
-    {
-        $metadata = is_array($project->metadata) ? $project->metadata : [];
-        $metadata['programming_work_item_id'] = (string) $workItem->id;
-        $metadata['programming_work_item_code'] = (string) $workItem->code;
-        $metadata['latest_programming_work_item_bound_at'] = now()->toJSON();
-
-        $project->forceFill(['metadata' => $metadata])->save();
     }
 
     /**

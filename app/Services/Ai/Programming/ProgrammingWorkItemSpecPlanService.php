@@ -32,11 +32,11 @@ final class ProgrammingWorkItemSpecPlanService
         try {
             $item = $this->governance->find($workItem);
         } catch (\RuntimeException) {
-            return ['http_status' => 404, 'payload' => $this->blockResponse($project, null, ['work_item_not_found'], 'work_item_not_found')];
+            return ['http_status' => 404, 'payload' => ProgrammingWorkItemContractSupport::blockResponse($project, null, ['work_item_not_found'], 'work_item_not_found')];
         }
 
         if (! ProgrammingWorkItemContractSupport::workItemBelongsToProject($project, $item)) {
-            return ['http_status' => 403, 'payload' => $this->blockResponse($project, $item, ['work_item_not_bound_to_obra'], 'work_item_not_bound_to_obra')];
+            return ['http_status' => 403, 'payload' => ProgrammingWorkItemContractSupport::blockResponse($project, $item, ['work_item_not_bound_to_obra'], 'work_item_not_bound_to_obra')];
         }
 
         if ($item->spec_hash !== null && $item->plan_hash !== null && (array) $item->tasks_json !== []) {
@@ -50,15 +50,15 @@ final class ProgrammingWorkItemSpecPlanService
         }
 
         try {
-            $spec = $this->specForWorkItem($item, $this->specCompiler, $data);
+            $spec = ProgrammingWorkItemContractSupport::specForWorkItem($item, $this->specCompiler, $data);
             $critique = $this->specCompiler->critique(['spec' => $spec]);
         } catch (Throwable $e) {
-            return ['http_status' => 500, 'payload' => $this->blockResponse($project, $item, [
+            return ['http_status' => 500, 'payload' => ProgrammingWorkItemContractSupport::blockResponse($project, $item, [
                 'spec_compiler_failed',
             ], $e->getMessage())];
         }
 
-        $scopeBlockers = $this->specScopeBlockers($spec);
+        $scopeBlockers = ProgrammingWorkItemContractSupport::specScopeBlockers($spec);
         $critiqueBlockers = collect((array) ($critique['blocking_issues'] ?? []))
             ->map(fn (mixed $issue): string => is_array($issue)
                 ? (string) (($issue['field'] ?? 'spec').':'.($issue['reason'] ?? 'invalid'))
@@ -67,7 +67,7 @@ final class ProgrammingWorkItemSpecPlanService
             ->all();
         $blockers = array_values(array_unique(array_merge($scopeBlockers, $critiqueBlockers)));
         if ($blockers !== []) {
-            return ['http_status' => 422, 'payload' => $this->blockResponse($project, $item, $blockers, 'spec_or_context_insufficient', [
+            return ['http_status' => 422, 'payload' => ProgrammingWorkItemContractSupport::blockResponse($project, $item, $blockers, 'spec_or_context_insufficient', [
                 'critique' => $critique,
                 'spec' => $spec,
             ])];
@@ -86,7 +86,7 @@ final class ProgrammingWorkItemSpecPlanService
         $tasks = ProgrammingWorkItemContractSupport::taskContractsFromCompiledTasks($compiledTasks, $plan, $spec, $item, $data);
 
         if ($tasks === []) {
-            return ['http_status' => 422, 'payload' => $this->blockResponse($project, $item, [
+            return ['http_status' => 422, 'payload' => ProgrammingWorkItemContractSupport::blockResponse($project, $item, [
                 'plan_compiler_produced_no_tasks',
             ], 'plan_compiler_produced_no_tasks', [
                 'plan' => $plan,
@@ -108,62 +108,6 @@ final class ProgrammingWorkItemSpecPlanService
             contextPack: $contextPack->toArray(),
             critique: $critique,
         )];
-    }
-
-    /**
-     * @param  array<string,mixed>  $data
-     * @return array<string,mixed>
-     */
-    private function specForWorkItem(
-        AtlasProgrammingWorkItem $workItem,
-        ProgrammingSpecCompiler $compiler,
-        array $data,
-    ): array {
-        if ($workItem->spec_hash !== null && (array) $workItem->spec_json !== []) {
-            return (array) $workItem->spec_json;
-        }
-
-        $compiled = $compiler->compile($workItem);
-        $spec = (array) ($compiled['spec'] ?? []);
-
-        foreach ([
-            'likely_files' => 'likely_files',
-            'validation_commands' => 'tests',
-            'acceptance_criteria' => 'completion_criteria',
-            'evidence_required' => 'evidence_required',
-        ] as $inputKey => $specKey) {
-            $value = AiStringListNormalizer::trimmedStringsFromArrayCast($data[$inputKey] ?? []);
-            if ($value !== []) {
-                $spec[$specKey] = $value;
-            }
-        }
-
-        return $spec;
-    }
-
-    /**
-     * @param  array<string,mixed>  $spec
-     * @return list<string>
-     */
-    private function specScopeBlockers(array $spec): array
-    {
-        $likely = AiStringListNormalizer::trimmedStringsFromArrayCast($spec['likely_files'] ?? []);
-        if ($likely === []) {
-            return ['likely_files_required'];
-        }
-
-        $unknown = collect($likely)
-            ->contains(fn (string $file): bool => str_contains(strtolower($file), 'unknown') || str_contains($file, 'fill in'));
-        if ($unknown) {
-            return ['likely_files_must_be_explicit'];
-        }
-
-        $tests = AiStringListNormalizer::trimmedStringsFromArrayCast($spec['tests'] ?? []);
-        if ($tests === []) {
-            return ['validation_commands_required'];
-        }
-
-        return [];
     }
 
     /**
@@ -211,32 +155,6 @@ final class ProgrammingWorkItemSpecPlanService
         $workItem->forceFill(['gaps_json' => $gaps])->save();
 
         return $workItem->refresh();
-    }
-
-    private function blockResponse(
-        AtlasProject $project,
-        ?AtlasProgrammingWorkItem $workItem,
-        array $blockers,
-        string $reason,
-        array $extra = [],
-    ): array {
-        return array_merge([
-            'schema_version' => 'atlas.code.programming_work_item_spec_binding_response.v1',
-            'work_id' => (string) $project->getKey(),
-            'obra_id' => (string) $project->getKey(),
-            'status' => 'blocked',
-            'compiled' => false,
-            'work_item_id' => $workItem ? (string) $workItem->id : null,
-            'work_item_code' => $workItem ? (string) $workItem->code : null,
-            'spec_hash' => $workItem?->spec_hash,
-            'plan_hash' => $workItem?->plan_hash,
-            'tasks_count' => $workItem ? count((array) $workItem->tasks_json) : 0,
-            'gate_requirements' => [],
-            'blockers' => $blockers,
-            'reason' => $reason,
-            'next_action' => 'fix_spec_context_then_retry',
-            'evidence_refs' => [],
-        ], $extra);
     }
 
     /**
