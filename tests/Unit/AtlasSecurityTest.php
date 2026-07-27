@@ -86,4 +86,24 @@ class AtlasSecurityTest extends TestCase
         $this->assertStringNotContainsString('super-secret-value', $log);
         $this->assertStringNotContainsString('abcdefghijklmnopqrstuvwxyz123456', $log);
     }
+
+    public function test_redact_string_covers_senha_because_secret_patterns_already_flags_it(): void
+    {
+        // Regressao: secretPatterns() declara 'senha' segredo, mas redactString()
+        // so listava a chave em ingles — Atlas DETECTAVA e entregava verbatim.
+        foreach (['senha: hunter2secreta', 'senha=minhasenha123', '"senha": "abc123xyz"'] as $sample) {
+            self::assertNotEmpty(
+                AtlasSecurity::secretDetections($sample),
+                'secretPatterns deve flagrar: '.$sample,
+            );
+            self::assertStringNotContainsString(
+                'hunter2secreta',
+                AtlasSecurity::redactString($sample),
+                'redactString deve redigir o que secretPatterns flagra: '.$sample,
+            );
+            self::assertStringContainsString('[redacted]', AtlasSecurity::redactString($sample));
+        }
+
+        self::assertSame('texto normal sem segredo', AtlasSecurity::redactString('texto normal sem segredo'));
+    }
 }

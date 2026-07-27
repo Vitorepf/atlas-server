@@ -79,7 +79,12 @@ class AtlasSecurity
             'slack_token' => '/\bxox[baprs]-[A-Za-z0-9-]{20,}\b/',
             'aws_access_key' => '/\bAKIA[0-9A-Z]{16}\b/',
             'bearer' => '/\bBearer\s+[A-Za-z0-9._~+\/=-]{12,}\b/i',
-            'api_key' => '/\b(api[_-]?key|secret|password|senha|passwd|pwd|token|authorization|auth|cookie|session|private[_-]?key)\s*[:=]\s*[^\s,"\']{6,}/i',
+            // O valor pode vir entre aspas ("password": "x") — a forma que segredo
+            // toma em config JSON, payload de provider e receipt, ou seja a mais
+            // comum neste corpus. Sem o ["\']? o detector so via `chave: valor`
+            // cru: redactString redigia a forma JSON e secretDetections nao a
+            // enxergava, entao a camada de privacidade deixava passar sem flagrar.
+            'api_key' => '/\b(api[_-]?key|secret|password|senha|passwd|pwd|token|authorization|auth|cookie|session|private[_-]?key)["\']?\s*[:=]\s*["\']?[^\s,"\']{6,}/i',
         ];
     }
 
@@ -108,6 +113,9 @@ class AtlasSecurity
             return '';
         }
 
+        // 'senha' fica na lista porque secretPatterns() ja a declara segredo: sem ela,
+        // Atlas DETECTA `senha: ...` e mesmo assim a entrega verbatim ao provider.
+        // O operador escreve em portugues; a chave em ingles sozinha nao cobre o corpus.
         $patterns = [
             '/-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----/s' => self::REDACTED,
             '/\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/' => '[jwt-redacted]',
@@ -118,8 +126,8 @@ class AtlasSecurity
             '/\bxox[baprs]-[A-Za-z0-9-]{20,}\b/' => 'xox-'.self::REDACTED,
             '/\bAKIA[0-9A-Z]{16}\b/' => 'AKIA'.self::REDACTED,
             '/\bBearer\s+[A-Za-z0-9._~+\/=-]{12,}\b/i' => 'Bearer '.self::REDACTED,
-            '/\b((?:api[_-]?key|token|secret|password|passwd|pwd|authorization|auth|cookie|session|private[_-]?key)\s*[:=]\s*)(["\']?)[^"\'\s,&;]+(\2)/i' => '$1$2'.self::REDACTED.'$3',
-            '/(["\'](?:api[_-]?key|token|secret|password|passwd|pwd|authorization|auth|cookie|session|private[_-]?key)["\']\s*:\s*["\'])([^"\']+)(["\'])/i' => '$1'.self::REDACTED.'$3',
+            '/\b((?:api[_-]?key|token|secret|password|senha|passwd|pwd|authorization|auth|cookie|session|private[_-]?key)\s*[:=]\s*)(["\']?)[^"\'\s,&;]+(\2)/i' => '$1$2'.self::REDACTED.'$3',
+            '/(["\'](?:api[_-]?key|token|secret|password|senha|passwd|pwd|authorization|auth|cookie|session|private[_-]?key)["\']\s*:\s*["\'])([^"\']+)(["\'])/i' => '$1'.self::REDACTED.'$3',
         ];
 
         foreach ($patterns as $pattern => $replacement) {
