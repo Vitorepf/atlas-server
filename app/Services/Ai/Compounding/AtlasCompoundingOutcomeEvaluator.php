@@ -17,7 +17,9 @@ class AtlasCompoundingOutcomeEvaluator
      */
     public function evaluate(array $input): AiRunOutcome
     {
-        $status = $this->string($input['outcome_status'] ?? null) ?? $this->string($input['status'] ?? null) ?? 'passed';
+        // No 'passed' default: an outcome nobody reported a status for is not a
+        // pass. 'unknown' is already part of this column's vocabulary.
+        $status = $this->string($input['outcome_status'] ?? null) ?? $this->string($input['status'] ?? null) ?? 'unknown';
         $flowId = $this->string($input['flow_id'] ?? null) ?? 'atlas_conversation';
         $evidenceRefs = $this->array($input['evidence_refs'] ?? []);
         $payload = [
@@ -26,6 +28,13 @@ class AtlasCompoundingOutcomeEvaluator
             'trace_id' => $this->string($input['trace_id'] ?? null),
             'flow_id' => $flowId,
             'outcome_status' => $status,
+            // These four are scores the CALLER may supply. When it does not, the
+            // value below is DERIVED from status/evidence shape — it is not a
+            // measurement, and dashboards averaging these columns were
+            // presenting derived constants as measured system health. The
+            // columns are unsignedTinyInteger NOT NULL, so the value has to
+            // stay; what was missing is saying which is which. See
+            // quality_provenance in the payload.
             'flow_quality' => $this->score($input['flow_quality'] ?? null, $status === 'passed' ? 90 : 45),
             'retrieval_quality' => $this->score($input['retrieval_quality'] ?? null, empty($input['retrieval_receipt_id']) ? 55 : 85),
             'execution_quality' => $this->score($input['execution_quality'] ?? null, $status === 'passed' ? 90 : 40),
@@ -34,7 +43,17 @@ class AtlasCompoundingOutcomeEvaluator
             'learning_required' => (bool) ($input['learning_required'] ?? ($status !== 'passed' || $evidenceRefs !== [])),
             'missed_signals' => $this->array($input['missed_signals'] ?? []),
             'evidence_refs' => $evidenceRefs,
-            'payload' => $input,
+            'payload' => $input + [
+                'quality_provenance' => [
+                    'flow_quality' => is_numeric($input['flow_quality'] ?? null) ? 'measured' : 'derived',
+                    'retrieval_quality' => is_numeric($input['retrieval_quality'] ?? null) ? 'measured' : 'derived',
+                    'execution_quality' => is_numeric($input['execution_quality'] ?? null) ? 'measured' : 'derived',
+                    'evidence_quality' => is_numeric($input['evidence_quality'] ?? null) ? 'measured' : 'derived',
+                    'outcome_status' => ($this->string($input['outcome_status'] ?? null) ?? $this->string($input['status'] ?? null)) !== null
+                        ? 'reported'
+                        : 'absent',
+                ],
+            ],
             'evaluated_at' => now(),
         ];
         $payload['outcome_hash'] = CompoundingHash::make([
