@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Surface;
 
+use App\Support\InternalLeakMarkers;
 use Illuminate\Support\Str;
 
 class AtlasFinalResponseSanitizer
@@ -335,34 +336,15 @@ class AtlasFinalResponseSanitizer
     {
         $lower = Str::lower($text);
 
-        foreach ([
-            '"type":"system"',
-            '"type": "system"',
-            '"subtype":"init"',
-            '"subtype": "init"',
-            '"mcp_servers"',
-            '"permissionmode"',
-            '"apikeysource"',
-            '"claude_code_version"',
-            '"modelusage"',
-            '"cache_creation_input_tokens"',
-            '"permission_denials"',
-            '"terminal_reason"',
-            '"fast_mode_state"',
-            'context_pack',
-            'context_pack_hash',
-            '"trace_id"',
-            '"thread_id"',
-            '"session_id"',
-        ] as $marker) {
+        foreach (InternalLeakMarkers::substrings() as $marker) {
             if (str_contains($lower, $marker)) {
                 return true;
             }
         }
 
         return (bool) (
-            preg_match('/\b(trace_id|thread_id|session_id)\b/i', $text)
-            && preg_match('/("type"\s*:|"tools"\s*:|"metadata"\s*:|provider|modelusage|permissionmode|cache_creation|mcp_servers|uuid)/i', $text)
+            preg_match(InternalLeakMarkers::correlationIdPattern(), $text)
+            && preg_match(InternalLeakMarkers::envelopeEvidencePattern(), $text)
         );
     }
 }
