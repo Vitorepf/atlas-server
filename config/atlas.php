@@ -176,6 +176,26 @@ return [
         'reconciler_enabled' => (bool) env('ATLAS_AGENTS_RECONCILER_ENABLED', false),
     ],
 
+    // AAEL. Every key here was already READ by the code and declared NOWHERE, so
+    // each one silently took its inline default forever. The worst of them:
+    // atlas:aael:parallel prints "set config atlas.aael.parallel.cli_enabled=true
+    // to enable" — an instruction the operator could not follow, because there
+    // was no section to set it in. Defaults below are byte-identical to the
+    // inline ones, so declaring them changes nothing except making them reachable.
+    'aael' => [
+        'parallel' => [
+            // DEFAULT OFF (fail-closed): every action exits 0 with a disabled notice.
+            'cli_enabled' => (bool) env('ATLAS_AAEL_PARALLEL_CLI_ENABLED', false),
+            'ledger_path' => env('ATLAS_AAEL_PARALLEL_LEDGER_PATH'),
+        ],
+        'inflight' => [
+            'ledger_path' => env('ATLAS_AAEL_INFLIGHT_LEDGER_PATH'),
+        ],
+        'trace' => [
+            'root' => env('ATLAS_AAEL_TRACE_ROOT'),
+        ],
+    ],
+
     'transcription' => [
         'enabled' => (bool) env('TRANSCRIPTION_ENABLED', false),
         'bin_path' => env('WHISPER_BIN_PATH', '/usr/local/bin/whisper-cli'),
@@ -2671,7 +2691,6 @@ return [
     | Keep-list AtlasLoop* may still read atlas.loop.*; never re-enable atlas:loop:* CLI.
     */
     'loop' => require __DIR__.'/atlas_loop_legacy.php',
-
 
     /*
     |--------------------------------------------------------------------------
