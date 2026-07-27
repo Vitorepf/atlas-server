@@ -47,10 +47,10 @@ class AtlasMissionDeliverCommand extends Command
         $request = (string) $this->argument('request');
 
         $options = array_filter([
-            'provider' => $this->stringOption('provider'),
-            'target_file' => $this->stringOption('target-file'),
-            'id' => $this->stringOption('id'),
-            'measure_cmd' => $this->stringOption('measure'),
+            'provider' => $this->rawStringOption('provider'),
+            'target_file' => $this->rawStringOption('target-file'),
+            'id' => $this->rawStringOption('id'),
+            'measure_cmd' => $this->rawStringOption('measure'),
         ], static fn ($v): bool => $v !== null && $v !== '');
 
         // --no-brain bypasses the brain-context bridge for THIS run only (the

@@ -33,8 +33,8 @@ class AtlasSddRunCommand extends Command
         try {
             $envelope = new OperationEnvelope(
                 rawInput: (string) $this->argument('intent'),
-                userId: $this->stringOption('user'),
-                workspace: $this->stringOption('workspace'),
+                userId: $this->untrimmedStringOption('user'),
+                workspace: $this->untrimmedStringOption('workspace'),
             );
             $autonomy = $this->parseAutonomy();
             $writes = $this->parseWrites();
@@ -74,7 +74,7 @@ class AtlasSddRunCommand extends Command
 
     private function parseAutonomy(): ?AutonomyLevel
     {
-        $value = $this->stringOption('autonomy');
+        $value = $this->untrimmedStringOption('autonomy');
         if ($value === null) {
             return null;
         }

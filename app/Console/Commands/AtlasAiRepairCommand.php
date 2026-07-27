@@ -41,7 +41,7 @@ class AtlasAiRepairCommand extends Command
     {
         $request = new RepairRequest(
             envelopeId: (string) $this->option('envelope'),
-            receiptId: $this->stringOption('receipt'),
+            receiptId: $this->literalStringOption('receipt'),
             failure: new FailureClassification(
                 domain: FailureDomain::tryFrom((string) $this->option('failure')) ?? FailureDomain::Unknown,
                 source: (string) $this->option('source'),

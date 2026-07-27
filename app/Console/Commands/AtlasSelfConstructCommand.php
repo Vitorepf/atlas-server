@@ -166,8 +166,8 @@ class AtlasSelfConstructCommand extends Command
         $result = $loop->run([
             'max' => (int) $this->option('max'),
             'requests' => (array) $this->option('request'),
-            'repo_dir' => $this->stringOption('repo') ?: base_path(),
-            'delivery' => array_filter(['provider' => $this->stringOption('provider')], static fn ($v): bool => $v !== null && $v !== ''),
+            'repo_dir' => $this->rawStringOption('repo') ?: base_path(),
+            'delivery' => array_filter(['provider' => $this->rawStringOption('provider')], static fn ($v): bool => $v !== null && $v !== ''),
         ]);
 
         if ((bool) $this->option('json')) {

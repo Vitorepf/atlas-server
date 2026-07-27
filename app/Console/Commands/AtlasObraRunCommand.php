@@ -56,7 +56,7 @@ class AtlasObraRunCommand extends Command
         AtlasRealityGraphIngestionService $brain,
     ): int {
         $planId = trim((string) $this->argument('plan'));
-        $repoDir = $this->stringOption('repo');
+        $repoDir = $this->rawStringOption('repo');
 
         $executor = new AtlasObraExecutor(
             new ProviderObraNodeDelivery($delivery),
@@ -86,14 +86,14 @@ class AtlasObraRunCommand extends Command
         if ($repoDir !== null && $repoDir !== '') {
             $opts['repo_dir'] = $repoDir;
         }
-        $provider = $this->stringOption('provider');
+        $provider = $this->rawStringOption('provider');
         if ($provider !== null && $provider !== '') {
             $opts['provider'] = $provider;
         }
         // AOBG N3.F3 — the whole-branch integrated certification check (explicit per-run
         // override of atlas.obra.integrated_check). When given, certified=true requires
         // it to pass on the ASSEMBLED branch (not just per step).
-        $integratedCheck = $this->stringOption('integrated-check');
+        $integratedCheck = $this->rawStringOption('integrated-check');
         if ($integratedCheck !== null && $integratedCheck !== '') {
             $opts['integrated_check'] = $integratedCheck;
         }

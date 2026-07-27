@@ -39,9 +39,9 @@ class AtlasProgrammingCompleteCommand extends Command
                 $workItem,
                 (string) ($this->option('review') ?: 'approved'),
                 array_filter([
-                    'summary' => $this->stringOption('summary'),
-                    'risk_notes' => $this->stringOption('risk-notes'),
-                    'decided_by' => $this->stringOption('decided-by'),
+                    'summary' => $this->untrimmedStringOption('summary'),
+                    'risk_notes' => $this->untrimmedStringOption('risk-notes'),
+                    'decided_by' => $this->untrimmedStringOption('decided-by'),
                 ], static fn (mixed $v): bool => $v !== null),
             );
         } catch (Throwable $e) {

@@ -9,7 +9,8 @@ namespace App\Console\Commands\Concerns;
  */
 trait ReadsNonEmptyLiteralStringOption
 {
-    private function stringOption(string $key): ?string
+    /** Non-empty WITHOUT trimming: a value of ' ' is returned as-is. */
+    private function literalStringOption(string $key): ?string
     {
         $value = $this->option($key);
 

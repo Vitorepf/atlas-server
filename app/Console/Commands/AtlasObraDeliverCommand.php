@@ -99,12 +99,12 @@ class AtlasObraDeliverCommand extends Command
             'provider' => 'provider',
             'integrated-check' => 'integrated_check',
         ] as $option => $key) {
-            $value = $this->stringOption($option);
+            $value = $this->rawStringOption($option);
             if ($value !== null && $value !== '') {
                 $opts[$key] = $value;
             }
         }
-        $repoDir = $this->stringOption('repo');
+        $repoDir = $this->rawStringOption('repo');
         if ($repoDir !== null && $repoDir !== '') {
             $opts['repo_dir'] = $repoDir;
         }

@@ -42,7 +42,7 @@ class AtlasObraStatusCommand extends Command
 
     public function handle(AtlasObraService $service): int
     {
-        $obraId = $this->stringOption('obra');
+        $obraId = $this->rawStringOption('obra');
 
         // No id → list recent obras (cost-free directory of what has been commissioned).
         if ($obraId === null || $obraId === '') {

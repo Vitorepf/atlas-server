@@ -12,7 +12,8 @@ namespace App\Console\Commands\Concerns;
  */
 trait ReadsNonEmptyUntrimmedStringOption
 {
-    private function stringOption(string $key): ?string
+    /** Null when the value trims to empty, but returns the value UNtrimmed. */
+    private function untrimmedStringOption(string $key): ?string
     {
         $value = $this->option($key);
         if (! is_string($value)) {

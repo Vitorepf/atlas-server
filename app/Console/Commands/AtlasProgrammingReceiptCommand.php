@@ -123,17 +123,17 @@ class AtlasProgrammingReceiptCommand extends Command
         }
 
         return array_filter([
-            'evidence_type' => $this->stringOption('evidence-type'),
-            'status' => $this->stringOption('status') ?? 'passed',
-            'command' => $this->stringOption('command'),
-            'output' => $this->stringOption('output'),
+            'evidence_type' => $this->untrimmedStringOption('evidence-type'),
+            'status' => $this->untrimmedStringOption('status') ?? 'passed',
+            'command' => $this->untrimmedStringOption('command'),
+            'output' => $this->untrimmedStringOption('output'),
             'files' => $this->arrayOption('file'),
             'tests' => $this->arrayOption('test'),
-            'diff_path' => $this->stringOption('diff-path'),
-            'artifact_url' => $this->stringOption('artifact-url'),
-            'summary' => $this->stringOption('summary'),
+            'diff_path' => $this->untrimmedStringOption('diff-path'),
+            'artifact_url' => $this->untrimmedStringOption('artifact-url'),
+            'summary' => $this->untrimmedStringOption('summary'),
             'gaps' => $this->arrayOption('gap'),
-            'parent_receipt_id' => $this->stringOption('parent-receipt'),
+            'parent_receipt_id' => $this->untrimmedStringOption('parent-receipt'),
         ], static fn (mixed $v): bool => $v !== null && $v !== '' && $v !== []);
     }
 

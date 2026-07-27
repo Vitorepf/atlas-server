@@ -89,14 +89,14 @@ class AtlasProgrammingSpecCommand extends Command
         }
 
         $spec = array_filter([
-            'objective' => $this->stringOption('objective'),
-            'context' => $this->stringOption('context'),
-            'expected_behavior' => $this->stringOption('expected-behavior'),
+            'objective' => $this->untrimmedStringOption('objective'),
+            'context' => $this->untrimmedStringOption('context'),
+            'expected_behavior' => $this->untrimmedStringOption('expected-behavior'),
             'likely_files' => $this->arrayOption('likely-file'),
             'risks' => $this->arrayOption('risk'),
             'tests' => $this->arrayOption('test'),
             'evidence_required' => $this->arrayOption('evidence-required'),
-            'rollback' => $this->stringOption('rollback'),
+            'rollback' => $this->untrimmedStringOption('rollback'),
             'completion_criteria' => $this->arrayOption('completion-criterion'),
         ], static fn (mixed $value): bool => $value !== null && $value !== []);
 

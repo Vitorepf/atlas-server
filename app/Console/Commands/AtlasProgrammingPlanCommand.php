@@ -117,7 +117,7 @@ class AtlasProgrammingPlanCommand extends Command
             'forbidden_files' => $forbidden,
             'validation_commands' => $validation,
             'acceptance_criteria' => $acceptance,
-            'rollback' => $this->stringOption('rollback'),
+            'rollback' => $this->untrimmedStringOption('rollback'),
             'cartography_required' => (bool) $this->option('cartography-required'),
         ];
 

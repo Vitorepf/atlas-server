@@ -12,7 +12,8 @@ namespace App\Console\Commands\Concerns;
  */
 trait ReadsRawStringOption
 {
-    private function stringOption(string $key): ?string
+    /** Any string, including empty. Null only when the option is not a string. */
+    private function rawStringOption(string $key): ?string
     {
         $value = $this->option($key);
 
