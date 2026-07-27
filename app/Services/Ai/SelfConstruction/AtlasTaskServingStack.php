@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction;
 
-use Illuminate\Support\Facades\Config;
-
+use App\Services\Ai\Context\AtlasContextRuntime;
 /**
  * PART 2 — the single factory for the OPERATOR-FACING task-serving stack, on a DEDICATED, clean queue disk.
  *
@@ -16,13 +15,16 @@ use Illuminate\Support\Facades\Config;
  * pollution. Set `ATLAS_TASK_SERVING_QUEUE_DISK` to a dedicated disk name (default 'local' keeps the legacy
  * shared behaviour, so tests and the certification probes are untouched).
  */
+use App\Services\Ai\EngineeringKernel\EliteExecutorKernel;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneClaimLeaseRepository;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneContinuationSummaryBuilder;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneEvidenceLedgerDryRun;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneScopeLockRuntimeValidator;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository;
+use App\Services\Ai\SelfConstruction\TaskServing\AtlasTaskBrainReplenisher;
 use App\Services\Ai\SelfConstruction\TaskServing\AtlasTaskCoordinationHealthService;
+use Illuminate\Support\Facades\Config;
 
 final class AtlasTaskServingStack
 {
@@ -116,12 +118,12 @@ final class AtlasTaskServingStack
         $kernel = null;
         $contextRuntime = null;
         try {
-            $kernel = app(\App\Services\Ai\EngineeringKernel\EliteExecutorKernel::class);
+            $kernel = app(EliteExecutorKernel::class);
         } catch (\Throwable) {
             // fail-open: serving still works without elite kernel
         }
         try {
-            $contextRuntime = app(\App\Services\Ai\Context\AtlasContextRuntime::class);
+            $contextRuntime = app(AtlasContextRuntime::class);
         } catch (\Throwable) {
             // fail-open: serving still works without context runtime
         }

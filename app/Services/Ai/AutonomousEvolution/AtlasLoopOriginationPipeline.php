@@ -4,19 +4,20 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution;
 
-use App\Services\Ai\Cognition\AcosProgram\ComposedObraArcComposer;
-use App\Services\Ai\Cognition\AcosProgram\ComposedObraArcLifecycle;
-use App\Services\Ai\Cognition\AcosProgram\EvidenceVisionThesisComposer;
-use App\Services\Ai\Cognition\AcosProgram\EvidenceVisionThesisLifecycle;
-use App\Services\Ai\Cognition\AcosProgram\PredictedImpactBand;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainHintToPathTranslator;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPathYieldEwma;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainPatternLearningLedger;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainReflectionStream;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopComprehensionOriginationCandidates;
 use App\Services\Ai\AutonomousEvolution\Discovery\AtlasLoopScopeComprehensionModel;
-use App\Services\Engineering\EliteCompactionFreezeGuard;
+use App\Services\Ai\Cognition\AcosProgram\ComposedObraArcComposer;
+use App\Services\Ai\Cognition\AcosProgram\ComposedObraArcLifecycle;
+use App\Services\Ai\Cognition\AcosProgram\EvidenceVisionThesisComposer;
+use App\Services\Ai\Cognition\AcosProgram\EvidenceVisionThesisLifecycle;
+use App\Services\Ai\Cognition\AcosProgram\PredictedImpactBand;
+use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingStack;
+use App\Services\Engineering\EliteCompactionFreezeGuard;
 use Illuminate\Support\Carbon;
 use Throwable;
 

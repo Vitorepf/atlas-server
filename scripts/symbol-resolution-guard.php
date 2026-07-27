@@ -73,6 +73,7 @@ foreach ($sources as $path => $source) {
 
 $fatals = [];
 $candidateImports = [];
+$candidateRefs = [];
 
 foreach ($sources as $path => $source) {
     if (preg_match('/^namespace\s+([A-Za-z0-9_\\\\]+)\s*;/m', $source, $ns) !== 1) {
@@ -131,6 +132,53 @@ foreach ($sources as $path => $source) {
                 ? 'declared nowhere under app/'
                 : 'lives at ['.implode(', ', array_slice($elsewhere, 0, 2)).'] — add the import');
     }
+
+    // An unqualified `Foo::`, `new Foo`, `instanceof Foo`, `extends Foo` or
+    // `implements Foo` resolves to Namespace\Foo. When a file is split out of
+    // its host — a trait peeled from a façade, a class rehomed a level deeper —
+    // the imports stay behind and every such name silently starts pointing at a
+    // class that does not exist. The file itself still loads; the fatal only
+    // fires when the method runs, which is why this survived every gate.
+    // Strip comments and string literals FIRST. A class name inside a docblock
+    // or a quoted string is not a code reference — that is the D6 trap that
+    // made an earlier draft of this check report 300+ phantom fatals.
+    $code = preg_replace('#/\*.*?\*/#s', '', $source) ?? $source;
+    $code = preg_replace('#(^|\s)//[^\n]*#', '$1', $code) ?? $code;
+    $code = preg_replace('#(^|\s)\#[^\n]*#', '$1', $code) ?? $code;
+    $code = preg_replace("#'(?:\\\\.|[^'\\\\])*'#", "''", $code) ?? $code;
+    $code = preg_replace('#"(?:\\\\.|[^"\\\\])*"#', '""', $code) ?? $code;
+
+    preg_match_all('/(?<![\\\\$>\w])([A-Z][A-Za-z0-9_]{2,})::/', $code, $r1);
+    preg_match_all('/\bnew\s+([A-Z][A-Za-z0-9_]{2,})\s*[(;]/', $code, $r2);
+    preg_match_all('/\b(?:instanceof|extends|implements)\s+([A-Z][A-Za-z0-9_]{2,})\b/', $code, $r3);
+
+    foreach (array_unique(array_merge($r1[1] ?? [], $r2[1] ?? [], $r3[1] ?? [])) as $ref) {
+        if (isset($importedShort[$ref]) || isset($declared[$namespace.'\\'.$ref])) {
+            continue;
+        }
+        // global / vendor / builtin — a bare name also falls back to the global
+        // scope for interfaces like Throwable, and vendor classes are imported
+        // elsewhere in the file; only flag names nothing anywhere declares.
+        // Only flag names WE declare somewhere else under app/. A bare name we
+        // never declare is a vendor class or PHP builtin reached through the
+        // global fallback — not our bug, and guessing there is how a guard
+        // starts crying wolf.
+        $where = [];
+        foreach ($declared as $fqcn => $_) {
+            if (str_ends_with($fqcn, '\\'.$ref)) {
+                $where[] = $fqcn;
+            }
+        }
+        if ($where === []) {
+            continue;
+        }
+
+        // Confirmed against the REAL autoloader further down — the class_alias
+        // shims make several of these resolve fine at runtime.
+        $candidateRefs[$namespace.'\\'.$ref][] = "{$relative}: references [{$ref}] with no import — "
+            ."resolves to [{$namespace}\\{$ref}]; real class at ["
+            .implode(', ', array_slice($where, 0, 2)).']';
+    }
 }
 
 // Advisory: only symbols the REAL autoloader (aliases included) cannot resolve.
@@ -155,6 +203,28 @@ if ($candidateImports !== []) {
         }
         if (! $resolves) {
             $unresolved[$fqcn] = $consumers;
+        }
+    }
+}
+
+// Confirm the unimported references against the REAL autoloader: the
+// class_alias shims resolve several namespaces that look wrong statically.
+if ($candidateRefs !== []) {
+    if (! isset($app)) {
+        require $root.'/vendor/autoload.php';
+        $app = require $root.'/bootstrap/app.php';
+        $app->make(Kernel::class)->bootstrap();
+    }
+    foreach ($candidateRefs as $fqcn => $messages) {
+        try {
+            $resolves = class_exists($fqcn) || interface_exists($fqcn) || trait_exists($fqcn);
+        } catch (Throwable) {
+            $resolves = false;
+        }
+        if (! $resolves) {
+            foreach ($messages as $message) {
+                $fatals[] = $message;
+            }
         }
     }
 }

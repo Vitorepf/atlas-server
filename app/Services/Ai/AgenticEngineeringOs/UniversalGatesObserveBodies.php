@@ -4,6 +4,84 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AgenticEngineeringOs;
 
+use App\Services\Ai\Aemor\Envelope\OutcomeEnvelope;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCapabilityTestExecutionService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasClaimDefinitionOfDoneValidator;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCognitiveImmuneInputClassifier;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasCrossDepartmentChoreographyService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentLevelClassifier;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentMaturityBandClassifier;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentPromotionEligibilityEvaluator;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentQualityBarLevelClassifier;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDepartmentRegistryService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasDocMaturityClassifier;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasGateSignalEvaluator;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasPhaseRouterService;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasRepairLoopGuard;
+use App\Services\Ai\AgenticEngineeringOs\Maturity\AtlasVetoPropagationResolver;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\AtlasMemoryRecallRelevanceScorer;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\MemoryFeedbackDecayScorer;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\OutcomeCausalityRanker;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\SegmentImportanceRanker;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\SpecCompletenessScorer;
+use App\Services\Ai\AgenticEngineeringOs\Support\AtlasArrayFieldReader;
+use App\Services\Ai\AgenticEngineeringOs\Support\AtlasEvidenceRefNormalizer;
+use App\Services\Ai\AgenticEngineeringOs\Support\AtlasStringListNormalizer;
+use App\Services\Ai\AgenticEngineeringOs\Support\AtlasThresholdComparator;
+use App\Services\Ai\AgenticEngineeringOs\Support\AtlasThresholdLadderNormalizer;
+use App\Services\Ai\Cognition\AcosProgram\AcosMaxLedgerRotationRegistry;
+use App\Services\Ai\Cognition\AcosProgram\AcosMaxObraRetroService;
+use App\Services\Ai\Cognition\AcosProgram\AcosMaxParallelExecutionProtocol;
+use App\Services\Ai\Cognition\AcosProgram\AcosMaxProceduralSkillPromoterService;
+use App\Services\Ai\Cognition\AcosProgram\AcosMaxVerifiedShareService;
+use App\Services\Ai\Cognition\AcosProgram\AcosMaxWindowOrchestratorService;
+use App\Services\Ai\Cognition\AcosProgram\AcosMeasureSeriesFreshnessReader;
+use App\Services\Ai\Cognition\AcosProgram\AcosProgramCockpitService;
+use App\Services\Ai\Cognition\AcosProgram\AmbitionRungPolicy;
+use App\Services\Ai\Cognition\AcosProgram\AtlasFlywheelFunnelService;
+use App\Services\Ai\Cognition\AcosProgram\AttemptLifecycleLedger;
+use App\Services\Ai\Cognition\AcosProgram\Esp09IndependentChallengerService;
+use App\Services\Ai\Cognition\AcosProgram\EvidenceVisionThesisComposer;
+use App\Services\Ai\Cognition\AcosProgram\EvidenceVisionThesisLifecycle;
+use App\Services\Ai\Cognition\AcosProgram\ExploratoryBetsPortfolio;
+use App\Services\Ai\Cognition\AcosProgram\PortfolioBudgetAllocator;
+use App\Services\Ai\Cognition\AcosProgram\PredictedImpactBand;
+use App\Services\Ai\Cognition\AcosProgram\PreReviewAdvisoryBand;
+use App\Services\Ai\Cognition\AcosProgram\PromotionProtocol;
+use App\Services\Ai\Cognition\AcosProgram\ReactiveSaturationSignal;
+use App\Services\Ai\Cognition\AcosProgram\Teto10PredictedRevertReviewDigest;
+use App\Services\Ai\Cognition\AtlasAcosEvolutionScoreService;
+use App\Services\Ai\Cognition\AtlasAcosLongHorizonGateService;
+use App\Services\Ai\Cognition\AtlasAcosRollbackTriggerCheckService;
+use App\Services\Ai\Cognition\AtlasAcosWindowGatesService;
+use App\Services\Ai\Cognition\AtlasCognitionEvidenceResolver;
+use App\Services\Ai\Cognition\AtlasCognitionRemintTouchedQueue;
+use App\Services\Ai\Cognition\AtlasCognitionScoreCardService;
+use App\Services\Ai\Cognition\AtlasCognitionScoreCardV4Grouper;
+use App\Services\Ai\Cognition\AtlasCognitiveFunctionDecomposerService;
+use App\Services\Ai\Cognition\AtlasConsolidationRerankGuard;
+use App\Services\Ai\Cognition\AtlasFrontierWaveLadder;
+use App\Services\Ai\Cognition\AtlasSurpriseGateService;
+use App\Services\Ai\Cognition\CaptureHmacLineageService;
+use App\Services\Ai\Cognition\CognitiveImmuneCheckContract;
+use App\Services\Ai\Cognition\CognitiveImmunePromotionGateEvaluator;
+use App\Services\Ai\Cognition\ImmuneCalibrationService;
+use App\Services\Ai\Cognition\ImmuneSignatureDeriver;
+use App\Services\Ai\Cognition\ImmuneSignatureStore;
+use App\Services\Ai\Cognition\ImmuneVerdictLedger;
+use App\Services\Ai\Cognition\Watchdog\AtlasAcosWatchdogHealthService;
+use App\Services\Ai\Cognition\Watchdog\Checks\HealthReportWatchdogCheck;
+use App\Services\Ai\Context\Retrieval\AtlasCodeSymbolEmbeddingCoverageService;
+use App\Services\Ai\Context\Retrieval\AtlasKnowledgeItemEmbeddingCoverageService;
+use App\Services\Ai\Context\Retrieval\DomainLexicalNormalizer;
+use App\Services\Ai\Context\Retrieval\GatedCorpusCandidateMiner;
+use App\Services\Ai\Context\Retrieval\Maxa04JinaV3DualReadLedger;
+use App\Services\Ai\SelfConstruction\ControlPlane\AtlasSelfConstructionScopeRiskBudgetGate;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainOrganMeshOrchestrator;
+use App\Services\Ai\Support\AiValueNormalizer;
+use App\Services\Ai\Telemetry\AiOutcomeAttributionService;
+use App\Services\Ai\Telemetry\AiTelemetryCollector;
+
 /**
  * TRI-HYGIENE W5b — multi-line observe bodies moved from façade.
  */
@@ -974,5 +1052,4 @@ trait UniversalGatesObserveBodies
             'http_path_cognition_score_department_level_aaeos_doc_floor_count' => 18,
         ];
     }
-
 }

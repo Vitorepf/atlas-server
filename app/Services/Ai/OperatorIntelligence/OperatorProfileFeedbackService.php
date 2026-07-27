@@ -4,6 +4,7 @@ namespace App\Services\Ai\OperatorIntelligence;
 
 use App\Models\OperatorProfileFeedbackEvent;
 use App\Models\OperatorProfileItem;
+use App\Services\Ai\OperatorIntelligence\Support\OperatorProfileFeedbackSupport;
 use Illuminate\Support\Carbon;
 
 class OperatorProfileFeedbackService

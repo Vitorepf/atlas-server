@@ -4,13 +4,6 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AgenticEngineeringOs;
 
-
-use App\Services\Ai\AgenticEngineeringOs\DeliveryPackCompletenessScorer;
-use App\Services\Ai\AgenticEngineeringOs\AaeosBlockerSeverityGate;
-use App\Services\Ai\AgenticEngineeringOs\AaeosRequiredGateCoverageChecker;
-use App\Services\Ai\AgenticEngineeringOs\AaeosPhaseHandoffService;
-use App\Services\Ai\AgenticEngineeringOs\PhaseAdvanceVerdictClassifier;
-
 use App\Services\Ai\AgenticEngineeringOs\Gates\DomainScorerGateSection;
 use App\Services\Ai\AgenticEngineeringOs\Gates\GateObserveSection01;
 use App\Services\Ai\AgenticEngineeringOs\Gates\GateObserveSection02;
@@ -21,6 +14,7 @@ use App\Services\Ai\AgenticEngineeringOs\Gates\GateObserveSection06;
 use App\Services\Ai\AgenticEngineeringOs\Gates\GateObserveSection07;
 use App\Services\Ai\AgenticEngineeringOs\Gates\GateObserveSection08;
 use App\Services\Ai\AgenticEngineeringOs\Gates\GateObserveSection09;
+use App\Services\Ai\AgenticEngineeringOs\Scoring\AtlasMemoryRecallRelevanceScorer;
 use App\Services\Ai\AgenticEngineeringOs\Scoring\ContextParetoDominanceFilter;
 use App\Services\Ai\AgenticEngineeringOs\Scoring\MemoryFeedbackDecayScorer;
 use App\Services\Ai\AgenticEngineeringOs\Scoring\MemoryInjectionBudgetAllocator;
@@ -28,7 +22,6 @@ use App\Services\Ai\AgenticEngineeringOs\Scoring\OutcomeCausalityRanker;
 use App\Services\Ai\AgenticEngineeringOs\Scoring\SegmentImportanceRanker;
 use App\Services\Ai\AgenticEngineeringOs\Scoring\SpecCompletenessScorer;
 use App\Services\Ai\AgenticEngineeringOs\Scoring\SummaryFidelityCoverageScorer;
-use App\Services\Ai\AgenticEngineeringOs\Scoring\AtlasMemoryRecallRelevanceScorer;
 use App\Support\UtcIsoTimestamp;
 
 /**
@@ -39,8 +32,41 @@ final class AtlasUniversalGatesEvaluator
 {
     public const SCHEMA_VERSION = 'atlas.aaeos.gate_report.v1';
 
-    use UniversalGatesObserveDelegates;
+    // Restored: the tri-hygiene split (d9be5dcf0) moved the observe bodies into
+    // UniversalGatesObserveBodies but left these 15 constants behind, so every
+    // self::OBSERVE_*_SCHEMA in the trait resolved to nothing.
+    public const FIELD_COUNT = 'count';
+
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+
+    public const OBSERVE_ARRAY_FIELD_READER_SCHEMA = 'atlas.aaeos.array_field_reader.v1';
+
+    public const OBSERVE_BLOCKER_SEVERITY_SCHEMA = 'atlas.aaeos.blocker_severity.v1';
+
+    public const OBSERVE_EVIDENCE_REF_NORMALIZE_SCHEMA = 'atlas.aaeos.evidence_ref_normalize.v1';
+
+    public const OBSERVE_EVIDENCE_STATUSES_SCHEMA = 'atlas.cognition.evidence_statuses.v1';
+
+    public const OBSERVE_EVIDENCE_VISION_SCHEMA = 'atlas.aaeos.evidence_vision_observe.v1';
+
+    public const OBSERVE_LEDGER_ROTATION_SCHEMA = 'atlas.aaeos.ledger_rotation_observe.v1';
+
+    public const OBSERVE_OUTCOME_ATTRIBUTION_TYPES_SCHEMA = 'atlas.aaeos.outcome_attribution_types.v1';
+
+    public const OBSERVE_STRING_LIST_NORMALIZE_SCHEMA = 'atlas.aaeos.string_list_normalize.v1';
+
+    public const OBSERVE_SURPRISE_GATE_BANDS_SCHEMA = 'atlas.cognition.surprise_gate.bands.v1';
+
+    public const OBSERVE_TELEMETRY_COLLECTOR_SURFACES_SCHEMA = 'atlas.telemetry.collector.surfaces.v1';
+
+    public const OBSERVE_THRESHOLD_COMPARATOR_SCHEMA = 'atlas.aaeos.threshold_comparator.v1';
+
+    public const OBSERVE_THRESHOLD_LADDER_SCHEMA = 'atlas.aaeos.threshold_ladder_observe.v1';
+
+    public const OBSERVE_UNIVERSAL_GATES_CATALOGUE_SCHEMA = 'atlas.aaeos.universal_gates_catalogue.v1';
+
     use UniversalGatesObserveBodies;
+    use UniversalGatesObserveDelegates;
 
     public function __construct(
         private readonly DeliveryPackCompletenessScorer $deliveryPackCompleteness = new DeliveryPackCompletenessScorer,
@@ -81,10 +107,12 @@ final class AtlasUniversalGatesEvaluator
             $signal = $signals[$gateId] ?? null;
             if ($signal === true) {
                 $passed[] = $gateId;
+
                 continue;
             }
             if ($signal === false) {
                 $blocked[] = $gateId;
+
                 continue;
             }
             if ($signal === 'exception') {

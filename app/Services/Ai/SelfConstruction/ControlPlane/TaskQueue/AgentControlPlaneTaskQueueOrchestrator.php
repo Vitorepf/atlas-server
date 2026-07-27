@@ -4,15 +4,14 @@ namespace App\Services\Ai\SelfConstruction\ControlPlane\TaskQueue;
 
 use App\Services\Ai\AutonomousEvolution\AtlasLoopHarnessGuard;
 use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
-use App\Services\Ai\SelfConstruction\LearningTransfer\AtlasSelfConstructionLearningTransferAdmissionLedger;
-use App\Services\Ai\SelfConstruction\LearningTransfer\AtlasSelfConstructionLearningTransferAdmissionOrchestrator;
-use App\Services\Ai\SelfConstruction\Maestro\Adaptive\AtlasMaestroGiveBackPatternMiner;
-use App\Services\Ai\SelfConstruction\Maestro\Adaptive\AtlasMaestroWorkerBehaviorLedger;
-use Carbon\CarbonImmutable;
-use Illuminate\Support\Str;
-use Symfony\Component\Process\Process;
-use Throwable;
-
+use App\Services\Ai\SelfConstruction\AtlasTaskPacketQualityInspector;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneClaimLeaseRepository;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneContinuationSummaryBuilder;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneEvidenceLedgerDryRun;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneScopeLockRuntimeValidator;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskLeaseRecoveryService;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder;
+use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository;
 /**
  * Orchestrates the first persistent runtime layer of the Agent Control
  * Plane: Task Packet Builder → Scope Lock Runtime Validator → Task Packet
@@ -25,13 +24,14 @@ use Throwable;
  * never spends tokens, never advances the next required slice, never
  * enables self-programming and never writes the evidence ledger.
  */
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneClaimLeaseRepository;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneContinuationSummaryBuilder;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneEvidenceLedgerDryRun;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneScopeLockRuntimeValidator;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskLeaseRecoveryService;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketBuilder;
-use App\Services\Ai\SelfConstruction\ControlPlane\AgentControlPlaneTaskPacketQueueRepository;
+use App\Services\Ai\SelfConstruction\LearningTransfer\AtlasSelfConstructionLearningTransferAdmissionLedger;
+use App\Services\Ai\SelfConstruction\LearningTransfer\AtlasSelfConstructionLearningTransferAdmissionOrchestrator;
+use App\Services\Ai\SelfConstruction\Maestro\Adaptive\AtlasMaestroGiveBackPatternMiner;
+use App\Services\Ai\SelfConstruction\Maestro\Adaptive\AtlasMaestroWorkerBehaviorLedger;
+use Carbon\CarbonImmutable;
+use Illuminate\Support\Str;
+use Symfony\Component\Process\Process;
+use Throwable;
 
 final class AgentControlPlaneTaskQueueOrchestrator
 {
@@ -365,6 +365,7 @@ final class AgentControlPlaneTaskQueueOrchestrator
             'candidate_count' => count($candidates),
         ]);
     }
+
     /**
      * Returns a candidate → {0,1} scorer for the claim sort: 1 = demote (this worker has enough durable
      * give-back evidence on the candidate's scope-family). OFF by default (atlas.maestro.adaptive.
@@ -414,6 +415,7 @@ final class AgentControlPlaneTaskQueueOrchestrator
             if ((string) ($releasedRecovery['status'] ?? '') === 'blocked') {
                 return $releasedRecovery;
             }
+
             return null;
         } catch (Throwable $e) {
             return ['reason' => 'lease_recovery_unavailable', 'lease_recovery_status' => 'unavailable', 'recovery_exception' => $e::class];
