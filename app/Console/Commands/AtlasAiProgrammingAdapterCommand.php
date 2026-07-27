@@ -110,22 +110,4 @@ class AtlasAiProgrammingAdapterCommand extends Command
     {
         return $this->renderError('invalid_arguments', "invalid action [{$action}] for atlas:ai:programming-adapter");
     }
-
-    private function json(): bool
-    {
-        return (bool) $this->option('json');
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function emit(array $payload, callable $human): void
-    {
-        if ($this->json()) {
-            $this->line($this->encodeOrEmptyObject($payload));
-
-            return;
-        }
-        $human();
-    }
 }

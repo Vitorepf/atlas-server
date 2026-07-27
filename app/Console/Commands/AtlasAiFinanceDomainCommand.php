@@ -146,22 +146,4 @@ class AtlasAiFinanceDomainCommand extends Command
         return (string) $this->input->getParameterOption('--runtime-mode', (string) $this->option('runtime-mode')) === 'fixture'
             || (bool) $this->option('fixture');
     }
-
-    private function json(): bool
-    {
-        return (bool) $this->option('json');
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function emit(array $payload, callable $human): void
-    {
-        if ($this->json()) {
-            $this->line($this->encodeOrEmptyObject($payload));
-
-            return;
-        }
-        $human();
-    }
 }

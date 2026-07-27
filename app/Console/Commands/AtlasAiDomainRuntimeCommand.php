@@ -288,36 +288,4 @@ class AtlasAiDomainRuntimeCommand extends Command
     {
         return $this->failWith("invalid action [{$action}] for atlas:ai:domain-runtime");
     }
-
-    /**
-     * @return array<mixed>|null
-     */
-    private function decodeJsonOption(string $key): ?array
-    {
-        $value = $this->stringOption($key);
-        if ($value === null) {
-            return null;
-        }
-        $decoded = json_decode($value, true);
-
-        return is_array($decoded) ? $decoded : null;
-    }
-
-    private function json(): bool
-    {
-        return (bool) $this->option('json');
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function emit(array $payload, callable $human): void
-    {
-        if ($this->json()) {
-            $this->line($this->encodeOrEmptyObject($payload));
-
-            return;
-        }
-        $human();
-    }
 }

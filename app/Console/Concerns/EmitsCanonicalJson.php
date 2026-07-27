@@ -26,4 +26,31 @@ trait EmitsCanonicalJson
     {
         $this->line($this->encodeOrEmptyObject($payload));
     }
+
+    /**
+     * Was copied byte-identically into 14 commands. PHP resolves a class-defined
+     * method over a trait method, so a command that still declares its own keeps
+     * winning and this can be adopted one file at a time.
+     */
+    private function json(): bool
+    {
+        return (bool) $this->option('json');
+    }
+
+    /**
+     * The `--json` fork, once. 13 commands carried this exact body; the rest of the
+     * 139 hand-written emit() variants differ for real and are left where they are.
+     *
+     * @param  array<string,mixed>  $payload
+     */
+    private function emit(array $payload, callable $human): void
+    {
+        if ($this->json()) {
+            $this->line($this->encodeOrEmptyObject($payload));
+
+            return;
+        }
+
+        $human();
+    }
 }

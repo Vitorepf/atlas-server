@@ -661,12 +661,6 @@ class AtlasEngineeringKnowledgeCommand extends Command
         ];
     }
 
-
-    private function json(): bool
-    {
-        return (bool) $this->option('json');
-    }
-
     private function summaryOnly(): bool
     {
         return (bool) $this->option('summary-only');

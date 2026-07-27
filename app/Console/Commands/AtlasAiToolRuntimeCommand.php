@@ -333,22 +333,4 @@ class AtlasAiToolRuntimeCommand extends Command
     {
         return $this->failWith("invalid action [{$action}] for atlas:ai:tool-runtime");
     }
-
-    private function json(): bool
-    {
-        return (bool) $this->option('json');
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function emit(array $payload, callable $human): void
-    {
-        if ($this->json()) {
-            $this->line($this->encodeOrEmptyObject($payload));
-
-            return;
-        }
-        $human();
-    }
 }

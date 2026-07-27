@@ -320,22 +320,4 @@ class AtlasAiEvidenceCommand extends Command
     {
         return $this->failWith("invalid action [{$action}] for atlas:ai:evidence");
     }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function emit(array $payload, callable $human): void
-    {
-        if ($this->json()) {
-            $this->line($this->encodeOrEmptyObject($payload));
-
-            return;
-        }
-        $human();
-    }
-
-    private function json(): bool
-    {
-        return (bool) $this->option('json');
-    }
 }

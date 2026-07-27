@@ -374,48 +374,4 @@ class AtlasAiMissionFoundationCommand extends Command
     {
         return $this->failWith("invalid action [{$action}] for atlas:ai:mission-foundation");
     }
-
-    /**
-     * @return array<string,mixed>
-     */
-    private function serializeMission(AiMission $mission): array
-    {
-        return [
-            'id' => $mission->id,
-            'uuid' => $mission->uuid,
-            'title' => $mission->title,
-            'mission_type' => $mission->mission_type,
-            'status' => $mission->status,
-            'autonomy_level' => $mission->autonomy_level,
-            'risk_level' => $mission->risk_level,
-            'certification_hash' => $mission->certification_hash,
-            'evidence_pack_hash' => $mission->evidence_pack_hash,
-            'completed_at' => optional($mission->completed_at)->toJSON(),
-        ];
-    }
-
-    private function printMissionSummary(AiMission $mission): void
-    {
-        $this->components->twoColumnDetail('mission_uuid', (string) $mission->uuid);
-        $this->components->twoColumnDetail('mission_type', (string) $mission->mission_type);
-        $this->components->twoColumnDetail('status', (string) $mission->status);
-    }
-
-    /**
-     * @param  array<string,mixed>  $payload
-     */
-    private function emit(array $payload, callable $human): void
-    {
-        if ($this->json()) {
-            $this->line($this->encodeOrEmptyObject($payload));
-
-            return;
-        }
-        $human();
-    }
-
-    private function json(): bool
-    {
-        return (bool) $this->option('json');
-    }
 }
