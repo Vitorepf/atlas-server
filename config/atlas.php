@@ -8,6 +8,7 @@ use App\Services\Ai\AutonomousEvolution\Pattern\AtlasLoopPatternRegistry;
 use App\Services\Ai\AutonomousEvolution\Twin\AtlasLoopSimulableTwinOrchestrator;
 use App\Services\Ai\Context\Retrieval\Maxa04JinaV3DualReadLedger;
 use App\Services\Ai\Reality\AtlasAurgPprShadowDualReadLedger;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCapabilityGapTaskChainCompiler;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainFrontierHarvestGovernanceRunner;
 
 return [
@@ -162,6 +163,13 @@ return [
             ['id' => 'comprehension-deepening', 'intent' => 'self_improvement', 'objective_kind' => 'verification', 'lens' => 'go deeper on a subsystem to find a non-obvious structural leverage', 'executor_organ' => AtlasLoopScopeComprehensionModelBuilder::class],
             ['id' => 'adversarial-critique', 'intent' => 'self_improvement', 'objective_kind' => 'verification', 'lens' => 'attack a gate/organ to find a real hole, then author its fix', 'executor_organ' => AtlasLoopAdversarialVerifierPool::class],
             ['id' => 'compounding', 'intent' => 'self_improvement', 'objective_kind' => 'self_improvement', 'lens' => 'combine proven deliveries into a frontier jump; learn from outcomes', 'executor_organ' => AtlasLoopLearningAppendService::class],
+            // O 8º caminho. Os outros sete originam a partir do que o cérebro pensa;
+            // este origina a partir do que a máquina JÁ MEDIU sobre si — 286 de 463
+            // tabelas construídas e nunca escritas, um backlog que nenhum humano vai
+            // transformar em 286 prompts. Semeado por IA externa: AtlasBrainPathCatalog
+            // é pétreo justamente para o réu não poder remapear um caminho para o
+            // executor que ele quisesse.
+            ['id' => 'capability-gap', 'intent' => 'self_improvement', 'objective_kind' => 'capability', 'lens' => 'turn a measured signal invariant (empty table, gate field without producer, producer without clock, orphan cadence) into an ordered task chain', 'executor_organ' => AtlasExternalBrainCapabilityGapTaskChainCompiler::class],
         ],
     ],
 
