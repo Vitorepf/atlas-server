@@ -8,9 +8,12 @@ use App\Services\Ai\Memory\AtlasMemoryRegistryService;
 use Illuminate\Console\Command;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Console\Concerns\EmitsCanonicalJson;
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 
 class AtlasMemoryAddCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     use EmitsCanonicalJson;
 
     protected $signature = 'atlas:memory:add

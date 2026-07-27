@@ -8,9 +8,12 @@ use App\Services\Ai\Memory\AtlasMemoryUsageService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Console\Command;
 use App\Console\Concerns\EmitsCanonicalJson;
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 
 class AtlasMemoryCurateCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     use EmitsCanonicalJson;
 
     protected $signature = 'atlas:memory:curate

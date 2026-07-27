@@ -6,9 +6,12 @@ use App\Services\Ai\Memory\AtlasMemoryCandidateGateService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Console\Command;
 use App\Console\Concerns\EmitsCanonicalJson;
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 
 class AtlasMemoryCaptureCandidatesCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     use EmitsCanonicalJson;
 
     protected $signature = 'atlas:memory:capture-candidates

@@ -6,9 +6,12 @@ use App\Services\Ai\Memory\AtlasHybridMemoryRetrievalService;
 use Illuminate\Console\Command;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 
 class AtlasMemoryRecallCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:memory:recall
         {query?* : Query text}
         {--workspace= : Workspace path}

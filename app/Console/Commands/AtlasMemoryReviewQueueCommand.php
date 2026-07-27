@@ -7,9 +7,12 @@ use App\Services\Ai\Memory\MemoryQueryInput;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 use App\Console\Concerns\EmitsCanonicalJson;
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 
 class AtlasMemoryReviewQueueCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     use EmitsCanonicalJson;
 
     protected $signature = 'atlas:memory:review-queue

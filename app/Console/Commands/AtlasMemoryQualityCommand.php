@@ -6,9 +6,12 @@ use App\Services\Ai\Memory\AtlasMemoryQualityService;
 use App\Services\Ai\Cognition\Watchdog\AtlasAcosWatchdogHealthService;
 use Illuminate\Console\Command;
 use App\Console\Concerns\EmitsCanonicalJson;
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 
 class AtlasMemoryQualityCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     use EmitsCanonicalJson;
 
     protected $signature = 'atlas:memory:quality

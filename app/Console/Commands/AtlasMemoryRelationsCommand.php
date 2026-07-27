@@ -11,9 +11,12 @@ use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
 use App\Console\Concerns\EmitsCanonicalJson;
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 
 class AtlasMemoryRelationsCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     use EmitsCanonicalJson;
 
     private ?MemoryQueryInput $memoryInput = null;

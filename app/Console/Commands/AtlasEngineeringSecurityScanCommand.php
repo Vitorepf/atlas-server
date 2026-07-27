@@ -5,9 +5,12 @@ namespace App\Console\Commands;
 use App\Services\Engineering\EngineeringQualityScanService;
 use Illuminate\Console\Command;
 use App\Console\Concerns\EmitsCanonicalJson;
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 
 class AtlasEngineeringSecurityScanCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     use EmitsCanonicalJson;
 
     protected $signature = 'atlas:engineering:security-scan

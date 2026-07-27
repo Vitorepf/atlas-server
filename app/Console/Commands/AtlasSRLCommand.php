@@ -7,9 +7,12 @@ use App\Services\Ai\Learning\SRL\SRLOrchestrator;
 use App\Services\Ai\Learning\SRL\SRLPreferenceService;
 use Illuminate\Console\Command;
 use App\Console\Concerns\EmitsCanonicalJson;
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 
 class AtlasSRLCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     use EmitsCanonicalJson;
 
     protected $signature = 'atlas:srl

@@ -9,9 +9,12 @@ use App\Services\Ai\Memory\MemoryQueryInput;
 use Illuminate\Console\Command;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Str;
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 
 class AtlasMemoryListCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     protected $signature = 'atlas:memory:list
         {--type=* : Filter by memory type}
         {--scope-type= : global, project, task, engineering_run, workspace, user or session}

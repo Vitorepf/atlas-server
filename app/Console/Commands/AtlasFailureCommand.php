@@ -11,9 +11,12 @@ use App\Services\Ai\Learning\Failure\WeeklyRedCountSnapshotStore;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
 use App\Console\Concerns\EmitsCanonicalJson;
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 
 class AtlasFailureCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     use EmitsCanonicalJson;
 
     protected $signature = 'atlas:failure

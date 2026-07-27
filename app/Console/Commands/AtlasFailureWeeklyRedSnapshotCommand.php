@@ -7,6 +7,7 @@ use App\Services\Ai\Learning\Failure\WeeklyRedCountSnapshotStore;
 use Illuminate\Console\Command;
 use App\Support\YesNo;
 use App\Console\Concerns\EmitsCanonicalJson;
+use App\Console\Commands\Concerns\ReadsNonEmptyStringOption;
 
 /**
  * L5-3 — auto-cura da suíte real: gravador SEMANAL do número REAL de vermelhos.
@@ -22,6 +23,8 @@ use App\Console\Concerns\EmitsCanonicalJson;
  */
 class AtlasFailureWeeklyRedSnapshotCommand extends Command
 {
+    use ReadsNonEmptyStringOption;
+
     use EmitsCanonicalJson;
 
     protected $signature = 'atlas:failure:weekly-red-snapshot
