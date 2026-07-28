@@ -61,7 +61,7 @@ class AtlasStudyExampleCommand extends Command
             ->get();
 
         $criados = 0;
-        $pulados = ['ja_convertido' => 0, 'nao_declarado' => 0, 'chute' => 0, 'sem_spot' => 0];
+        $pulados = ['ja_convertido' => 0, 'nao_declarado' => 0, 'chute' => 0, 'redigido' => 0, 'sem_spot' => 0];
         $amostra = [];
 
         foreach ($sinais as $sinal) {
@@ -77,6 +77,21 @@ class AtlasStudyExampleCommand extends Command
             }
             if (($meta['confidence_kind'] ?? 'principled') === 'guess') {
                 $pulados['chute']++;
+
+                continue;
+            }
+
+            // Claim redigido nao vira material de estudo. Quando a privacidade sobe, o
+            // texto duravel e trocado por `[redacted:sensitive:<hash>]`; usar isso como
+            // "o principio" produziria uma carta que ensina um hash — pior que nao ter
+            // carta, porque ocupa o lugar dela e conta como cobertura.
+            //
+            // Existe um caso real deste tipo no corpus: o PRIMEIRO registro do operador
+            // caiu no bug de `rg` casando dentro de "la(rg)a" e foi redigido antes do
+            // conserto. O conteudo nao volta — o hash e de mao unica.
+            if (($meta['redacted_at_rest'] ?? false) === true
+                || str_starts_with((string) $sinal->normalized_claim, '[redacted:')) {
+                $pulados['redigido']++;
 
                 continue;
             }

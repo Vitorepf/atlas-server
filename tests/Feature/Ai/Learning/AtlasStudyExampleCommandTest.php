@@ -128,6 +128,23 @@ final class AtlasStudyExampleCommandTest extends TestCase
         $this->assertSame(0, DB::table('worked_examples')->count());
     }
 
+    public function test_claim_redigido_nao_vira_carta_que_ensina_um_hash(): void
+    {
+        $sinal = $this->sinal('spot real', 'call', 'principio que sera redigido');
+        $sinal->forceFill([
+            'normalized_claim' => '[redacted:sensitive:20518c4a8069]',
+            'metadata' => array_merge((array) $sinal->metadata, ['redacted_at_rest' => true]),
+        ])->save();
+
+        $this->artisan('atlas:study:example', ['--json' => true])->assertExitCode(0);
+
+        // Existe um caso REAL assim no corpus: o primeiro registro do operador caiu no bug
+        // de `rg` casando dentro de "la(rg)a" e foi redigido antes do conserto. O hash e de
+        // mao unica — virar carta seria pior que nao virar, porque ocuparia o lugar dela e
+        // ainda contaria como cobertura.
+        $this->assertSame(0, DB::table('worked_examples')->count());
+    }
+
     public function test_sinal_nao_declarado_pelo_operador_nao_vira_exemplo(): void
     {
         $this->sinal('spot X', 'call', 'inferido pela maquina', ['operator_text_declared' => false]);
