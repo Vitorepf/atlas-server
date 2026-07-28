@@ -19,6 +19,21 @@ final class OperatorLearningClassifySupport
         return Str::limit($claim, 1000, '');
     }
 
+    /**
+     * Casa TERMO INTEIRO, dobrando acento. E a mesma correcao de `inferPrivacy`, aplicada
+     * ao segundo lugar onde o defeito morava.
+     *
+     * `$radical = true` prende so a fronteira da ESQUERDA, porque alguns alvos sao radicais
+     * truncados de proposito: 'autonom' precisa pegar "autonomia" e "autonomo", 'bloque'
+     * pega "bloquear" e "bloqueio". Prender a direita neles quebraria o que funcionava.
+     */
+    private static function contemTermo(string $textoDobrado, string $termo, bool $radical = false): bool
+    {
+        $fim = $radical ? '' : '\\b';
+
+        return preg_match('/\\b'.preg_quote($termo, '/').$fim.'/u', $textoDobrado) === 1;
+    }
+
     public static function normalizeTaxonomy(string $taxonomy, string $claim): string
     {
         $taxonomy = strtoupper(trim($taxonomy));
@@ -26,17 +41,30 @@ final class OperatorLearningClassifySupport
             return $taxonomy;
         }
 
-        $lower = Str::lower($claim);
-        if (str_contains($lower, 'autonom') || str_contains($lower, 'approval') || str_contains($lower, 'aprov')) {
+        // Sem fronteira de palavra, 'tom' casava dentro de "tomar", "bottom", "custom",
+        // "sintoma" e "atomo" — medido: 4 de 7 frases realistas em portugues caiam em
+        // COL-156 ("Seu vocabulario proprio") por acidente de substring. E havia o erro
+        // espelhado: sem dobrar acento, 'nao mexa' nunca casava "nao mexa" escrito com til,
+        // que e como o operador escreve. Um lado inventava rotulo, o outro perdia o certo.
+        $texto = self::semAcento(Str::lower($claim));
+
+        if (self::contemTermo($texto, 'autonom', radical: true)
+            || self::contemTermo($texto, 'approval')
+            || self::contemTermo($texto, 'aprov', radical: true)) {
             return 'COL-157';
         }
-        if (str_contains($lower, 'curto') || str_contains($lower, 'longo') || str_contains($lower, 'tom') || str_contains($lower, 'resposta')) {
+        if (self::contemTermo($texto, 'curto')
+            || self::contemTermo($texto, 'longo')
+            || self::contemTermo($texto, 'tom')
+            || self::contemTermo($texto, 'resposta')) {
             return 'COL-156';
         }
-        if (str_contains($lower, 'gosto') || str_contains($lower, 'prefiro') || str_contains($lower, 'nao gosto')) {
+        if (self::contemTermo($texto, 'gosto') || self::contemTermo($texto, 'prefiro')) {
             return 'OP-124';
         }
-        if (str_contains($lower, 'nunca') || str_contains($lower, 'nao mexa') || str_contains($lower, 'bloque')) {
+        if (self::contemTermo($texto, 'nunca')
+            || self::contemTermo($texto, 'nao mexa')
+            || self::contemTermo($texto, 'bloque', radical: true)) {
             return 'OP-140';
         }
 
@@ -45,8 +73,10 @@ final class OperatorLearningClassifySupport
 
     public static function inferSignalKind(string $claim, string $taxonomy): string
     {
-        $lower = Str::lower($claim);
-        if (str_contains($lower, 'nunca') || str_contains($lower, 'nao mexa')) {
+        // Mesmo defeito, mesmo conserto: aqui o custo de errar e maior, porque
+        // `operator_boundary` e o rotulo de LIMITE — o que o operador proibiu.
+        $texto = self::semAcento(Str::lower($claim));
+        if (self::contemTermo($texto, 'nunca') || self::contemTermo($texto, 'nao mexa')) {
             return 'operator_boundary';
         }
         if (str_starts_with($taxonomy, 'COL-')) {
