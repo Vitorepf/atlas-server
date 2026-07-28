@@ -102,18 +102,50 @@ final class AtlasStudyVocabCommandTest extends TestCase
         $this->assertSame('Frequência Mínimade Defesa', AtlasStudyVocabCommand::repararEspacos('FrequênciaMínimade Defesa'));
     }
 
-    public function test_corta_o_rodape_que_traz_texto_de_outro_verbete(): void
+    public function test_pagina_seguinte_nao_contamina_a_definicao_deste_verbete(): void
     {
         // Verbatim do verbete "Average": depois do rodape vinha a definicao de OUTRO termo.
         $sujo = 'palavra em inglês, tradução de “média”. Exemplos: Average buy in, Average stack, etc.'
             .'Comunidade Reg Life - Todos os direitos reservadosPOKER É... falar outro IDIOMA . '
             .'Quandovocêprecisa de mais 2 cartas para formar um jogo completo';
 
-        $limpo = AtlasStudyVocabCommand::cortarRodape($sujo);
+        [$propria, , $orfaos] = AtlasStudyVocabCommand::fatiar($sujo);
 
-        $this->assertStringNotContainsString('2 cartas', $limpo, 'texto da pagina seguinte nao pode virar definicao deste verbete');
-        $this->assertStringNotContainsString('Reg Life', $limpo);
-        $this->assertStringEndsWith('etc.', $limpo, 'a definicao verdadeira fecha em ponto final antes do rodape');
+        $this->assertStringNotContainsString('2 cartas', $propria, 'texto da pagina seguinte nao pode virar definicao deste verbete');
+        $this->assertStringNotContainsString('Reg Life', $propria);
+        $this->assertStringEndsWith('etc.', $propria, 'a definicao verdadeira fecha em ponto final antes do rodape');
+        // O fragmento sem dono e descartado COM RECIBO — colar no verbete errado seria
+        // pior que perder, porque ausencia se ve e atribuicao errada nao.
+        $this->assertSame(1, $orfaos);
+    }
+
+    public function test_verbete_engolido_na_pagina_seguinte_e_recuperado(): void
+    {
+        // Verbatim: "Steal" estava dentro do corpo de "Stats", depois do rodape. Truncar
+        // limpava a contaminacao e perdia o termo — sao 17 termos centrais assim.
+        $sujo = 'sigla para estatísticas do oponente.'
+            .'Comunidade Reg Life - Todos os direitos reservadosPOKER É... falar outro IDIOMA '
+            .'fragmento sem dono. Steal:palavra em inglês para “roubo”. Nome do open raise nas posições finais.';
+
+        [$propria, $extras] = AtlasStudyVocabCommand::fatiar($sujo);
+
+        $this->assertSame('sigla para estatísticas do oponente.', $propria);
+        $this->assertCount(1, $extras);
+        $this->assertSame('Steal', $extras[0]['termo']);
+        $this->assertStringContainsString('open raise', $extras[0]['definicao']);
+    }
+
+    public function test_dois_pontos_no_meio_de_frase_nao_vira_verbete(): void
+    {
+        // A guarda que separa cabecalho de verbete de dois-pontos comum. Sem ela, cada
+        // "Exemplo:" e cada explicacao com lista viraria um termo inventado.
+        $texto = 'aposta feita no turn. Exemplo: o jogador aposta metade do pote. '
+            .'Existem tres modalidades: hold’em, omaha e stud.';
+
+        [$propria, $extras] = AtlasStudyVocabCommand::fatiar($texto);
+
+        $this->assertSame([], $extras, 'dois-pontos no meio de explicacao nao e cabecalho de verbete');
+        $this->assertSame($texto, $propria);
     }
 
     public function test_rotulo_de_secao_e_anexado_ao_verbete_anterior_nao_vira_verbete(): void

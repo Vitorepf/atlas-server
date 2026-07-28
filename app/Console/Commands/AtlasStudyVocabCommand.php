@@ -95,16 +95,78 @@ class AtlasStudyVocabCommand extends Command
         return trim(preg_replace('/\s+/u', ' ', $texto) ?? $texto);
     }
 
-    /**
-     * Corta no rodape de pagina. Tudo depois dele e a pagina seguinte — texto de OUTRO
-     * verbete. Cortar encurta; nao cortar ensina errado, e so um dos dois e recuperavel.
-     */
-    public static function cortarRodape(string $texto): string
-    {
-        $marca = '/Comunidade\s*Reg\s*Life\s*-\s*Todos\s+os\s+direitos\s+reservados/iu';
-        $partes = preg_split($marca, $texto, 2);
+    /** Rodape + cabecalho de pagina. Marca a fronteira entre uma pagina e a seguinte. */
+    private const RODAPE = '/Comunidade\s*Reg\s*Life\s*-\s*Todos\s+os\s+direitos\s+reservados(?:\s*POKER\s*É\.\.\.\s*falar\s+outro\s+IDIOMA)?/iu';
 
-        return trim(is_array($partes) ? $partes[0] : $texto);
+    /**
+     * Cabecalho de verbete engolido dentro do corpo de outro: "Termo:definicao".
+     * Exige fim de frase (ou inicio de bloco) antes, e minuscula depois — e o que separa
+     * um cabecalho real de um "Exemplo:" ou de dois-pontos no meio de uma explicacao.
+     */
+    private const ENGOLIDO = '/(?:(?<=[.!?”])|^)\s*([A-ZÀ-Þ][\p{L}\'’\-]{1,20}(?:\s+(?:ou|e|\/)\s+[\p{L}\'’\-]{1,20})*(?:\s+[a-zà-ÿ]{2,12})?)\s*:\s*(?=[a-zà-ÿ“])/u';
+
+    /**
+     * Separa a entrada bruta em [definicao propria, verbetes recuperados, orfaos].
+     *
+     * POR QUE SEPARAR EM VEZ DE TRUNCAR — medido: cortar no rodape limpa a contaminacao,
+     * mas joga fora a pagina seguinte, e ela contem VERBETE DE VERDADE. Depois do corte
+     * simples, 17 termos centrais de estrategia ficavam ausentes do vocabulario: C-bet,
+     * Bottom pair, Pre-flop, Steal, Barrel, Showdown value, Profit, PSKO, Spew. Sao
+     * exatamente os termos que um principio de poquer cita — um vocabulario sem eles nao
+     * ancora nada.
+     *
+     * O fragmento que sobra no inicio de uma pagina seguinte e continuacao de um verbete
+     * que nao da para identificar. Ele e DESCARTADO com recibo, nunca colado no verbete
+     * errado: atribuicao errada e pior que ausencia, porque ausencia se ve.
+     *
+     * @return array{0:string,1:list<array{termo:string,definicao:string}>,2:int}
+     */
+    public static function fatiar(string $texto): array
+    {
+        $paginas = preg_split(self::RODAPE, $texto);
+        if (! is_array($paginas)) {
+            return [trim($texto), [], 0];
+        }
+
+        $propria = '';
+        $extras = [];
+        $orfaos = 0;
+
+        foreach ($paginas as $i => $pagina) {
+            $pagina = trim($pagina);
+            if ($pagina === '') {
+                continue;
+            }
+
+            $brutos = [];
+            preg_match_all(self::ENGOLIDO, $pagina, $brutos, PREG_OFFSET_CAPTURE | PREG_SET_ORDER);
+
+            // Descartar rotulo de secao ANTES de calcular o prefixo. Filtrar depois cortava
+            // a definicao no primeiro "Exemplo:" e o resto do texto virava orfao — o teste
+            // de falso-positivo pegou exatamente isso.
+            $achados = array_values(array_filter(
+                $brutos,
+                static fn (array $m): bool => ! self::ehRotuloDeSecao(trim($m[1][0]))
+            ));
+
+            $prefixo = trim($achados === [] ? $pagina : substr($pagina, 0, $achados[0][0][1]));
+            if ($i === 0) {
+                $propria = $prefixo;
+            } elseif ($prefixo !== '') {
+                $orfaos++;
+            }
+
+            foreach ($achados as $k => $achado) {
+                $inicio = $achado[0][1] + strlen($achado[0][0]);
+                $fim = isset($achados[$k + 1]) ? $achados[$k + 1][0][1] : strlen($pagina);
+                $extras[] = [
+                    'termo' => trim($achado[1][0]),
+                    'definicao' => trim(substr($pagina, $inicio, $fim - $inicio)),
+                ];
+            }
+        }
+
+        return [$propria, $extras, $orfaos];
     }
 
     /**
@@ -201,7 +263,11 @@ class AtlasStudyVocabCommand extends Command
     {
         $verbetes = [];
         $ultimaChave = null;
-        $recibo = ['rodape_cortado' => 0, 'secoes_anexadas' => 0, 'espacos_reparados' => 0, 'colisoes' => 0, 'recusados' => 0, 'recusados_amostra' => []];
+        $recibo = [
+            'rodape_cortado' => 0, 'verbetes_recuperados' => 0, 'orfaos_descartados' => 0,
+            'secoes_anexadas' => 0, 'espacos_reparados' => 0, 'colisoes' => 0,
+            'recusados' => 0, 'recusados_amostra' => [],
+        ];
 
         foreach ($bruto as $linha) {
             if (! is_array($linha)) {
@@ -210,13 +276,32 @@ class AtlasStudyVocabCommand extends Command
             $termo = trim((string) ($linha['termo'] ?? $linha['term'] ?? ''));
             $original = trim((string) ($linha['definicao'] ?? $linha['definition'] ?? ''));
 
-            $semRodape = self::cortarRodape($original);
-            if ($semRodape !== $original) {
+            [$propria, $extras, $orfaos] = self::fatiar($original);
+            if ($propria !== $original) {
                 $recibo['rodape_cortado']++;
             }
-            $definicao = self::repararEspacos($semRodape);
-            if ($definicao !== trim(preg_replace('/\s+/u', ' ', $semRodape) ?? $semRodape)) {
+            $recibo['orfaos_descartados'] += $orfaos;
+
+            $definicao = self::repararEspacos($propria);
+            if ($definicao !== trim(preg_replace('/\s+/u', ' ', $propria) ?? $propria)) {
                 $recibo['espacos_reparados']++;
+            }
+
+            // Verbete que estava engolido no corpo de outro vira entrada propria. Nunca
+            // sobrescreve um verbete que ja tem casa: o original manda.
+            foreach ($extras as $extra) {
+                $chaveExtra = self::normalizar($extra['termo']);
+                if ($chaveExtra === '' || $extra['definicao'] === '' || self::ehRotuloDeSecao($extra['termo'])) {
+                    continue;
+                }
+                if (isset($verbetes[$chaveExtra])) {
+                    continue;
+                }
+                $verbetes[$chaveExtra] = [
+                    'termo' => $extra['termo'],
+                    'definicao' => self::repararEspacos($extra['definicao']),
+                ];
+                $recibo['verbetes_recuperados']++;
             }
 
             if ($termo === '' || $definicao === '') {
