@@ -68,6 +68,35 @@ class TranscriptionFidelityTest extends TestCase
         $this->assertNull($a['confidence']);
     }
 
+    public function test_passar_sem_medir_e_contavel_e_nao_se_confunde_com_verificado(): void
+    {
+        $semMedicao = (new TranscriptQualityGate)->assessAcoustic([], 600);
+        $medido = (new TranscriptQualityGate)->assessAcoustic([
+            ['from_ms' => 0, 'to_ms' => 5000, 'text' => 'oi', 'confidence' => 0.95],
+            ['from_ms' => 5000, 'to_ms' => 10000, 'text' => 'tudo bem', 'confidence' => 0.93],
+        ], 10);
+
+        // Os dois "passaram". Sem uma marca, um deles passou por ter sido MEDIDO e o outro
+        // por nao ter sido — e o consumidor (`WhisperTranscriber:120`, `$acoustic['passed']`)
+        // nao consegue distinguir. A gravacao longa demais para o guard de 96MB cai neste
+        // caminho, ou seja: quanto mais longo o audio, menos gate ele recebe.
+        $this->assertTrue($semMedicao['passed']);
+        $this->assertTrue($medido['passed']);
+        $this->assertSame('skipped', $semMedicao['acoustic_check']);
+        $this->assertArrayNotHasKey('acoustic_check', $medido, 'o caminho medido nao carrega marca de pulo');
+    }
+
+    public function test_a_nota_nao_afirma_uma_causa_que_o_metodo_nao_pode_saber(): void
+    {
+        $a = (new TranscriptQualityGate)->assessAcoustic([], 600);
+
+        // `assessAcoustic` recebe SEGMENTOS, nao arquivos: nao tem como saber se o JSON
+        // faltou, veio ilegivel ou foi descartado por tamanho. A nota antiga afirmava
+        // "JSON do decoder ausente" — e mandava quem investiga procurar no lugar errado.
+        $this->assertStringNotContainsString('JSON do decoder ausente)', (string) $a['note']);
+        $this->assertStringContainsString('NÃO medida', (string) $a['note']);
+    }
+
     public function test_parses_whisper_ojf_json_with_real_timestamps_and_confidence(): void
     {
         $json = json_encode([

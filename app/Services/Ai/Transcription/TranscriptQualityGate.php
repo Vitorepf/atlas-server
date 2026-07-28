@@ -147,7 +147,17 @@ class TranscriptQualityGate
             return [
                 'verdict' => 'unknown', 'passed' => true, 'confidence' => null, 'coverage_pct' => null,
                 'max_gap_seconds' => null, 'low_confidence_segments' => [], 'segments' => 0,
-                'note' => 'sem segmentos com timestamp (JSON do decoder ausente) — confiança acústica não medida',
+                // `passed: true` aqui e DELIBERADO: a ausencia do JSON do decoder nao pode
+                // reprovar um texto bom, e a checagem de texto continua rodando e podendo
+                // reprovar. Mas passar sem medir precisa ser CONTAVEL, senao "verificado" e
+                // "nao verificavel" viram o mesmo verde — e a promessa de fail-closed do
+                // docblock passa a valer so no caminho em que o gate roda.
+                'acoustic_check' => 'skipped',
+                // A nota antiga AFIRMAVA a causa ("JSON do decoder ausente"). Este metodo
+                // recebe segmentos, nao arquivos: ele nao sabe se o JSON faltou, veio
+                // ilegivel, ou foi descartado por tamanho. Afirmar a causa errada e pior
+                // que nao afirmar — manda quem investiga procurar no lugar errado.
+                'note' => 'sem segmentos com timestamp — confiança acústica NÃO medida (JSON do decoder ausente, ilegível ou descartado por tamanho)',
             ];
         }
 

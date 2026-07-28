@@ -147,8 +147,15 @@ class WhisperTranscriber
         if (! is_file($jsonPath)) {
             return [];
         }
-        // Guard against a pathologically large JSON (a multi-hour VSL): degrade gracefully to estimated
-        // segments rather than risk an OOM. 96MB of -ojf JSON is well beyond a 2h talk.
+        // Guard against a pathologically large JSON (a multi-hour VSL) rather than risk an OOM.
+        // 96MB of -ojf JSON is well beyond a 2h talk.
+        //
+        // O comentario anterior dizia "degrade gracefully to estimated segments". NAO e o que
+        // acontece: devolve-se lista VAZIA, e lista vazia faz `assessAcoustic` responder
+        // `verdict: unknown, passed: true`. Ou seja, a gravacao mais longa — a que tem mais
+        // chance de decodificar mal — e exatamente a que passa sem checagem acustica. O
+        // comportamento continua (derrubar por OOM seria pior), mas agora esta escrito o que
+        // ele e, e o gate marca `acoustic_check: skipped` para o pulo ser contavel.
         if (filesize($jsonPath) > 96 * 1024 * 1024) {
             return [];
         }
