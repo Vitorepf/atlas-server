@@ -615,3 +615,25 @@ Schedule::command('atlas:signal:table-census --jsonl')
     ->withoutOverlapping()
     ->appendOutputTo(storage_path('atlas/signal/table-census.jsonl'))
     ->when(static fn (): bool => (bool) config('atlas.signal.table_census_schedule_enabled', true));
+
+// O gate de 16 segundos contra a cegueira que durou quatro dias.
+//
+// De 24 a 28/07 `php artisan test` NUNCA chegou ao fim: uma classe de teste que dubla
+// `AtlasEvidenceLedger` ficou com assinatura incompatível depois que a mãe ganhou um
+// parâmetro, e incompatibilidade de assinatura em PHP é FATAL — o processo morre e tudo
+// que viria depois nunca roda. A saída parcial parece uma suíte passando até o ponto em
+// que ela morre, então ninguém viu. Nesse intervalo, três testes ficaram vermelhos por
+// motivos diferentes e nenhum foi notado.
+//
+// Nenhum gate existente alcançava isso, e cada um por um motivo medido: `atlas:pregate`
+// roda phpstan escopado nos caminhos mudados (a mudança foi na MÃE, em app/); o committer
+// vivo verifica só os testes da própria task; `phpstan.neon` não declara `paths:`.
+// A suíte completa leva 10+ min e phpstan sobre `tests/` inteiro, 625s — caros demais
+// para cadência. Sobre os ~100 arquivos que dublam classe de produção: 16 segundos.
+//
+// Sem flag de ativação de propósito: um gate de 16s por dia que nasce desligado é mais um
+// seam dormente, e este repo já tem esse problema catalogado.
+Schedule::command('atlas:tests:doubles')
+    ->dailyAt('05:40')
+    ->withoutOverlapping(30)
+    ->runInBackground();
