@@ -6,6 +6,7 @@ namespace App\Console\Commands;
 
 use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCapabilityGapTaskChainCompiler;
+use App\Services\Ai\Signal\AtlasIdentifierLimitAudit;
 use App\Services\Ai\Signal\AtlasSignalInvariantGapAdapter;
 use App\Services\Ai\Signal\AtlasTableCensusService;
 use App\Services\Ai\Signal\AtlasTableReferenceResolver;
@@ -26,12 +27,17 @@ class AtlasSignalTableCensusCommand extends Command
         {--json : saída canônica (pretty) para leitura}
         {--jsonl : UMA linha por execução, para append em série}
         {--as-gaps : compila as tabelas vazias em cadeia de task (caminho capability-gap)}
-        {--limit=0 : com --as-gaps, quantas tabelas vazias compilar (0 = todas)}';
+        {--limit=0 : com --as-gaps, quantas tabelas vazias compilar (0 = todas)}
+        {--identifiers : audita o corte de 63 chars do Postgres (colisão e folga)}';
 
     protected $description = 'Censo de tabelas: total, vazias, não-vazias e sem escrita desde N dias (só mede).';
 
     public function handle(AtlasTableCensusService $census): int
     {
+        if ((bool) $this->option('identifiers')) {
+            return $this->emitIdentifierAudit();
+        }
+
         $report = $census->census((int) $this->option('stale-days'));
 
         if ((bool) $this->option('as-gaps')) {
@@ -69,6 +75,62 @@ class AtlasSignalTableCensusCommand extends Command
         }
 
         return self::SUCCESS;
+    }
+
+    /**
+     * O corte de 63 caracteres do Postgres, medido: quantos nomes ele já cortou
+     * e quanto falta para dois cortarem IGUAL — que é quando o CREATE falha.
+     *
+     * Só mede. Renomear 167 índices é obra, e a maioria é inofensiva.
+     */
+    private function emitIdentifierAudit(): int
+    {
+        $auditor = app(AtlasIdentifierLimitAudit::class);
+        $source = $auditor->fromDatabase();
+        $verdict = $auditor->audit($source['declared']);
+
+        $payload = [
+            'schema_version' => AtlasIdentifierLimitAudit::SCHEMA,
+            'pg_limit' => AtlasIdentifierLimitAudit::PG_LIMIT,
+            'available' => $source['available'],
+            'truncated_on_disk' => $source['truncated_on_disk'],
+            'declared_reconstructed' => $source['reconstructed'],
+            'declared_explicit_name' => $source['explicit_name'],
+            'over_limit_declared' => count($verdict['truncated']),
+            'collision_count' => count($verdict['collisions']),
+            'collisions' => $verdict['collisions'],
+            'closest_pair' => $verdict['closest_pair'],
+            'shared_prefix_len' => $verdict['shared_prefix_len'],
+            'margin_chars' => $verdict['margin'],
+            'over_limit_names' => $verdict['truncated'],
+        ];
+
+        if ((bool) $this->option('jsonl')) {
+            $this->line((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        } elseif ((bool) $this->option('json')) {
+            $this->jsonLine($payload);
+        } else {
+            $this->info(sprintf(
+                '%d identificador(es) cortado(s) no disco · %d nome(s) declarado(s) acima de %d · %d colisão(ões)',
+                $payload['truncated_on_disk'],
+                $payload['over_limit_declared'],
+                $payload['pg_limit'],
+                $payload['collision_count'],
+            ));
+            $this->line(sprintf('  folga até a primeira colisão: %d chars (par mais próximo compartilha %d)',
+                $payload['margin_chars'], $payload['shared_prefix_len']));
+            foreach ($payload['closest_pair'] as $name) {
+                $this->line('    '.$name);
+            }
+            foreach ($payload['collisions'] as $collision) {
+                $this->warn('  COLISÃO em '.$collision['prefix']);
+                foreach ($collision['names'] as $name) {
+                    $this->line('    <- '.$name);
+                }
+            }
+        }
+
+        return $payload['collision_count'] > 0 ? self::FAILURE : self::SUCCESS;
     }
 
     /**
