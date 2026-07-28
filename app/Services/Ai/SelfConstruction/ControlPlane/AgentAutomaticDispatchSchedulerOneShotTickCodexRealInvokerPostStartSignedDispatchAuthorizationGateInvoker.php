@@ -78,6 +78,17 @@ final class AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartS
             'dispatch_replay_guard_hash',
             'dispatch_kill_switch_hash',
             'no_direct_provider_call_attestation_hash',
+            // O gate delegado passou a EXIGIR estes cinco em cd018c6b3f — eles
+            // amarram a assinatura humana à task, à lease, ao worker e ao escopo
+            // — e este invocador não foi atualizado junto. Resultado: ele montava
+            // um payload que o próprio delegado recusava em `missing_task_id`, e
+            // o caminho inteiro ficou impossível de completar. Repassados, nunca
+            // inventados: inventá-los seria assinar em nome do operador.
+            'task_id',
+            'lease_id',
+            'worker_id',
+            'allowed_scope_hash',
+            'signature_issued_at',
             'actor',
             'session',
             'reason',

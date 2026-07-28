@@ -139,7 +139,7 @@ final class ReadinessProjectionOneShotTickCodexPart4Section
             'source_codex_real_invoker_supervised_start_activation_gate_preflight_status' => data_get($preflight, 'status'),
             'source_codex_real_invoker_supervised_start_activation_gate_preflight_hash' => $preflightHash,
             'allowed_files' => [
-                'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerSupervisedStartActivationGateInvoker.php',
+                'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerSupervisedStartActivationGateInvoker.php',
                 'tests/Feature/Ai/AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerSupervisedStartActivationGateInvokerTest.php',
                 'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
                 'app/Console/Commands/AtlasAiSelfConstructionCommand.php',
@@ -317,7 +317,7 @@ final class ReadinessProjectionOneShotTickCodexPart4Section
             'source_codex_real_invoker_guarded_process_start_executor_preflight_status' => data_get($preflight, 'status'),
             'source_codex_real_invoker_guarded_process_start_executor_preflight_hash' => $preflightHash,
             'allowed_files' => [
-                'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerGuardedProcessStartExecutorInvoker.php',
+                'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerGuardedProcessStartExecutorInvoker.php',
                 'tests/Feature/Ai/AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerGuardedProcessStartExecutorInvokerTest.php',
                 'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
                 'app/Console/Commands/AtlasAiSelfConstructionCommand.php',
@@ -590,7 +590,7 @@ final class ReadinessProjectionOneShotTickCodexPart4Section
             'source_codex_real_invoker_final_process_start_authorization_gate_preflight_status' => data_get($preflight, 'status'),
             'source_codex_real_invoker_final_process_start_authorization_gate_preflight_hash' => $preflightHash,
             'allowed_files' => [
-                'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerFinalProcessStartAuthorizationGateInvoker.php',
+                'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerFinalProcessStartAuthorizationGateInvoker.php',
                 'tests/Feature/Ai/AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerFinalProcessStartAuthorizationGateInvokerTest.php',
                 'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
                 'app/Console/Commands/AtlasAiSelfConstructionCommand.php',
@@ -834,7 +834,7 @@ final class ReadinessProjectionOneShotTickCodexPart4Section
             'source_codex_real_invoker_actual_process_start_rehearsal_executor_preflight_status' => data_get($preflight, 'status'),
             'source_codex_real_invoker_actual_process_start_rehearsal_executor_preflight_hash' => $preflightHash,
             'allowed_files' => [
-                'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerActualProcessStartRehearsalExecutorInvoker.php',
+                'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerActualProcessStartRehearsalExecutorInvoker.php',
                 'tests/Feature/Ai/AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerActualProcessStartRehearsalExecutorInvokerTest.php',
                 'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
                 'app/Console/Commands/AtlasAiSelfConstructionCommand.php',

@@ -13,7 +13,7 @@ final class AgentAutomaticDispatchSchedulerOneShotTickMutatingWriterHardeningTes
      */
     public function test_source_has_try_catch_for_parse(): void
     {
-        $source = file_get_contents(__DIR__.'/../../../../app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickMutatingWriter.php');
+        $source = file_get_contents(__DIR__.'/../../../../app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickMutatingWriter.php');
 
         $this->assertStringContainsString('CarbonImmutable::parse', $source, 'must parse dates');
         $this->assertStringContainsString('catch', $source, 'must have try/catch guard');
@@ -26,7 +26,7 @@ final class AgentAutomaticDispatchSchedulerOneShotTickMutatingWriterHardeningTes
      */
     public function test_parse_is_guarded(): void
     {
-        $source = file_get_contents(__DIR__.'/../../../../app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickMutatingWriter.php');
+        $source = file_get_contents(__DIR__.'/../../../../app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickMutatingWriter.php');
 
         $this->assertMatchesRegularExpression(
             '/try\s*\{[\s\S]*?CarbonImmutable::parse[\s\S]*?\}\s*catch/s',

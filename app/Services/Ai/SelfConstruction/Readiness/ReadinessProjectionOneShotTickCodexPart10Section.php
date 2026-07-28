@@ -209,7 +209,7 @@ final class ReadinessProjectionOneShotTickCodexPart10Section
             'adapter' => 'codex',
             'source_codex_real_invoker_post_start_operator_start_handoff_preflight_hash' => $preflightHash,
             'allowed_files' => [
-                'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartOperatorStartHandoffInvoker.php',
+                'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartOperatorStartHandoffInvoker.php',
                 'tests/Feature/Ai/AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartOperatorStartHandoffInvokerTest.php',
                 'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
                 'app/Console/Commands/AtlasAiSelfConstructionCommand.php',

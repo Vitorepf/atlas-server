@@ -399,7 +399,7 @@ final class ReadinessProjectionMutatingWriterSection
         $preflightHash = (string) data_get($preflightPayload, 'agent_automatic_dispatch_scheduler_one_shot_tick_release_receipt_persistence_writer_preflight_hash');
 
         $allowedFiles = [
-            'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickReleaseReceiptPersistenceWriter.php',
+            'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickReleaseReceiptPersistenceWriter.php',
             'tests/Feature/Ai/AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickReleaseReceiptPersistenceWriterTest.php',
             'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
             'app/Console/Commands/AtlasAiSelfConstructionCommand.php',
@@ -413,7 +413,7 @@ final class ReadinessProjectionMutatingWriterSection
                 'title' => 'Create guarded release receipt persistence writer service',
                 'type' => 'service',
                 'allowed_files' => [
-                    'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickReleaseReceiptPersistenceWriter.php',
+                    'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickReleaseReceiptPersistenceWriter.php',
                 ],
                 'acceptance' => 'Writer validates signed receipt payload, current preflight hashes, selected wakeup identity, dispatch envelope hash, scope hash and expiry inside a transaction before persisting exactly one release receipt.',
             ],
@@ -422,7 +422,7 @@ final class ReadinessProjectionMutatingWriterSection
                 'title' => 'Persist release receipt idempotently without claiming or dispatching',
                 'type' => 'runtime_guard',
                 'allowed_files' => [
-                    'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickReleaseReceiptPersistenceWriter.php',
+                    'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickReleaseReceiptPersistenceWriter.php',
                 ],
                 'acceptance' => 'Same idempotency key returns the existing release receipt; conflicts are rejected; writer never claims wakeups, never writes dispatch receipts and never starts providers.',
             ],
@@ -500,7 +500,7 @@ final class ReadinessProjectionMutatingWriterSection
                 'writer_does_not_claim_wakeup_items_write_dispatch_receipts_start_providers_or_spend_tokens',
             ],
             'required_gates' => [
-                'php -l app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickReleaseReceiptPersistenceWriter.php',
+                'php -l app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickReleaseReceiptPersistenceWriter.php',
                 'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickReleaseReceiptPersistenceWriterTest.php',
                 'php artisan test tests/Feature/Ai/AtlasAiSelfConstructionCommandTest.php --filter=agent_automatic_dispatch_scheduler_one_shot_tick_release_receipt',
                 'php artisan atlas:engineering:knowledge docs-health --json',
@@ -573,7 +573,7 @@ final class ReadinessProjectionMutatingWriterSection
         $preflightHash = (string) data_get($preflightPayload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_preflight_hash');
 
         $allowedFiles = [
-            'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickMutatingWriter.php',
+            'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickMutatingWriter.php',
             'tests/Feature/Ai/AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickMutatingWriterTest.php',
             'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
             'app/Console/Commands/AtlasAiSelfConstructionCommand.php',
@@ -587,7 +587,7 @@ final class ReadinessProjectionMutatingWriterSection
                 'title' => 'Create guarded one-shot scheduler tick mutating writer service',
                 'type' => 'service',
                 'allowed_files' => [
-                    'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickMutatingWriter.php',
+                    'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickMutatingWriter.php',
                 ],
                 'acceptance' => 'Writer recomputes release preflight inside a transaction, locks the selected queued wakeup row and refuses to proceed unless the persisted release receipt still matches the current dry-run candidate.',
             ],
@@ -596,7 +596,7 @@ final class ReadinessProjectionMutatingWriterSection
                 'title' => 'Claim exactly one wakeup and write exactly one signed pending dispatch receipt',
                 'type' => 'runtime_guard',
                 'allowed_files' => [
-                    'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickMutatingWriter.php',
+                    'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickMutatingWriter.php',
                 ],
                 'acceptance' => 'Writer atomically marks one wakeup as claimed, writes one signed_pending_dispatch receipt, appends evidence and rolls back the full transaction on any claim, receipt or evidence failure.',
             ],
@@ -605,7 +605,7 @@ final class ReadinessProjectionMutatingWriterSection
                 'title' => 'Guarantee the writer stops before receipt use and provider start',
                 'type' => 'safety_boundary',
                 'allowed_files' => [
-                    'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickMutatingWriter.php',
+                    'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickMutatingWriter.php',
                 ],
                 'acceptance' => 'Writer never marks dispatch receipts used, never invokes provider adapters, never starts providers, never spends provider tokens and never enables Self-Programming OS behavior.',
             ],

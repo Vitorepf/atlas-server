@@ -30,7 +30,13 @@ final class AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartR
             'post_start_receipt_contract_id' => data_get($result, 'post_start_receipt_contract_id'),
             'operator_start_handoff_id' => data_get($result, 'operator_start_handoff_id'),
             'manual_start_executor_receipt_id' => data_get($result, 'manual_start_executor_receipt_id'),
-            'post_start_evidence_acceptance_bridge_id' => data_get($result, 'post_start_evidence_acceptance_bridge_id'),
+            // `post_start_evidence_acceptance_bridge_id` NÃO sai daqui. Em
+            // 594d224e1a a responsabilidade foi para o produtor dedicado
+            // (AgentCodexRealInvokerPostStartEvidenceAcceptanceBridge) e o
+            // builder deste contrato parou de devolvê-lo — mas este envelope
+            // seguiu ecoando, e ecoava NULL. Um campo presente e nulo é pior que
+            // ausente: quem consome lê "existe e está vazio" em vez de "não é
+            // meu". Quem quer o id pergunta a quem o produz.
             'codex_execution_id' => data_get($result, 'codex_execution_id'),
             'agent_run_id' => data_get($result, 'agent_run_id'),
             'run_key' => data_get($result, 'run_key'),

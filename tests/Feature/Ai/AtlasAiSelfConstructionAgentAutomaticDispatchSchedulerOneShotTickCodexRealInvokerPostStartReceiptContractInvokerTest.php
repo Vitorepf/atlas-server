@@ -25,7 +25,11 @@ class AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickCodexReal
         $this->assertFalse($result['idempotent']);
         $this->assertTrue($result['post_start_receipt_contract_built']);
         $this->assertSame('codex-real-invoker-post-start-receipt-contract-001', $result['post_start_receipt_contract_id']);
-        $this->assertSame('codex-real-invoker-post-start-evidence-acceptance-bridge-001', $result['post_start_evidence_acceptance_bridge_id']);
+        // O bridge id mudou de dono em 594d224e1a: quem o produz é o
+        // AgentCodexRealInvokerPostStartEvidenceAcceptanceBridge. Este envelope
+        // não o reivindica mais — ecoá-lo devolvia NULL, que se lê como "existe
+        // e está vazio" em vez de "não é meu".
+        $this->assertArrayNotHasKey('post_start_evidence_acceptance_bridge_id', $result);
         $this->assertFalse($result['actual_process_start_allowed']);
         $this->assertFalse($result['external_process_started']);
         $this->assertFalse($result['external_process_evidence_accepted']);

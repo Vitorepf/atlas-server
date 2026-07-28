@@ -309,7 +309,7 @@ final class ReadinessProjectionAgentAutomaticTailPart2Section
             'source_provider_adapter_execution_guard_preflight_status' => data_get($preflight, 'status'),
             'source_provider_adapter_execution_guard_preflight_hash' => $preflightHash,
             'allowed_files' => [
-                'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickProviderAdapterExecutionGuardInvoker.php',
+                'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickProviderAdapterExecutionGuardInvoker.php',
                 'tests/Feature/Ai/AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickProviderAdapterExecutionGuardInvokerTest.php',
                 'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
                 'app/Console/Commands/AtlasAiSelfConstructionCommand.php',
@@ -581,7 +581,7 @@ final class ReadinessProjectionAgentAutomaticTailPart2Section
             'source_provider_specific_execution_contract_preflight_status' => data_get($preflight, 'status'),
             'source_provider_specific_execution_contract_preflight_hash' => $preflightHash,
             'allowed_files' => [
-                'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexProviderExecutionContractInvoker.php',
+                'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexProviderExecutionContractInvoker.php',
                 'tests/Feature/Ai/AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickCodexProviderExecutionContractInvokerTest.php',
                 'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
                 'app/Console/Commands/AtlasAiSelfConstructionCommand.php',

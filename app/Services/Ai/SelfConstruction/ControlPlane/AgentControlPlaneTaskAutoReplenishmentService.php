@@ -924,7 +924,7 @@ final class AgentControlPlaneTaskAutoReplenishmentService
         if ($source === 'current_pointer' && $reference !== '') {
             $slice = str_replace('activate_signed_one_shot_scheduler_tick_', '', $reference);
             $studly = str_replace(' ', '', ucwords(str_replace('_', ' ', $slice)));
-            $implementation = 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTick'.$studly.'Invoker.php';
+            $implementation = 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTick'.$studly.'Invoker.php';
             $test = 'tests/Feature/Ai/AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTick'.$studly.'InvokerTest.php';
 
             return [

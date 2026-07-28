@@ -48,7 +48,7 @@ final class ReadinessProjectionOneShotTickCodexPart2Section
             'source_codex_final_process_spawn_executor_preflight_status' => data_get($preflight, 'status'),
             'source_codex_final_process_spawn_executor_preflight_hash' => $preflightHash,
             'allowed_files' => [
-                'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexFinalProcessSpawnExecutorInvoker.php',
+                'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexFinalProcessSpawnExecutorInvoker.php',
                 'tests/Feature/Ai/AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickCodexFinalProcessSpawnExecutorInvokerTest.php',
                 'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
                 'app/Console/Commands/AtlasAiSelfConstructionCommand.php',
@@ -324,7 +324,7 @@ final class ReadinessProjectionOneShotTickCodexPart2Section
             'source_codex_external_process_runtime_driver_preflight_status' => data_get($preflight, 'status'),
             'source_codex_external_process_runtime_driver_preflight_hash' => $preflightHash,
             'allowed_files' => [
-                'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessRuntimeDriverInvoker.php',
+                'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessRuntimeDriverInvoker.php',
                 'tests/Feature/Ai/AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessRuntimeDriverInvokerTest.php',
                 'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
                 'app/Console/Commands/AtlasAiSelfConstructionCommand.php',
@@ -601,7 +601,7 @@ final class ReadinessProjectionOneShotTickCodexPart2Section
             'source_codex_process_invocation_authorization_preflight_status' => data_get($preflight, 'status'),
             'source_codex_process_invocation_authorization_preflight_hash' => $preflightHash,
             'allowed_files' => [
-                'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexProcessInvocationAuthorizationInvoker.php',
+                'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexProcessInvocationAuthorizationInvoker.php',
                 'tests/Feature/Ai/AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickCodexProcessInvocationAuthorizationInvokerTest.php',
                 'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
                 'app/Console/Commands/AtlasAiSelfConstructionCommand.php',
@@ -877,7 +877,7 @@ final class ReadinessProjectionOneShotTickCodexPart2Section
             'source_codex_external_process_invoker_dry_run_preflight_status' => data_get($preflight, 'status'),
             'source_codex_external_process_invoker_dry_run_preflight_hash' => $preflightHash,
             'allowed_files' => [
-                'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessInvokerDryRunInvoker.php',
+                'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessInvokerDryRunInvoker.php',
                 'tests/Feature/Ai/AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessInvokerDryRunInvokerTest.php',
                 'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
                 'app/Console/Commands/AtlasAiSelfConstructionCommand.php',

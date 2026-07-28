@@ -17472,7 +17472,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertSame('Atlas Agent Control Plane', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_release_receipt_persistence_writer_implementation_packet.submodule'));
         $this->assertSame('FORGE-WORKSPACE-ATLAS-SELF-CONSTRUCTION-0001', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_release_receipt_persistence_writer_implementation_packet.workspace_id'));
         $this->assertSame(5, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_release_receipt_persistence_writer_implementation_packet.task_count'));
-        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickReleaseReceiptPersistenceWriter.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_release_receipt_persistence_writer_implementation_packet.allowed_files'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickReleaseReceiptPersistenceWriter.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_release_receipt_persistence_writer_implementation_packet.allowed_files'));
         $this->assertContains('tests/Feature/Ai/AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickReleaseReceiptPersistenceWriterTest.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_release_receipt_persistence_writer_implementation_packet.allowed_files'));
         $this->assertContains('signed_scheduler_tick_release_receipt_can_be_persisted_once_after_current_validation_preflight_is_ready', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_release_receipt_persistence_writer_implementation_packet.acceptance_criteria'));
         $this->assertContains('need_to_start_provider_or_call_adapter', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_release_receipt_persistence_writer_implementation_packet.stop_conditions'));
@@ -17665,7 +17665,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertSame('Atlas Agent Control Plane', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet.submodule'));
         $this->assertSame('FORGE-WORKSPACE-ATLAS-SELF-CONSTRUCTION-0001', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet.workspace_id'));
         $this->assertSame(6, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet.task_count'));
-        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickMutatingWriter.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet.allowed_files'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickMutatingWriter.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet.allowed_files'));
         $this->assertContains('tests/Feature/Ai/AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickMutatingWriterTest.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet.allowed_files'));
         $this->assertContains('writer_claims_exactly_one_wakeup_item', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet.acceptance_criteria'));
         $this->assertContains('writer_writes_exactly_one_signed_pending_dispatch_receipt', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_mutating_writer_implementation_packet.acceptance_criteria'));
@@ -17795,7 +17795,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertFalse(data_get($payload, 'adapter_invocation_allowed'));
         $this->assertFalse(data_get($payload, 'token_spend_allowed'));
         $this->assertSame(4, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_implementation_packet.task_count'));
-        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickGuardedRuntimeInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_implementation_packet.allowed_files'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickGuardedRuntimeInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_implementation_packet.allowed_files'));
         $this->assertContains('guarded_invoker_calls_mutating_writer_once_only', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_implementation_packet.acceptance_criteria'));
         $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_implementation_packet.implementation_policy.provider_start_allowed_by_packet'));
         $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_guarded_runtime_invocation_implementation_packet.implementation_policy.self_programming_allowed_by_packet'));
@@ -17961,7 +17961,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertFalse(data_get($payload, 'provider_start_allowed'));
         $this->assertFalse(data_get($payload, 'token_spend_allowed'));
         $this->assertSame(4, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_plan_implementation_packet.task_count'));
-        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorPlanInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_plan_implementation_packet.allowed_files'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorPlanInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_plan_implementation_packet.allowed_files'));
         $this->assertContains('codex_real_invoker_executor_plan_invoker_prepares_without_enabling_executor', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_plan_implementation_packet.acceptance_criteria'));
         $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_plan_implementation_packet.implementation_policy.codex_real_invoker_executor_plan_call_allowed_by_future_invoker'));
         $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_plan_implementation_packet.implementation_policy.codex_real_invoker_executor_fresh_release_gate_allowed_by_packet'));
@@ -18074,7 +18074,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertFalse(data_get($payload, 'provider_start_allowed'));
         $this->assertFalse(data_get($payload, 'token_spend_allowed'));
         $this->assertSame(4, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_fresh_release_gate_implementation_packet.task_count'));
-        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorFreshReleaseGateInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_fresh_release_gate_implementation_packet.allowed_files'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorFreshReleaseGateInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_fresh_release_gate_implementation_packet.allowed_files'));
         $this->assertContains('codex_real_invoker_executor_fresh_release_gate_invoker_authorizes_without_enabling_executor', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_fresh_release_gate_implementation_packet.acceptance_criteria'));
         $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_fresh_release_gate_implementation_packet.implementation_policy.codex_real_invoker_executor_fresh_release_gate_call_allowed_by_future_invoker'));
         $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_fresh_release_gate_implementation_packet.implementation_policy.executor_enablement_allowed_by_packet'));
@@ -18188,7 +18188,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertFalse(data_get($payload, 'provider_start_allowed'));
         $this->assertFalse(data_get($payload, 'token_spend_allowed'));
         $this->assertSame(4, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_enablement_gate_implementation_packet.task_count'));
-        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorEnablementGateInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_enablement_gate_implementation_packet.allowed_files'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerExecutorEnablementGateInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_enablement_gate_implementation_packet.allowed_files'));
         $this->assertContains('codex_real_invoker_executor_enablement_gate_invoker_enables_executor_without_starting_codex', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_enablement_gate_implementation_packet.acceptance_criteria'));
         $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_enablement_gate_implementation_packet.implementation_policy.codex_real_invoker_executor_enablement_gate_call_allowed_by_future_invoker'));
         $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_executor_enablement_gate_implementation_packet.implementation_policy.executor_enabled_metadata_allowed_by_future_invoker'));
@@ -18291,7 +18291,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertFalse(data_get($payload, 'codex_real_invoker_supervised_start_activation_gate_allowed'));
         $this->assertFalse(data_get($payload, 'process_start_armed'));
         $this->assertSame(4, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_supervised_start_activation_gate_implementation_packet.task_count'));
-        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerSupervisedStartActivationGateInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_supervised_start_activation_gate_implementation_packet.allowed_files'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerSupervisedStartActivationGateInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_supervised_start_activation_gate_implementation_packet.allowed_files'));
         $this->assertContains('codex_real_invoker_supervised_start_activation_gate_invoker_arms_process_start_without_starting_codex', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_supervised_start_activation_gate_implementation_packet.acceptance_criteria'));
         $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_supervised_start_activation_gate_implementation_packet.implementation_policy.codex_real_invoker_supervised_start_activation_gate_call_allowed_by_future_invoker'));
         $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_supervised_start_activation_gate_implementation_packet.implementation_policy.process_start_armed_metadata_allowed_by_future_invoker'));
@@ -19708,7 +19708,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertFalse(data_get($payload, 'adapter_invocation_allowed'));
         $this->assertFalse(data_get($payload, 'token_spend_allowed'));
         $this->assertSame(4, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet.task_count'));
-        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderStartDriverGateInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet.allowed_files'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderStartDriverGateInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet.allowed_files'));
         $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_start_driver_gate_implementation_packet.implementation_policy.adapter_invocation_allowed_by_packet'));
     }
 
@@ -19795,7 +19795,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
         $this->assertFalse(data_get($payload, 'token_spend_allowed'));
         $this->assertSame(4, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet.task_count'));
-        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterInvocationBoundaryGateInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet.allowed_files'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterInvocationBoundaryGateInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet.allowed_files'));
         $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_invocation_boundary_gate_implementation_packet.implementation_policy.adapter_execution_allowed_by_packet'));
     }
 
@@ -19998,7 +19998,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
         $this->assertFalse(data_get($payload, 'token_spend_allowed'));
         $this->assertSame(4, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_implementation_boundary_gate_implementation_packet.task_count'));
-        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartImplementationBoundaryGateInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_implementation_boundary_gate_implementation_packet.allowed_files'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartImplementationBoundaryGateInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_implementation_boundary_gate_implementation_packet.allowed_files'));
         $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_implementation_boundary_gate_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'));
         $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_implementation_boundary_gate_implementation_packet.implementation_policy.executor_plan_required_after_future_invoker'));
     }
@@ -20077,7 +20077,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
         $this->assertFalse(data_get($payload, 'token_spend_allowed'));
         $this->assertSame(4, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_plan_gate_implementation_packet.task_count'));
-        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorPlanGateInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_plan_gate_implementation_packet.allowed_files'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorPlanGateInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_plan_gate_implementation_packet.allowed_files'));
         $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_plan_gate_implementation_packet.implementation_policy.executor_enabled_by_packet'));
         $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_plan_gate_implementation_packet.implementation_policy.executor_fresh_release_required_after_future_invoker'));
     }
@@ -20180,7 +20180,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
         $this->assertFalse(data_get($payload, 'token_spend_allowed'));
         $this->assertSame(4, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_fresh_release_gate_implementation_packet.task_count'));
-        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorFreshReleaseGateInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_fresh_release_gate_implementation_packet.allowed_files'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorFreshReleaseGateInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_fresh_release_gate_implementation_packet.allowed_files'));
         $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_fresh_release_gate_implementation_packet.implementation_policy.executor_enabled_by_packet'));
         $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_fresh_release_gate_implementation_packet.implementation_policy.executor_enablement_required_after_future_invoker'));
     }
@@ -20285,7 +20285,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
         $this->assertFalse(data_get($payload, 'token_spend_allowed'));
         $this->assertSame(4, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_enablement_gate_implementation_packet.task_count'));
-        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorEnablementGateInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_enablement_gate_implementation_packet.allowed_files'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExecutorEnablementGateInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_enablement_gate_implementation_packet.allowed_files'));
         $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_enablement_gate_implementation_packet.implementation_policy.executor_enabled_after_future_invoker'));
         $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_enablement_gate_implementation_packet.implementation_policy.supervised_start_required_after_future_invoker'));
         $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_executor_enablement_gate_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'));
@@ -20397,7 +20397,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
         $this->assertFalse(data_get($payload, 'token_spend_allowed'));
         $this->assertSame(4, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_activation_gate_implementation_packet.task_count'));
-        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartActivationGateInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_activation_gate_implementation_packet.allowed_files'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartActivationGateInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_activation_gate_implementation_packet.allowed_files'));
         $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_activation_gate_implementation_packet.implementation_policy.process_start_armed_after_future_invoker'));
         $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_activation_gate_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'));
     }
@@ -20511,7 +20511,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertFalse(data_get($payload, 'adapter_execution_allowed'));
         $this->assertFalse(data_get($payload, 'token_spend_allowed'));
         $this->assertSame(4, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_implementation_packet.task_count'));
-        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartGuardedProcessStartExecutorGateInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_implementation_packet.allowed_files'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartGuardedProcessStartExecutorGateInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_implementation_packet.allowed_files'));
         $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_implementation_packet.implementation_policy.process_start_armed_after_future_invoker'));
         $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_implementation_packet.implementation_policy.final_process_start_authorization_required_after_future_invoker'));
         $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_guarded_process_start_executor_gate_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'));
@@ -20634,7 +20634,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertFalse(data_get($payload, 'token_spend_allowed'));
         $this->assertFalse(data_get($payload, 'self_programming_allowed'));
         $this->assertSame(4, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_implementation_packet.task_count'));
-        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartFinalProcessStartAuthorizationGateInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_implementation_packet.allowed_files'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartFinalProcessStartAuthorizationGateInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_implementation_packet.allowed_files'));
         $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_implementation_packet.implementation_policy.final_process_start_authorized_after_future_invoker'));
         $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_implementation_packet.implementation_policy.actual_process_start_rehearsal_required_after_future_invoker'));
         $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_start_authorization_gate_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'));
@@ -20760,7 +20760,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertFalse(data_get($payload, 'token_spend_allowed'));
         $this->assertFalse(data_get($payload, 'self_programming_allowed'));
         $this->assertSame(4, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_implementation_packet.task_count'));
-        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartActualProcessStartRehearsalGateInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_implementation_packet.allowed_files'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartActualProcessStartRehearsalGateInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_implementation_packet.allowed_files'));
         $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_implementation_packet.implementation_policy.process_start_rehearsed_after_future_invoker'));
         $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_implementation_packet.implementation_policy.process_start_envelope_required_after_future_invoker'));
         $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_actual_process_start_rehearsal_gate_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'));
@@ -20892,7 +20892,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertFalse(data_get($payload, 'token_spend_allowed'));
         $this->assertFalse(data_get($payload, 'self_programming_allowed'));
         $this->assertSame(4, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_envelope_gate_implementation_packet.task_count'));
-        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartEnvelopeGateInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_envelope_gate_implementation_packet.allowed_files'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartEnvelopeGateInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_envelope_gate_implementation_packet.allowed_files'));
         $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_envelope_gate_implementation_packet.implementation_policy.post_start_process_start_envelope_built_after_future_invoker'));
         $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_envelope_gate_implementation_packet.implementation_policy.start_execution_gate_required_after_future_invoker'));
         $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_envelope_gate_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'));
@@ -21028,7 +21028,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertFalse(data_get($payload, 'token_spend_allowed'));
         $this->assertFalse(data_get($payload, 'self_programming_allowed'));
         $this->assertSame(4, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_start_execution_gate_implementation_packet.task_count'));
-        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartStartExecutionGateInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_start_execution_gate_implementation_packet.allowed_files'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartStartExecutionGateInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_start_execution_gate_implementation_packet.allowed_files'));
         $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_start_execution_gate_implementation_packet.implementation_policy.start_execution_authorized_after_future_invoker'));
         $this->assertTrue(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_start_execution_gate_implementation_packet.implementation_policy.process_starter_readiness_required_after_future_invoker'));
         $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_start_execution_gate_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'));
@@ -21110,7 +21110,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         ]);
         $this->assertSame('ready_for_scoped_one_shot_tick_codex_real_invoker_post_start_process_starter_readiness_gate_invoker_implementation', data_get($payload, 'status'));
         $this->assertSame(4, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_starter_readiness_gate_implementation_packet.task_count'));
-        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStarterReadinessGateInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_starter_readiness_gate_implementation_packet.allowed_files'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStarterReadinessGateInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_starter_readiness_gate_implementation_packet.allowed_files'));
         $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_starter_readiness_gate_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'));
         $this->assertFalse(data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_starter_readiness_gate_implementation_packet.implementation_policy.process_started_by_packet'));
     }
@@ -21167,7 +21167,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         ]);
         $this->assertSame('ready_for_scoped_one_shot_tick_codex_real_invoker_post_start_manual_start_executor_receipt_invoker_implementation', data_get($payload, 'status'));
         $this->assertSame(4, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_manual_start_executor_receipt_implementation_packet.task_count'));
-        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartManualStartExecutorReceiptInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_manual_start_executor_receipt_implementation_packet.allowed_files'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartManualStartExecutorReceiptInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_manual_start_executor_receipt_implementation_packet.allowed_files'));
     }
 
     public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_manual_start_executor_receipt_status_as_json(): void
@@ -21222,7 +21222,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         ]);
         $this->assertSame('ready_for_scoped_one_shot_tick_codex_real_invoker_post_start_operator_start_handoff_invoker_implementation', data_get($payload, 'status'));
         $this->assertSame(4, data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_operator_start_handoff_implementation_packet.task_count'));
-        $this->assertContains('app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartOperatorStartHandoffInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_operator_start_handoff_implementation_packet.allowed_files'));
+        $this->assertContains('app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartOperatorStartHandoffInvoker.php', data_get($payload, 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_operator_start_handoff_implementation_packet.allowed_files'));
     }
 
     public function test_command_returns_agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_operator_start_handoff_status_as_json(): void
@@ -26311,7 +26311,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'adapter_invocation_allowed'],
                     ['false', 'token_spend_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickDispatchReceiptUseInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickDispatchReceiptUseInvoker.php'],
                     ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_implementation_packet.acceptance_criteria', 'receipt_use_invoker_marks_one_signed_pending_dispatch_receipt_used'],
                     ['true', 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_implementation_packet.implementation_policy.receipt_use_mark_allowed_by_future_invoker'],
                     ['false', 'agent_automatic_dispatch_scheduler_one_shot_tick_dispatch_receipt_use_implementation_packet.implementation_policy.provider_start_allowed_by_packet'],
@@ -26398,7 +26398,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'adapter_invocation_allowed'],
                     ['false', 'token_spend_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickProviderStartDriverInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickProviderStartDriverInvoker.php'],
                     ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_implementation_packet.acceptance_criteria', 'provider_start_driver_invoker_creates_pre_start_guarded_run'],
                     ['true', 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_implementation_packet.implementation_policy.provider_start_driver_call_allowed_by_future_invoker'],
                     ['false', 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_start_driver_implementation_packet.implementation_policy.provider_external_process_start_allowed_by_packet'],
@@ -26485,7 +26485,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'provider_start_allowed'],
                     ['false', 'token_spend_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickAdapterInvocationBoundaryInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickAdapterInvocationBoundaryInvoker.php'],
                     ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_implementation_packet.acceptance_criteria', 'adapter_invocation_boundary_invoker_transitions_run_to_adapter_invocation_prepared'],
                     ['true', 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_implementation_packet.implementation_policy.adapter_invocation_boundary_call_allowed_by_future_invoker'],
                     ['false', 'agent_automatic_dispatch_scheduler_one_shot_tick_adapter_invocation_boundary_implementation_packet.implementation_policy.adapter_execution_allowed_by_packet'],
@@ -26572,7 +26572,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'provider_start_allowed'],
                     ['false', 'token_spend_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickProviderAdapterExecutionGuardInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickProviderAdapterExecutionGuardInvoker.php'],
                     ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_implementation_packet.acceptance_criteria', 'provider_adapter_execution_guard_invoker_blocks_provider_execution_without_starting_provider'],
                     ['true', 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_implementation_packet.implementation_policy.provider_adapter_execution_guard_call_allowed_by_future_invoker'],
                     ['false', 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_adapter_execution_guard_implementation_packet.implementation_policy.adapter_execution_allowed_by_packet'],
@@ -26660,7 +26660,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'provider_start_allowed'],
                     ['false', 'token_spend_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexProviderExecutionContractInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexProviderExecutionContractInvoker.php'],
                     ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_implementation_packet.acceptance_criteria', 'codex_provider_execution_contract_invoker_prepares_codex_execution_without_starting_codex'],
                     ['true', 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_implementation_packet.implementation_policy.codex_provider_execution_driver_call_allowed_by_future_invoker'],
                     ['false', 'agent_automatic_dispatch_scheduler_one_shot_tick_provider_specific_execution_contract_implementation_packet.implementation_policy.codex_process_start_allowed_by_packet'],
@@ -26747,7 +26747,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'provider_start_allowed'],
                     ['false', 'token_spend_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexProcessStartReleaseInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexProcessStartReleaseInvoker.php'],
                     ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_implementation_packet.acceptance_criteria', 'codex_process_start_release_invoker_authorizes_release_without_starting_codex'],
                     ['true', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_implementation_packet.implementation_policy.codex_process_start_release_gate_call_allowed_by_future_invoker'],
                     ['false', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_start_release_implementation_packet.implementation_policy.codex_process_start_allowed_by_packet'],
@@ -26834,7 +26834,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'provider_start_allowed'],
                     ['false', 'token_spend_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexSupervisedStartExecutorInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexSupervisedStartExecutorInvoker.php'],
                     ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_implementation_packet.acceptance_criteria', 'codex_supervised_start_invoker_prepares_without_starting_codex'],
                     ['true', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_implementation_packet.implementation_policy.codex_supervised_start_executor_call_allowed_by_future_invoker'],
                     ['false', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_supervised_start_executor_implementation_packet.implementation_policy.codex_process_spawn_allowed_by_packet'],
@@ -26921,7 +26921,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'provider_start_allowed'],
                     ['false', 'token_spend_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexProcessSpawnEnablementInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexProcessSpawnEnablementInvoker.php'],
                     ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_implementation_packet.acceptance_criteria', 'codex_process_spawn_enablement_invoker_records_without_starting_codex'],
                     ['true', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_implementation_packet.implementation_policy.codex_process_spawn_enablement_gate_call_allowed_by_future_invoker'],
                     ['false', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_spawn_enablement_implementation_packet.implementation_policy.codex_process_spawn_allowed_by_packet'],
@@ -27009,7 +27009,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'provider_start_allowed'],
                     ['false', 'token_spend_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexFinalProcessSpawnExecutorInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexFinalProcessSpawnExecutorInvoker.php'],
                     ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_implementation_packet.acceptance_criteria', 'codex_final_process_spawn_executor_invoker_prepares_without_starting_codex'],
                     ['true', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_implementation_packet.implementation_policy.codex_process_spawn_executor_call_allowed_by_future_invoker'],
                     ['false', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_final_process_spawn_executor_implementation_packet.implementation_policy.codex_external_process_runtime_allowed_by_packet'],
@@ -27097,7 +27097,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'provider_start_allowed'],
                     ['false', 'token_spend_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessRuntimeDriverInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessRuntimeDriverInvoker.php'],
                     ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_implementation_packet.acceptance_criteria', 'codex_external_process_runtime_driver_invoker_prepares_without_starting_codex'],
                     ['true', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_implementation_packet.implementation_policy.codex_external_process_runtime_driver_call_allowed_by_future_invoker'],
                     ['false', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_runtime_driver_implementation_packet.implementation_policy.codex_process_invocation_authorization_allowed_by_packet'],
@@ -27185,7 +27185,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'provider_start_allowed'],
                     ['false', 'token_spend_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_invocation_authorization_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_invocation_authorization_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexProcessInvocationAuthorizationInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_invocation_authorization_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexProcessInvocationAuthorizationInvoker.php'],
                     ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_invocation_authorization_implementation_packet.acceptance_criteria', 'codex_process_invocation_authorization_invoker_records_without_starting_codex'],
                     ['true', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_invocation_authorization_implementation_packet.implementation_policy.codex_process_invocation_authorization_gate_call_allowed_by_future_invoker'],
                     ['false', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_process_invocation_authorization_implementation_packet.implementation_policy.codex_external_process_invoker_dry_run_allowed_by_packet'],
@@ -27273,7 +27273,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'provider_start_allowed'],
                     ['false', 'token_spend_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_invoker_dry_run_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_invoker_dry_run_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessInvokerDryRunInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_invoker_dry_run_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexExternalProcessInvokerDryRunInvoker.php'],
                     ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_invoker_dry_run_implementation_packet.acceptance_criteria', 'codex_external_process_invoker_dry_run_invoker_prepares_without_starting_codex'],
                     ['true', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_invoker_dry_run_implementation_packet.implementation_policy.codex_external_process_invoker_dry_run_call_allowed_by_future_invoker'],
                     ['false', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_external_process_invoker_dry_run_implementation_packet.implementation_policy.codex_real_invoker_release_preflight_allowed_by_packet'],
@@ -27361,7 +27361,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'provider_start_allowed'],
                     ['false', 'token_spend_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_release_preflight_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_release_preflight_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerReleasePreflightInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_release_preflight_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerReleasePreflightInvoker.php'],
                     ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_release_preflight_implementation_packet.acceptance_criteria', 'codex_real_invoker_release_preflight_invoker_records_without_starting_codex'],
                     ['true', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_release_preflight_implementation_packet.implementation_policy.codex_real_invoker_release_preflight_call_allowed_by_future_invoker'],
                     ['false', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_release_preflight_implementation_packet.implementation_policy.codex_signed_real_invoker_release_gate_allowed_by_packet'],
@@ -27449,7 +27449,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'provider_start_allowed'],
                     ['false', 'token_spend_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_signed_real_invoker_release_gate_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_signed_real_invoker_release_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexSignedRealInvokerReleaseGateInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_signed_real_invoker_release_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexSignedRealInvokerReleaseGateInvoker.php'],
                     ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_signed_real_invoker_release_gate_implementation_packet.acceptance_criteria', 'codex_signed_real_invoker_release_gate_invoker_authorizes_without_starting_codex'],
                     ['true', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_signed_real_invoker_release_gate_implementation_packet.implementation_policy.codex_signed_real_invoker_release_gate_call_allowed_by_future_invoker'],
                     ['false', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_signed_real_invoker_release_gate_implementation_packet.implementation_policy.codex_real_invoker_implementation_boundary_allowed_by_packet'],
@@ -27537,7 +27537,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'provider_start_allowed'],
                     ['false', 'token_spend_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_implementation_boundary_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_implementation_boundary_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerImplementationBoundaryInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_implementation_boundary_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerImplementationBoundaryInvoker.php'],
                     ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_implementation_boundary_implementation_packet.acceptance_criteria', 'codex_real_invoker_implementation_boundary_invoker_prepares_without_starting_codex'],
                     ['true', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_implementation_boundary_implementation_packet.implementation_policy.codex_real_invoker_implementation_boundary_call_allowed_by_future_invoker'],
                     ['false', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_implementation_boundary_implementation_packet.implementation_policy.codex_real_invoker_executor_plan_allowed_by_packet'],
@@ -27600,7 +27600,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'process_start_armed'],
                     ['false', 'actual_process_start_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_guarded_process_start_executor_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_guarded_process_start_executor_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerGuardedProcessStartExecutorInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_guarded_process_start_executor_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerGuardedProcessStartExecutorInvoker.php'],
                     ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_guarded_process_start_executor_implementation_packet.acceptance_criteria', 'codex_real_invoker_guarded_process_start_executor_invoker_prepares_disabled_guarded_start_without_starting_codex'],
                     ['true', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_guarded_process_start_executor_implementation_packet.implementation_policy.codex_real_invoker_guarded_process_start_executor_call_allowed_by_future_invoker'],
                     ['false', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_guarded_process_start_executor_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'],
@@ -27660,7 +27660,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'final_process_start_authorized'],
                     ['false', 'actual_process_start_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_final_process_start_authorization_gate_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_final_process_start_authorization_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerFinalProcessStartAuthorizationGateInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_final_process_start_authorization_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerFinalProcessStartAuthorizationGateInvoker.php'],
                     ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_final_process_start_authorization_gate_implementation_packet.acceptance_criteria', 'codex_real_invoker_final_process_start_authorization_gate_invoker_records_authorization_without_starting_codex'],
                     ['true', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_final_process_start_authorization_gate_implementation_packet.implementation_policy.codex_real_invoker_final_process_start_authorization_gate_call_allowed_by_future_invoker'],
                     ['false', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_final_process_start_authorization_gate_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'],
@@ -27720,7 +27720,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'process_start_rehearsed'],
                     ['false', 'actual_process_start_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_actual_process_start_rehearsal_executor_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_actual_process_start_rehearsal_executor_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerActualProcessStartRehearsalExecutorInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_actual_process_start_rehearsal_executor_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerActualProcessStartRehearsalExecutorInvoker.php'],
                     ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_actual_process_start_rehearsal_executor_implementation_packet.acceptance_criteria', 'codex_real_invoker_actual_process_start_rehearsal_executor_invoker_records_rehearsal_without_starting_codex'],
                     ['true', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_actual_process_start_rehearsal_executor_implementation_packet.implementation_policy.codex_real_invoker_actual_process_start_rehearsal_executor_call_allowed_by_future_invoker'],
                     ['false', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_actual_process_start_rehearsal_executor_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'],
@@ -27780,7 +27780,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'start_envelope_ready'],
                     ['false', 'actual_process_start_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_start_envelope_builder_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_start_envelope_builder_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStartEnvelopeBuilderInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_start_envelope_builder_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStartEnvelopeBuilderInvoker.php'],
                     ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_start_envelope_builder_implementation_packet.acceptance_criteria', 'codex_real_invoker_process_start_envelope_builder_invoker_records_envelope_without_starting_codex'],
                     ['true', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_start_envelope_builder_implementation_packet.implementation_policy.codex_real_invoker_process_start_envelope_builder_call_allowed_by_future_invoker'],
                     ['false', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_start_envelope_builder_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'],
@@ -30462,7 +30462,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'dispatch_allowed'],
                     ['false', 'actual_process_start_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_start_execution_gate_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_start_execution_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerStartExecutionGateInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_start_execution_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerStartExecutionGateInvoker.php'],
                 ],
                 [['ensureAgentControlPlaneTables', []]],
             ],
@@ -30514,7 +30514,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'dispatch_allowed'],
                     ['false', 'actual_process_start_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_starter_readiness_gate_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_starter_readiness_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStarterReadinessGateInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_process_starter_readiness_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerProcessStarterReadinessGateInvoker.php'],
                 ],
                 [['ensureAgentControlPlaneTables', []]],
             ],
@@ -30566,7 +30566,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'dispatch_allowed'],
                     ['false', 'actual_process_start_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_manual_start_executor_receipt_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_manual_start_executor_receipt_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerManualStartExecutorReceiptInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_manual_start_executor_receipt_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerManualStartExecutorReceiptInvoker.php'],
                 ],
                 [['ensureAgentControlPlaneTables', []]],
             ],
@@ -30618,7 +30618,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'dispatch_allowed'],
                     ['false', 'actual_process_start_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_operator_start_handoff_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_operator_start_handoff_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerOperatorStartHandoffInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_operator_start_handoff_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerOperatorStartHandoffInvoker.php'],
                 ],
                 [['ensureAgentControlPlaneTables', []]],
             ],
@@ -30673,7 +30673,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'actual_process_start_allowed'],
                     ['false', 'external_process_evidence_acceptance_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_receipt_contract_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_receipt_contract_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartReceiptContractInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_receipt_contract_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartReceiptContractInvoker.php'],
                 ],
                 [['ensureAgentControlPlaneTables', []]],
             ],
@@ -30715,7 +30715,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'actual_process_start_allowed'],
                     ['false', 'external_process_evidence_acceptance_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_receipt_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_receipt_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartEvidenceReceiptInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_receipt_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartEvidenceReceiptInvoker.php'],
                 ],
                 [['ensureAgentControlPlaneTables', []]],
             ],
@@ -30757,7 +30757,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'actual_process_start_allowed'],
                     ['false', 'external_process_evidence_acceptance_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartEvidenceAcceptanceBridgeInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_evidence_acceptance_bridge_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartEvidenceAcceptanceBridgeInvoker.php'],
                 ],
                 [['ensureAgentControlPlaneTables', []]],
             ],
@@ -30799,7 +30799,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'actual_process_start_allowed'],
                     ['false', 'token_spend_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_liveness_monitor_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_liveness_monitor_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartLivenessMonitorInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_liveness_monitor_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartLivenessMonitorInvoker.php'],
                 ],
                 [['ensureAgentControlPlaneTables', []]],
             ],
@@ -30842,7 +30842,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'actual_process_start_allowed'],
                     ['false', 'token_spend_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_release_gate_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_release_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchReleaseGateInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_release_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchReleaseGateInvoker.php'],
                 ],
                 [['ensureAgentControlPlaneTables', []]],
             ],
@@ -30885,7 +30885,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'actual_process_start_allowed'],
                     ['false', 'token_spend_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSignedDispatchAuthorizationGateInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_dispatch_authorization_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSignedDispatchAuthorizationGateInvoker.php'],
                 ],
                 [['ensureAgentControlPlaneTables', []]],
             ],
@@ -30928,7 +30928,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'actual_process_start_allowed'],
                     ['false', 'token_spend_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchExecutorHandoffInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_executor_handoff_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchExecutorHandoffInvoker.php'],
                 ],
                 [['ensureAgentControlPlaneTables', []]],
             ],
@@ -30971,7 +30971,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'actual_process_start_allowed'],
                     ['false', 'token_spend_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchReceiptUseExecutorInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_dispatch_receipt_use_executor_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartDispatchReceiptUseExecutorInvoker.php'],
                 ],
                 [['ensureAgentControlPlaneTables', []]],
             ],
@@ -31023,7 +31023,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'adapter_execution_allowed'],
                     ['false', 'token_spend_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterExecutionGuardGateInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartAdapterExecutionGuardGateInvoker.php'],
                     ['false', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_adapter_execution_guard_gate_implementation_packet.implementation_policy.adapter_execution_allowed_by_packet'],
                 ],
                 [['ensureAgentControlPlaneProviderStartTables', []]],
@@ -31103,7 +31103,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'adapter_execution_allowed'],
                     ['false', 'token_spend_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGateInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProviderExecutionContractGateInvoker.php'],
                     ['false', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_provider_execution_contract_gate_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'],
                 ],
                 [['ensureAgentControlPlaneProviderStartTables', []]],
@@ -31183,7 +31183,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'adapter_execution_allowed'],
                     ['false', 'token_spend_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGateInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessStartReleaseGateInvoker.php'],
                     ['false', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_start_release_gate_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'],
                 ],
                 [['ensureAgentControlPlaneProviderStartTables', []]],
@@ -31264,7 +31264,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'adapter_execution_allowed'],
                     ['false', 'token_spend_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGateInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSupervisedStartExecutorGateInvoker.php'],
                     ['false', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_supervised_start_executor_gate_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'],
                 ],
                 [['ensureAgentControlPlaneProviderStartTables', []]],
@@ -31344,7 +31344,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'adapter_execution_allowed'],
                     ['false', 'token_spend_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessSpawnEnablementGateInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessSpawnEnablementGateInvoker.php'],
                     ['false', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_spawn_enablement_gate_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'],
                 ],
                 [['ensureAgentControlPlaneProviderStartTables', []]],
@@ -31402,7 +31402,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'adapter_execution_allowed'],
                     ['false', 'token_spend_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartFinalProcessSpawnExecutorGateInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartFinalProcessSpawnExecutorGateInvoker.php'],
                     ['false', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_final_process_spawn_executor_gate_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'],
                 ],
                 [['ensureAgentControlPlaneProviderStartTables', []]],
@@ -31460,7 +31460,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'adapter_execution_allowed'],
                     ['false', 'token_spend_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_runtime_gate_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_runtime_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExternalProcessRuntimeGateInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_runtime_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExternalProcessRuntimeGateInvoker.php'],
                     ['false', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_runtime_gate_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'],
                 ],
                 [['ensureAgentControlPlaneProviderStartTables', []]],
@@ -31540,7 +31540,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'adapter_execution_allowed'],
                     ['false', 'token_spend_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessInvocationAuthorizationGateInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartProcessInvocationAuthorizationGateInvoker.php'],
                     ['false', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_process_invocation_authorization_gate_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'],
                 ],
                 [['ensureAgentControlPlaneProviderStartTables', []]],
@@ -31620,7 +31620,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'adapter_execution_allowed'],
                     ['false', 'token_spend_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExternalProcessInvokerDryRunGateInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartExternalProcessInvokerDryRunGateInvoker.php'],
                     ['false', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_external_process_invoker_dry_run_gate_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'],
                 ],
                 [['ensureAgentControlPlaneProviderStartTables', []]],
@@ -31680,7 +31680,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'adapter_execution_allowed'],
                     ['false', 'token_spend_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartRealInvokerReleasePreflightGateInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartRealInvokerReleasePreflightGateInvoker.php'],
                     ['false', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_real_invoker_release_preflight_gate_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'],
                 ],
                 [['ensureAgentControlPlaneProviderStartTables', []]],
@@ -31740,7 +31740,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
                     ['false', 'adapter_execution_allowed'],
                     ['false', 'token_spend_allowed'],
                     ['same', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_implementation_packet.task_count', 4],
-                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSignedRealInvokerReleaseGateInvoker.php'],
+                    ['contains', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_implementation_packet.allowed_files', 'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSignedRealInvokerReleaseGateInvoker.php'],
                     ['false', 'agent_automatic_dispatch_scheduler_one_shot_tick_codex_real_invoker_post_start_signed_real_invoker_release_gate_implementation_packet.implementation_policy.actual_process_start_allowed_by_packet'],
                 ],
                 [['ensureAgentControlPlaneProviderStartTables', []]],

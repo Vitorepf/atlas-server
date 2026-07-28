@@ -209,7 +209,7 @@ final class ReadinessProjectionAgentAutomaticTailPart1Section
             'source_dispatch_receipt_use_preflight_status' => data_get($preflight, 'status'),
             'source_dispatch_receipt_use_preflight_hash' => $preflightHash,
             'allowed_files' => [
-                'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickDispatchReceiptUseInvoker.php',
+                'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickDispatchReceiptUseInvoker.php',
                 'tests/Feature/Ai/AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickDispatchReceiptUseInvokerTest.php',
                 'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
                 'app/Console/Commands/AtlasAiSelfConstructionCommand.php',
@@ -391,7 +391,7 @@ final class ReadinessProjectionAgentAutomaticTailPart1Section
             'source_provider_start_driver_preflight_status' => data_get($preflight, 'status'),
             'source_provider_start_driver_preflight_hash' => $preflightHash,
             'allowed_files' => [
-                'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickProviderStartDriverInvoker.php',
+                'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickProviderStartDriverInvoker.php',
                 'tests/Feature/Ai/AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickProviderStartDriverInvokerTest.php',
                 'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
                 'app/Console/Commands/AtlasAiSelfConstructionCommand.php',
@@ -659,7 +659,7 @@ final class ReadinessProjectionAgentAutomaticTailPart1Section
             'source_adapter_invocation_boundary_preflight_status' => data_get($preflight, 'status'),
             'source_adapter_invocation_boundary_preflight_hash' => $preflightHash,
             'allowed_files' => [
-                'app/Services/Ai/SelfConstruction/AgentAutomaticDispatchSchedulerOneShotTickAdapterInvocationBoundaryInvoker.php',
+                'app/Services/Ai/SelfConstruction/ControlPlane/AgentAutomaticDispatchSchedulerOneShotTickAdapterInvocationBoundaryInvoker.php',
                 'tests/Feature/Ai/AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickAdapterInvocationBoundaryInvokerTest.php',
                 'app/Services/Ai/SelfConstruction/AtlasSelfConstructionReadinessService.php',
                 'app/Console/Commands/AtlasAiSelfConstructionCommand.php',

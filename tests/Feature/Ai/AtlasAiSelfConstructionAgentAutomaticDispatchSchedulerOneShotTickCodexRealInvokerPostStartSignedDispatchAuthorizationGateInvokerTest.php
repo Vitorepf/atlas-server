@@ -3,6 +3,7 @@
 namespace Tests\Feature\Ai;
 
 use App\Models\AtlasSelfConstructionAgentRun;
+use Carbon\CarbonImmutable;
 use App\Services\Ai\SelfConstruction\ControlPlane\AgentAutomaticDispatchSchedulerOneShotTickCodexRealInvokerPostStartSignedDispatchAuthorizationGateInvoker;
 use InvalidArgumentException;
 use Tests\Concerns\CreatesSelfConstructionControlPlaneTables;
@@ -107,6 +108,7 @@ class AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickCodexReal
     {
         $this->makeAgentRun(array_merge([
             'run_key' => 'provider-start:attempt-001',
+            'reservation_id' => 'reservation-001',
             'status' => 'adapter_invocation_prepared',
             'summary' => 'Codex real invoker post-start dispatch release gate prepared; dispatch remains disabled pending signed authorization.',
             'metadata' => $this->metadataWithDispatchReleaseGate(),
@@ -177,6 +179,13 @@ class AtlasAiSelfConstructionAgentAutomaticDispatchSchedulerOneShotTickCodexReal
             'dispatch_replay_guard_hash' => str_repeat('d', 64),
             'dispatch_kill_switch_hash' => str_repeat('e', 64),
             'no_direct_provider_call_attestation_hash' => str_repeat('5', 64),
+            // A amarra da assinatura humana: task, lease, worker e escopo têm de
+            // bater com a linha do run, senão a assinatura vale para outra coisa.
+            'task_id' => 'AP-001',
+            'lease_id' => 'reservation-001',
+            'worker_id' => 'codex-a',
+            'allowed_scope_hash' => str_repeat('d', 64),
+            'signature_issued_at' => CarbonImmutable::now()->toIso8601String(),
             'actor' => 'codex-a',
             'session' => 'session-a',
             'reason' => 'record_signed_dispatch_authorization_without_dispatching_codex',
