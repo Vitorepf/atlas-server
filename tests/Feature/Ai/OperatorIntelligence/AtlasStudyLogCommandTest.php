@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\OperatorIntelligence;
 
 use App\Models\OperatorLearningSignal;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\Concerns\CreatesOperatorIntelligenceTables;
+use Tests\Concerns\CreatesStudyVocabularyTable;
 use Tests\TestCase;
 
 /**
@@ -28,11 +31,13 @@ use Tests\TestCase;
 final class AtlasStudyLogCommandTest extends TestCase
 {
     use CreatesOperatorIntelligenceTables;
+    use CreatesStudyVocabularyTable;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->createOperatorIntelligenceTables();
+        $this->createStudyVocabularyTable();
         config([
             'atlas_operator_intelligence.default_operator_id' => 'vitor',
             'atlas_operator_intelligence.shadow_mode' => true,
@@ -42,8 +47,95 @@ final class AtlasStudyLogCommandTest extends TestCase
 
     protected function tearDown(): void
     {
+        $this->dropStudyVocabularyTable();
         $this->dropOperatorIntelligenceTables();
         parent::tearDown();
+    }
+
+    private function verbete(string $termo, string $definicao, string $dominio = 'poker'): void
+    {
+        DB::table('atlas_study_vocabulary')->insert([
+            'id' => (string) Str::uuid(),
+            'domain' => $dominio,
+            'term' => $termo,
+            'term_normalized' => Str::lower(Str::ascii($termo)),
+            'definition' => $definicao,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
+    public function test_ancora_em_termo_inexistente_e_recusada(): void
+    {
+        $this->artisan('atlas:study:log', [
+            '--spot' => 'BTN vs BB',
+            '--decision' => 'call',
+            '--why' => 'o preco fecha contra a range dele',
+            '--term' => 'termo-que-ninguem-definiu',
+            '--json' => true,
+        ])->assertExitCode(1);
+
+        // Fail-closed de proposito. Uma ancora que aponta para nada e DECORACAO: o registro
+        // parece ligado ao vocabulario e nao esta, e a mentira so aparece meses depois,
+        // quando o operador procura "todo principio sobre X" e volta vazio.
+        $this->assertSame(0, OperatorLearningSignal::query()->count());
+    }
+
+    public function test_ancora_valida_viaja_no_sinal_ja_resolvida(): void
+    {
+        $this->verbete('C-bet', 'aposta de continuidade feita por quem agrediu na rodada anterior.');
+
+        $this->artisan('atlas:study:log', [
+            '--spot' => 'abri no CO, BB pagou, flop A72 rainbow',
+            '--decision' => 'aposta 33%',
+            '--why' => 'board seco favorece minha range, entao aposto pequeno com tudo',
+            '--term' => 'c-bet',
+            '--json' => true,
+        ])->assertExitCode(0);
+
+        $signal = OperatorLearningSignal::query()->firstOrFail();
+
+        $this->assertSame('C-bet', data_get($signal->metadata, 'vocabulary_term'));
+        $this->assertSame('c-bet', data_get($signal->metadata, 'vocabulary_term_normalized'));
+        $this->assertContains('term:C-bet', (array) $signal->evidence_refs);
+    }
+
+    public function test_ancora_resolve_por_caixa_e_acento(): void
+    {
+        $this->verbete('Mão', 'as cartas que o jogador segura.');
+
+        // O operador digita como lembra. As tres formas tem de achar o mesmo verbete,
+        // senao a busca "todo principio sobre X" depende de ortografia.
+        foreach (['mao', 'MÃO', 'Mao'] as $forma) {
+            OperatorLearningSignal::query()->delete();
+            $this->artisan('atlas:study:log', [
+                '--spot' => 'spot qualquer',
+                '--decision' => 'call',
+                '--why' => 'principio ancorado na forma '.$forma,
+                '--term' => $forma,
+                '--json' => true,
+            ])->assertExitCode(0);
+
+            $this->assertSame('mao', data_get(OperatorLearningSignal::query()->firstOrFail()->metadata, 'vocabulary_term_normalized'));
+        }
+    }
+
+    public function test_termo_de_outro_dominio_nao_ancora(): void
+    {
+        $this->verbete('Refactor', 'mudar a forma sem mudar o comportamento.', 'engenharia');
+
+        // O vocabulario e por dominio. Um termo de engenharia nao pode ancorar um
+        // principio de poquer so porque a palavra existe em algum lugar do banco.
+        $this->artisan('atlas:study:log', [
+            '--spot' => 'spot de poquer',
+            '--decision' => 'fold',
+            '--why' => 'principio qualquer',
+            '--term' => 'Refactor',
+            '--domain' => 'poker',
+            '--json' => true,
+        ])->assertExitCode(1);
+
+        $this->assertSame(0, OperatorLearningSignal::query()->count());
     }
 
     public function test_recusa_quando_falta_o_principio(): void

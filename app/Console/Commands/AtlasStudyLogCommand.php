@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Services\Ai\OperatorIntelligence\OperatorSignalCaptureService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 
 /**
  * A porta pela qual o operador declara as PRÓPRIAS palavras.
@@ -82,16 +83,52 @@ class AtlasStudyLogCommand extends Command
             return $this->recusa('missing_operator_tables', ['table' => 'operator_learning_signals']);
         }
 
+        $dominio = (string) $this->option('domain');
+        $termo = trim((string) ($this->option('term') ?: ''));
+        $verbete = null;
+
+        // ANCORA VERIFICADA. Ancorar num termo que ninguem definiu e decoracao: o registro
+        // parece ligado ao vocabulario e nao esta, e a mentira so aparece meses depois,
+        // quando o operador procura "todo principio sobre c-bet" e volta vazio.
+        //
+        // O campo `taxonomy_item_id` NAO serve para isto, e isso foi medido: ele pertence
+        // ao registro de 170 itens sobre QUEM O OPERADOR E, e `normalizeTaxonomy` descarta
+        // qualquer valor fora do formato SYS|OP|COL-NNN. Passar "ABI" ali devolvia
+        // `OP-071` — "Seu jeito preferido de receber resposta". A ancora de dominio viaja
+        // em metadata, onde e consultavel e onde nada a reescreve.
+        if ($termo !== '') {
+            if (! DatabaseTableAvailability::has('atlas_study_vocabulary')) {
+                return $this->recusa('missing_vocabulary_table', ['table' => 'atlas_study_vocabulary']);
+            }
+
+            $verbete = DB::table('atlas_study_vocabulary')
+                ->where('domain', $dominio)
+                ->where('term_normalized', AtlasStudyVocabCommand::normalizar($termo))
+                ->first();
+
+            if ($verbete === null) {
+                return $this->recusa('unknown_vocabulary_term', [
+                    'term' => $termo,
+                    'domain' => $dominio,
+                    'hint' => 'importe o corpus com `atlas:study:vocab --import=` ou procure o termo certo com `--search=`',
+                    'why_it_matters' => 'ancora nao verificada e decoracao: o principio parece ligado ao vocabulario e nao esta',
+                ]);
+            }
+        }
+
         $result = $capture->capture([
             'operator_id' => $this->option('operator') ?: null,
             'claim' => $why,
             'raw_excerpt' => $spot."\n".$decision."\n".$why,
-            'taxonomy_item_id' => (string) ($this->option('term') ?: ''),
             'signal_kind' => 'operator_decision',
             'source_type' => 'operator_declared',
             'scope_type' => 'domain',
-            'scope_id' => (string) $this->option('domain'),
-            'evidence_refs' => ['spot:'.$spot, 'decision:'.$decision],
+            'scope_id' => $dominio,
+            'evidence_refs' => array_values(array_filter([
+                'spot:'.$spot,
+                'decision:'.$decision,
+                $verbete !== null ? 'term:'.$verbete->term : null,
+            ])),
             // O eixo que separa sorte de princípio. `guess` entra baixo de propósito:
             // um palpite que acertou não deve pesar como regra do operador.
             'confidence' => $confidence === 'principled' ? 0.9 : 0.25,
@@ -103,13 +140,19 @@ class AtlasStudyLogCommand extends Command
                 'operator_text_declared' => true,
                 'commitment_before_outcome' => true,
                 'confidence_kind' => $confidence,
-                'study_domain' => (string) $this->option('domain'),
+                'study_domain' => $dominio,
+                // A ancora, ja resolvida contra o vocabulario. Guardar a forma NORMALIZADA
+                // e o que torna a volta possivel: o operador digita "C-Bet", "c-bet" ou
+                // "cbet" e as tres tem de achar o mesmo conjunto de principios.
+                'vocabulary_term' => $verbete?->term,
+                'vocabulary_term_normalized' => $verbete?->term_normalized,
             ],
         ]);
 
         return $this->responde(array_merge($result, [
             'schema_version' => 'atlas.study.log.v1',
             'confidence_kind' => $confidence,
+            'vocabulary_term' => $verbete?->term,
         ]));
     }
 
