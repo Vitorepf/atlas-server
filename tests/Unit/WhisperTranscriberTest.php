@@ -42,7 +42,7 @@ for arg in "$@"; do
   prev="$arg"
 done
 test "$(basename "$input")" = "audio.wav" || exit 4
-printf "texto transcrito\n" > "$out.txt"
+printf "esta gravacao de teste existe para provar que o audio foi normalizado antes de chamar o decodificador e nao para avaliar conteudo algum. o transcritor recebe um arquivo em outro formato converte para wav monofonico e so entao invoca o binario responsavel pela decodificacao. qualquer texto suficientemente longo serve aqui desde que atravesse o piso de palavras exigido pelo portao de qualidade textual.\n" > "$out.txt"
 SH);
 
         chmod($ffmpeg, 0755);
@@ -53,6 +53,14 @@ SH);
         config()->set('atlas.transcription.model_path', $model);
         config()->set('atlas.transcription.language', 'pt');
 
-        $this->assertSame('texto transcrito', app(WhisperTranscriber::class)->transcribe($input));
+        // O assunto deste teste e a NORMALIZACAO — provada pelo proprio stub, que sai
+        // com codigo 4 se o arquivo entregue nao for `audio.wav`. O conteudo do texto e
+        // incidental, mas precisa atravessar `TranscriptQualityGate::assess`, que exige
+        // 50 palavras. A fixture antiga tinha DUAS e ficou vermelha quando o portao
+        // entrou, cobrando deste teste uma coisa que nunca foi o assunto dele.
+        $saida = app(WhisperTranscriber::class)->transcribe($input);
+
+        $this->assertStringStartsWith('esta gravacao de teste existe', $saida);
+        $this->assertGreaterThanOrEqual(50, str_word_count($saida), 'a fixture tem de atravessar o piso do gate de texto');
     }
 }
