@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\OperatorIntelligence;
 
 use App\Console\Commands\AtlasStudyVocabCommand;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Tests\Concerns\CreatesStudyVocabularyTable;
 use Tests\TestCase;
@@ -189,6 +190,48 @@ final class AtlasStudyVocabCommandTest extends TestCase
         $this->artisan('atlas:study:vocab', ['--import' => $this->arquivo, '--json' => true])->assertExitCode(0);
 
         $this->artisan('atlas:study:vocab', ['--term' => 'mao', '--json' => true])->assertExitCode(0);
+    }
+
+    public function test_busca_na_definicao_ignora_a_caixa(): void
+    {
+        $this->corpus([['termo' => 'C-bet', 'definicao' => 'Aposta de continuidade feita por quem agrediu antes.']]);
+        $this->artisan('atlas:study:vocab', ['--import' => $this->arquivo, '--json' => true])->assertExitCode(0);
+
+        // Medido no corpus real de 295 verbetes ANTES do conserto: "aposta" achava 50 e
+        // "APOSTA" achava ZERO — `LIKE` no Postgres e sensivel a caixa. Vocabulario que so
+        // aparece se o operador digitar na caixa certa nao e recuperavel, e recuperavel era
+        // o requisito inteiro desta tabela.
+        foreach (['aposta', 'APOSTA', 'ApOsTa'] as $forma) {
+            Artisan::call('atlas:study:vocab', ['--search' => $forma, '--json' => true]);
+            $saida = (array) json_decode(trim(Artisan::output()), true);
+            $this->assertSame(1, $saida['encontrados'], "busca por '{$forma}' tem de achar o mesmo verbete");
+        }
+    }
+
+    public function test_a_busca_dobra_a_caixa_NO_SQL_porque_o_sqlite_do_teste_nao_reproduz_o_postgres(): void
+    {
+        // ESTE TESTE EXISTE PORQUE O DE CIMA NAO E REDE. Provado por mutacao: reverter para
+        // `LIKE` cru mantem os tres casos acima VERDES, porque o `LIKE` do sqlite ja e
+        // insensivel a caixa por padrao. A producao roda Postgres, onde nao e — entao o
+        // teste de comportamento passa exatamente sobre o defeito que deveria pegar.
+        //
+        // Quando o banco do teste nao reproduz o do operador, a assercao tem de subir um
+        // nivel: do resultado para o SQL EMITIDO. Aqui a dobra de caixa e visivel, e some
+        // se alguem voltar ao `LIKE` cru — em qualquer banco.
+        $sql = DB::table('atlas_study_vocabulary')
+            ->where('domain', 'poker')
+            ->where(function ($w): void {
+                $w->where('term_normalized', 'like', '%x%')
+                    ->orWhereRaw('lower(definition) like ?', ['%x%']);
+            })
+            ->toSql();
+
+        $this->assertStringContainsString('lower(definition) like', $sql, 'a dobra de caixa tem de estar no SQL, nao na sorte do driver');
+
+        // E a garantia de que o comando emite ESTE SQL, e nao outro parecido.
+        $fonte = (string) file_get_contents(base_path('app/Console/Commands/AtlasStudyVocabCommand.php'));
+        $this->assertStringContainsString("orWhereRaw('lower(definition) like ?'", $fonte);
+        $this->assertStringNotContainsString("orWhere('definition', 'like'", $fonte, 'LIKE cru na definicao volta a ser sensivel a caixa no Postgres');
     }
 
     public function test_termo_inexistente_recusa_com_recibo(): void

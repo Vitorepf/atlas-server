@@ -363,10 +363,16 @@ class AtlasStudyVocabCommand extends Command
         if ($query !== '') {
             // Busca pelo normalizado no termo: quem procura "mao" acha "Mão". A definicao
             // entra na busca porque o operador nem sempre sabe o NOME do conceito que quer.
+            //
+            // `lower()` dos DOIS lados na definicao porque `LIKE` no Postgres e sensivel a
+            // caixa — medido no corpus real: "aposta" achava 50 verbetes e "APOSTA" achava
+            // ZERO. Um vocabulario que so aparece se voce digitar na caixa certa nao e
+            // recuperavel, e recuperavel era o requisito inteiro desta tabela.
             $alvo = '%'.self::normalizar($query).'%';
-            $q->where(function ($w) use ($alvo, $query): void {
+            $alvoDefinicao = '%'.Str::lower($query).'%';
+            $q->where(function ($w) use ($alvo, $alvoDefinicao): void {
                 $w->where('term_normalized', 'like', $alvo)
-                    ->orWhere('definition', 'like', '%'.$query.'%');
+                    ->orWhereRaw('lower(definition) like ?', [$alvoDefinicao]);
             });
         }
 
