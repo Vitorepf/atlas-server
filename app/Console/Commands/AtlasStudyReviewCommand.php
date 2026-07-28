@@ -265,12 +265,69 @@ class AtlasStudyReviewCommand extends Command
     }
 
     /**
+     * A carta e a SUPERFICIE DE ENSINO — o operador vai LER isto enquanto estuda, nao
+     * parsear. JSON cru e certo para maquina e errado para quem esta tentando lembrar um
+     * principio: o spot fica espremido entre chaves, e o passo escondido — que e a
+     * pergunta — some no meio do resto.
+     *
+     * `--json` continua sendo o contrato de maquina, byte a byte igual ao de antes.
+     *
+     * @param  array<string,mixed>  $p
+     */
+    private function carta(array $p): void
+    {
+        $regua = str_repeat('─', 68);
+
+        $this->line('');
+        $this->line('  '.mb_strtoupper((string) $p['modo']).'   ·   estagio '.$p['estagio_dreyfus'].'/5   ·   entrega #'.$p['entrega_numero']);
+        $this->line('  '.$regua);
+        $this->line('');
+        $this->line('  '.wordwrap((string) $p['spot'], 64, "\n  "));
+        $this->line('');
+        $this->line('  '.$regua);
+
+        // Visiveis e escondidos INTERCALADOS na ordem dos passos. Listar os escondidos no
+        // fim faria a lacuna perder o lugar — e o lugar e a informacao: o operador precisa
+        // ver que falta o passo 3 ENTRE o conceito e a decisao, nao que "sobrou um 3".
+        $linhas = [];
+        foreach ((array) $p['passos_visiveis'] as $passo) {
+            $linhas[(int) $passo['step']] = wordwrap((string) $passo['action'], 62, "\n      ");
+        }
+        foreach ((array) $p['passos_escondidos'] as $n) {
+            // A lacuna aparece como LACUNA, nao como ausencia. Sumir por completo faria a
+            // carta parecer inteira, e ele nao saberia que ha algo a produzir.
+            $linhas[(int) $n] = (int) $n === 3
+                ? '████  ← o principio: reproduza antes de virar a carta'
+                : '████';
+        }
+        ksort($linhas);
+        foreach ($linhas as $n => $texto) {
+            $this->line('   '.$n.'. '.$texto);
+        }
+
+        $this->line('  '.$regua);
+        $this->line('');
+        $this->line('  '.$p['pergunta']);
+        if (($p['aviso'] ?? null) !== null) {
+            $this->line('  ⚠  '.$p['aviso']);
+        }
+        $this->line('');
+        $this->line('  quando responder:  '.$p['como_julgar']);
+        $this->line('');
+    }
+
+    /**
      * @param  array<string,mixed>  $payload
      */
     private function responde(array $payload): int
     {
-        $flags = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | ($this->option('json') ? 0 : JSON_PRETTY_PRINT);
-        $this->line((string) json_encode($payload, $flags));
+        if ($this->option('json')) {
+            $this->line((string) json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        } elseif (($payload['ok'] ?? false) === true && isset($payload['passos_visiveis'])) {
+            $this->carta($payload);
+        } else {
+            $this->line((string) json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT));
+        }
 
         return ($payload['ok'] ?? false) === true ? self::SUCCESS : self::FAILURE;
     }
