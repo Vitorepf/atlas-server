@@ -62,7 +62,39 @@ class AtlasTestsDoublesCommand extends Command
             ['rg', '-l', '-P', self::PADRAO_DUBLE, 'tests/', '--no-ignore'],
             base_path(), null, null, 120.0
         );
-        $busca->run();
+        try {
+            $busca->run();
+        } catch (\Throwable $e) {
+            // `rg` ausente do PATH e o modo de falha mais provavel de um job agendado: o
+            // ambiente do scheduler nao e o do terminal. Sem este ramo, "binario nao
+            // encontrado" e "repo limpo" produziriam a MESMA saida, e o operador iria
+            // procurar dublê quebrado onde o problema e PATH.
+            return $this->responde([
+                'ok' => false,
+                'reason' => 'busca_indisponivel',
+                'erro' => $e->getMessage(),
+                'hint' => 'o gate depende de `rg` no PATH — no scheduler o ambiente nao e o do terminal',
+                'segundos' => round(microtime(true) - $inicio, 1),
+            ]);
+        }
+
+        // `rg` sai com 1 quando nao acha nada (normal) e com 2 em erro de uso/regex. 127 e
+        // "binario nao encontrado" — o Process NAO lanca nesse caso, devolve o codigo, e
+        // por isso o ramo de excecao acima sozinho nao bastava (medido: a mutacao que tira
+        // o `rg` do PATH cai AQUI, nao la).
+        $codigo = $busca->getExitCode();
+        if ($codigo !== null && $codigo > 1) {
+            return $this->responde([
+                'ok' => false,
+                'reason' => $codigo === 127 ? 'busca_indisponivel' : 'busca_falhou',
+                'exit_code' => $codigo,
+                'erro' => trim($busca->getErrorOutput()),
+                'hint' => $codigo === 127
+                    ? 'o gate depende de `rg` no PATH — no scheduler o ambiente nao e o do terminal'
+                    : 'o padrao de busca foi recusado pelo rg',
+                'segundos' => round(microtime(true) - $inicio, 1),
+            ]);
+        }
 
         $arquivos = array_values(array_filter(
             preg_split('/\R/', trim($busca->getOutput())) ?: [],
@@ -75,7 +107,7 @@ class AtlasTestsDoublesCommand extends Command
             return $this->responde([
                 'ok' => false,
                 'reason' => 'nenhum duble encontrado',
-                'hint' => 'a busca falhou ou o padrao quebrou — zero dublês num repo que tem ~100 nao e "limpo", e cego',
+                'hint' => 'o padrao de busca provavelmente quebrou — zero dublês num repo que tem ~100 nao e "limpo", e cego',
                 'segundos' => round(microtime(true) - $inicio, 1),
             ]);
         }
