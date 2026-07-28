@@ -166,6 +166,59 @@ final class CicloDeAprendizadoIntegrationTest extends TestCase
         $this->assertSame($noDaCarta, $noDoTermo, 'o planejador e o laco de revisao tem de cair no MESMO no');
     }
 
+    public function test_o_mesmo_ciclo_roda_em_engenharia_sem_uma_linha_de_codigo_de_poquer(): void
+    {
+        // O poquer e o TESTE DE ACEITE da obra, nao o escopo dela. Se alguma peca do ciclo
+        // soubesse de poquer, o Atlas teria construido um app de poquer em vez de um orgao
+        // de aprendizado — e cada dominio novo (venture builder, cyber, trading) exigiria
+        // reescrever tudo. `domain` e o unico eixo, e ele ja e o `scope_id` do sinal.
+        $corpus = tempnam(sys_get_temp_dir(), 'vocab').'.json';
+        file_put_contents($corpus, json_encode([
+            ['termo' => 'Mutação', 'definicao' => 'reintroduzir o defeito para provar que o teste o pega.'],
+        ], JSON_UNESCAPED_UNICODE));
+
+        $this->rodar('atlas:study:vocab', ['--import' => $corpus, '--domain' => 'engenharia']);
+        @unlink($corpus);
+
+        $primeira = $this->rodar('atlas:study:log', [
+            '--spot' => 'escrevi um teste que passou de primeira',
+            '--decision' => 'reintroduzi o bug antes de commitar',
+            '--why' => 'teste que passa com o bug de volta nao e rede',
+            '--term' => 'mutacao',
+            '--domain' => 'engenharia',
+        ]);
+        $this->assertTrue($primeira['ok']);
+        $this->assertSame('Mutação', $primeira['vocabulary_term'], 'a ancora resolve sem acento em qualquer dominio');
+
+        $this->assertSame(1, $this->rodar('atlas:study:example', ['--domain' => 'engenharia'])['exemplos_criados']);
+
+        // E a separacao por dominio continua valendo: o corpus de poquer nao ve isto.
+        $this->assertSame(0, $this->rodar('atlas:study:example', ['--domain' => 'poker'])['exemplos_criados']);
+
+        $entrega = $this->rodar('atlas:study:review', ['--domain' => 'engenharia']);
+        $this->assertSame('recall', $entrega['modo']);
+
+        $this->rodar('atlas:study:log', [
+            '--spot' => 'outro teste, outro modulo, tambem passou de primeira',
+            '--decision' => 'mutei antes de confiar',
+            '--why' => 'mesmo principio aplicado a um caso que nunca vi',
+            '--term' => 'Mutação',
+            '--domain' => 'engenharia',
+        ]);
+
+        $transfer = $this->rodar('atlas:study:review', ['--domain' => 'engenharia', '--force' => true]);
+        $this->assertSame('transfer', $transfer['modo']);
+
+        $promocao = $this->rodar('atlas:study:review', [
+            '--grade' => (string) $transfer['worked_example_id'], '--mode' => 'transfer', '--correct' => true,
+        ]);
+        $this->assertTrue($promocao['promoveu']);
+
+        $painel = $this->rodar('atlas:study:status', ['--domain' => 'engenharia']);
+        $this->assertSame(1, $painel['placar_de_aprendizado']['transferencias']);
+        $this->assertEquals(1.0, $painel["placar_de_aprendizado"]["taxa_de_dominio"]);
+    }
+
     public function test_ancora_falsa_para_o_ciclo_no_primeiro_elo(): void
     {
         // Sem verbete importado, a decisao ancorada e RECUSADA — e nada a jusante existe.

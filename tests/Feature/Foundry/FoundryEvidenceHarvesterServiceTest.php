@@ -43,7 +43,7 @@ final class FoundryEvidenceHarvesterServiceTest extends TestCase
         {
             public function __construct() {}
 
-            public function eventsForScope(string $scopeType, string $scopeId, int $limit = 100): array
+            public function eventsForScope(string $scopeType, string $scopeId, int $limit = 100, ?string $tenantId = null): array
             {
                 throw new RuntimeException('eventsForScope must not be called when ledger injected');
             }
