@@ -56,16 +56,41 @@ final class OperatorLearningClassifySupport
         return 'operator_preference';
     }
 
+    /**
+     * Dobra acento para ASCII — sem isso o termo acentuado nunca casa a lista.
+     */
+    private static function semAcento(string $texto): string
+    {
+        return strtr($texto, [
+            "\u{e1}" => 'a', "\u{e0}" => 'a', "\u{e3}" => 'a', "\u{e2}" => 'a', "\u{e4}" => 'a',
+            "\u{e9}" => 'e', "\u{ea}" => 'e', "\u{e8}" => 'e', "\u{eb}" => 'e',
+            "\u{ed}" => 'i', "\u{ee}" => 'i', "\u{ec}" => 'i', "\u{ef}" => 'i',
+            "\u{f3}" => 'o', "\u{f5}" => 'o', "\u{f4}" => 'o', "\u{f2}" => 'o', "\u{f6}" => 'o',
+            "\u{fa}" => 'u', "\u{fb}" => 'u', "\u{f9}" => 'u', "\u{fc}" => 'u',
+            "\u{e7}" => 'c', "\u{f1}" => 'n',
+        ]);
+    }
+
     public static function inferPrivacy(string $claim): string
     {
-        $lower = Str::lower($claim);
+        // `str_contains` sem fronteira de palavra fazia `rg` (o documento) casar dentro
+        // de "larga", "carga", "energia", "margem", "target" — e a consequencia nao e
+        // rotulo errado, e DESTRUICAO: privacidade `sensitive` dispara `redactIfSensitive`,
+        // que troca o texto duravel por um hash. Todo principio em portugues com essas
+        // tres letras perdia o conteudo no banco. Medido: "range larga", "a carga do
+        // argumento", "margem de erro" -> todos `sensitive`. `key` casava em "monkey".
+        //
+        // E havia o erro espelhado, invisivel: sem dobrar acento, "saude" com acento NAO
+        // casava a lista — falso negativo justo no termo que ela existe para pegar.
+        // Um lado apagava o que devia guardar; o outro guardava o que devia proteger.
+        $lower = self::semAcento(Str::lower($claim));
         foreach (['senha', 'token', 'secret', 'key', 'credential', 'credencial'] as $needle) {
-            if (str_contains($lower, $needle)) {
+            if (preg_match('/\\b'.preg_quote($needle, '/').'\\b/u', $lower) === 1) {
                 return 'secret';
             }
         }
         foreach (['saude', 'familia', 'relacionamento', 'dinheiro', 'documento', 'cpf', 'rg'] as $needle) {
-            if (str_contains($lower, $needle)) {
+            if (preg_match('/\\b'.preg_quote($needle, '/').'\\b/u', $lower) === 1) {
                 return 'sensitive';
             }
         }
