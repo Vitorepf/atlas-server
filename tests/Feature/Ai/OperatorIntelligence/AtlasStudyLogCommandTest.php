@@ -65,6 +65,73 @@ final class AtlasStudyLogCommandTest extends TestCase
         ]);
     }
 
+    /** @param list<array<string,string>> $linhas */
+    private function arquivoDeLote(array $linhas): string
+    {
+        $caminho = tempnam(sys_get_temp_dir(), 'lote').'.json';
+        file_put_contents($caminho, json_encode($linhas, JSON_UNESCAPED_UNICODE));
+
+        return $caminho;
+    }
+
+    public function test_lote_grava_todas_as_decisoes_validas(): void
+    {
+        $this->verbete('C-bet', 'aposta de continuidade.');
+        $arquivo = $this->arquivoDeLote([
+            ['spot' => 'CO abre, flop A72', 'decision' => 'aposta 33%', 'why' => 'board seco favorece minha range', 'term' => 'C-bet'],
+            ['spot' => 'BTN abre, flop K83', 'decision' => 'aposta 33%', 'why' => 'mesmo raciocinio de vantagem', 'term' => 'c-BET'],
+            ['spot' => 'SB completa, flop 962', 'decision' => 'check', 'why' => 'range dele conecta melhor', 'confidence' => 'guess'],
+        ]);
+
+        $this->artisan('atlas:study:log', ['--import' => $arquivo, '--json' => true])->assertExitCode(0);
+        @unlink($arquivo);
+
+        $this->assertSame(3, OperatorLearningSignal::query()->count());
+        // O lote nao afrouxa nada: a ancora continua resolvida, inclusive na outra caixa.
+        $this->assertSame(2, OperatorLearningSignal::query()->get()
+            ->filter(fn ($s): bool => data_get($s->metadata, 'vocabulary_term') === 'C-bet')->count());
+    }
+
+    public function test_lote_usa_as_MESMAS_guardas_e_nao_uma_porta_mais_frouxa(): void
+    {
+        $arquivo = $this->arquivoDeLote([
+            ['spot' => 'spot bom', 'decision' => 'call', 'why' => 'principio valido'],
+            ['spot' => 'sem principio', 'decision' => 'fold'],
+            ['spot' => 'x', 'decision' => 'y', 'why' => 'z', 'confidence' => 'talvez'],
+            ['spot' => 'a', 'decision' => 'b', 'why' => 'c', 'term' => 'termo-inexistente'],
+        ]);
+
+        $this->artisan('atlas:study:log', ['--import' => $arquivo, '--json' => true])->assertExitCode(1);
+        @unlink($arquivo);
+
+        // Toda vez que a validacao e duplicada para um atalho, e o atalho que vira a porta
+        // de entrada do dado ruim. Aqui o lote passa pelo mesmo `registrar()`.
+        $this->assertSame(1, OperatorLearningSignal::query()->count(), 'so a linha valida entra');
+    }
+
+    public function test_lote_com_recusa_devolve_falha_em_vez_de_engolir(): void
+    {
+        $arquivo = $this->arquivoDeLote([
+            ['spot' => 'bom', 'decision' => 'call', 'why' => 'principio'],
+            ['spot' => 'ruim', 'decision' => 'fold'],
+        ]);
+
+        // Exit 0 aqui seria a mentira mais cara do lote: o operador acha que registrou 20
+        // maos e registrou 17, e so descobre semanas depois, procurando o que nao existe.
+        $this->artisan('atlas:study:log', ['--import' => $arquivo, '--json' => true])->assertExitCode(1);
+        @unlink($arquivo);
+
+        $this->assertSame(1, OperatorLearningSignal::query()->count());
+    }
+
+    public function test_arquivo_inexistente_recusa_sem_gravar_nada(): void
+    {
+        $this->artisan('atlas:study:log', ['--import' => '/tmp/nao-existe-'.uniqid().'.json', '--json' => true])
+            ->assertExitCode(1);
+
+        $this->assertSame(0, OperatorLearningSignal::query()->count());
+    }
+
     public function test_ancora_em_termo_inexistente_e_recusada(): void
     {
         $this->artisan('atlas:study:log', [

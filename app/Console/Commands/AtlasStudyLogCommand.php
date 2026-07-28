@@ -43,6 +43,7 @@ class AtlasStudyLogCommand extends Command
         {--term= : Termo do vocabulário que ancora (ex.: um verbete do Dicionário)}
         {--domain=poker : Domínio de estudo}
         {--operator= : Id do operador}
+        {--import= : Caminho de um JSON [{spot,decision,why,confidence?,term?}] para registrar em lote}
         {--dry-run : Mostra o que seria gravado, sem gravar}
         {--json : Saída canônica}';
 
@@ -50,10 +51,36 @@ class AtlasStudyLogCommand extends Command
 
     public function handle(OperatorSignalCaptureService $capture): int
     {
-        $spot = trim((string) $this->option('spot'));
-        $decision = trim((string) $this->option('decision'));
-        $why = trim((string) $this->option('why'));
-        $confidence = trim((string) $this->option('confidence')) ?: 'principled';
+        if ($this->option('import')) {
+            return $this->importar($capture, (string) $this->option('import'));
+        }
+
+        $resultado = $this->registrar($capture, [
+            'spot' => $this->option('spot'),
+            'decision' => $this->option('decision'),
+            'why' => $this->option('why'),
+            'confidence' => $this->option('confidence'),
+            'term' => $this->option('term'),
+        ]);
+
+        return $this->responde($resultado);
+    }
+
+    /**
+     * Registra UMA decisao. Unico lugar onde as regras vivem — o lote passa por aqui
+     * tambem, entao nao ha um segundo conjunto de guardas mais frouxo para o caminho
+     * "conveniente". Toda vez que a validacao e duplicada para um atalho, e o atalho que
+     * vira a porta de entrada do dado ruim.
+     *
+     * @param  array<string,mixed>  $entrada
+     * @return array<string,mixed>
+     */
+    private function registrar(OperatorSignalCaptureService $capture, array $entrada): array
+    {
+        $spot = trim((string) ($entrada['spot'] ?? ''));
+        $decision = trim((string) ($entrada['decision'] ?? ''));
+        $why = trim((string) ($entrada['why'] ?? ''));
+        $confidence = trim((string) ($entrada['confidence'] ?? '')) ?: 'principled';
 
         // Fail-closed nos três que carregam o aprendizado. `--term` é opcional porque
         // nem todo princípio tem verbete; os outros três não têm substituto: sem spot
@@ -84,7 +111,7 @@ class AtlasStudyLogCommand extends Command
         }
 
         $dominio = (string) $this->option('domain');
-        $termo = trim((string) ($this->option('term') ?: ''));
+        $termo = trim((string) ($entrada['term'] ?? ''));
         $verbete = null;
 
         // ANCORA VERIFICADA. Ancorar num termo que ninguem definiu e decoracao: o registro
@@ -149,21 +176,75 @@ class AtlasStudyLogCommand extends Command
             ],
         ]);
 
-        return $this->responde(array_merge($result, [
+        return array_merge($result, [
             'schema_version' => 'atlas.study.log.v1',
             'confidence_kind' => $confidence,
             'vocabulary_term' => $verbete?->term,
-        ]));
+        ]);
+    }
+
+    /**
+     * Lote. O atrito de uma chamada de terminal por mao e o que mata o habito: quem joga
+     * 40 SNGs nao para 40 vezes para digitar um comando. Aqui ele escreve as maos que
+     * HESITOU num arquivo e registra tudo de uma vez.
+     *
+     * Cada linha passa pelo MESMO `registrar()`, com as mesmas guardas. Uma linha ruim
+     * nao derruba o lote nem contamina as boas: ela e recusada com o indice e o motivo,
+     * e o comando so devolve sucesso se TODAS entraram. Lote que engole recusa e pior que
+     * lote nenhum — o operador acha que registrou 20 e registrou 17.
+     */
+    private function importar(OperatorSignalCaptureService $capture, string $caminho): int
+    {
+        if (! is_file($caminho)) {
+            return $this->responde($this->recusa('file_not_found', ['path' => $caminho]));
+        }
+
+        $linhas = json_decode((string) file_get_contents($caminho), true);
+        if (! is_array($linhas)) {
+            return $this->responde($this->recusa('invalid_json', ['path' => $caminho]));
+        }
+
+        $gravados = 0;
+        $recusados = [];
+
+        foreach (array_values($linhas) as $i => $linha) {
+            if (! is_array($linha)) {
+                $recusados[] = ['linha' => $i, 'reason' => 'not_an_object'];
+
+                continue;
+            }
+
+            $resultado = $this->registrar($capture, $linha);
+            if (($resultado['ok'] ?? false) === true) {
+                $gravados++;
+
+                continue;
+            }
+
+            $recusados[] = array_merge(
+                ['linha' => $i, 'spot' => mb_strimwidth((string) ($linha['spot'] ?? ''), 0, 60, '…')],
+                array_intersect_key($resultado, array_flip(['reason', 'missing', 'term', 'given']))
+            );
+        }
+
+        return $this->responde([
+            'ok' => $recusados === [],
+            'dry_run' => (bool) $this->option('dry-run'),
+            'lidos' => count($linhas),
+            'gravados' => $gravados,
+            'recusados' => count($recusados),
+            'detalhe_das_recusas' => $recusados,
+            'hint' => $recusados === [] ? null : 'corrija as linhas recusadas e reimporte — as gravadas nao serao duplicadas se voce remover as ja aceitas',
+        ]);
     }
 
     /**
      * @param  array<string,mixed>  $extra
+     * @return array<string,mixed>
      */
-    private function recusa(string $reason, array $extra = []): int
+    private function recusa(string $reason, array $extra = []): array
     {
-        $this->responde(array_merge(['ok' => false, 'reason' => $reason], $extra));
-
-        return self::FAILURE;
+        return array_merge(['ok' => false, 'reason' => $reason], $extra);
     }
 
     /**
