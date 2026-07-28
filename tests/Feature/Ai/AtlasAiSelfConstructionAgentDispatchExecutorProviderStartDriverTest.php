@@ -339,7 +339,7 @@ class AtlasAiSelfConstructionAgentDispatchExecutorProviderStartDriverTest extend
     private function dropTables(): void
     {
         Schema::dropIfExists('atlas_self_construction_agent_sandbox_bindings');
-        Schema::dropIfExists('atlas_self_construction_agent_dispatch_executor_release_authorizations');
+        Schema::dropIfExists('atlas_self_construction_agent_dispatch_authorizations');
         Schema::dropIfExists('atlas_self_construction_agent_dispatch_receipts');
         Schema::dropIfExists('atlas_self_construction_agent_wakeup_items');
         Schema::dropIfExists('atlas_self_construction_agent_work_products');

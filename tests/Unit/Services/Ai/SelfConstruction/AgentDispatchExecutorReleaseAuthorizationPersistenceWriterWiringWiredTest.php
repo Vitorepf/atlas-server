@@ -46,7 +46,7 @@ class AgentDispatchExecutorReleaseAuthorizationPersistenceWriterWiringWiredTest 
         $this->assertSame('persisted', $result['release_authorization_result']['status']);
         $this->assertTrue($result['release_authorization_result']['created']);
 
-        $this->assertDatabaseHas('atlas_self_construction_agent_dispatch_executor_release_authorizations', [
+        $this->assertDatabaseHas('atlas_self_construction_agent_dispatch_authorizations', [
             'authorization_key' => 'release-auth-key-001',
             'decision' => 'approve_release_once',
         ]);
@@ -61,7 +61,7 @@ class AgentDispatchExecutorReleaseAuthorizationPersistenceWriterWiringWiredTest 
 
         $this->assertFalse($result['release_authorization_persisted']);
         $this->assertNull($result['release_authorization_result']);
-        $this->assertDatabaseCount('atlas_self_construction_agent_dispatch_executor_release_authorizations', 0);
+        $this->assertDatabaseCount('atlas_self_construction_agent_dispatch_authorizations', 0);
     }
 
     /** @return array<string,mixed> */
@@ -198,7 +198,7 @@ class AgentDispatchExecutorReleaseAuthorizationPersistenceWriterWiringWiredTest 
 
     private function dropTables(): void
     {
-        Schema::dropIfExists('atlas_self_construction_agent_dispatch_executor_release_authorizations');
+        Schema::dropIfExists('atlas_self_construction_agent_dispatch_authorizations');
         Schema::dropIfExists('atlas_self_construction_agent_wakeup_items');
         Schema::dropIfExists('atlas_self_construction_agent_work_products');
         Schema::dropIfExists('atlas_self_construction_agent_cost_events');

@@ -611,7 +611,7 @@ public function agentCodexRealInvokerPostStartProviderStartDriverGatePreflight(a
         $driverReady = class_exists(AgentDispatchExecutorProviderStartDriver::class);
         $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
         $dispatchReceiptsTableReady = Schema::hasTable('atlas_self_construction_agent_dispatch_receipts');
-        $releaseAuthorizationsTableReady = Schema::hasTable('atlas_self_construction_agent_dispatch_executor_release_authorizations');
+        $releaseAuthorizationsTableReady = Schema::hasTable('atlas_self_construction_agent_dispatch_authorizations');
         $sandboxBindingsTableReady = Schema::hasTable('atlas_self_construction_agent_sandbox_bindings');
         $heartbeatsTableReady = Schema::hasTable('atlas_self_construction_agent_heartbeats');
         $ledgerReady = Schema::hasTable('atlas_ledger_events');

@@ -13,7 +13,7 @@ use InvalidArgumentException;
 
 class AgentDispatchExecutorReleaseAuthorizationPersistenceWriter
 {
-    private const AUTHORIZATIONS_TABLE = 'atlas_self_construction_agent_dispatch_executor_release_authorizations';
+    private const AUTHORIZATIONS_TABLE = 'atlas_self_construction_agent_dispatch_authorizations';
 
     private const LEDGER_TABLE = 'atlas_ledger_events';
 

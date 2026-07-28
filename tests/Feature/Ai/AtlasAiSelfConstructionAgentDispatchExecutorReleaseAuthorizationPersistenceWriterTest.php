@@ -15,7 +15,7 @@ class AtlasAiSelfConstructionAgentDispatchExecutorReleaseAuthorizationPersistenc
     {
         parent::setUp();
 
-        Schema::dropIfExists('atlas_self_construction_agent_dispatch_executor_release_authorizations');
+        Schema::dropIfExists('atlas_self_construction_agent_dispatch_authorizations');
         Schema::dropIfExists('atlas_ledger_events');
 
         (require database_path('migrations/2026_05_05_020000_create_atlas_ledger_events_table.php'))->up();
@@ -24,7 +24,7 @@ class AtlasAiSelfConstructionAgentDispatchExecutorReleaseAuthorizationPersistenc
 
     protected function tearDown(): void
     {
-        Schema::dropIfExists('atlas_self_construction_agent_dispatch_executor_release_authorizations');
+        Schema::dropIfExists('atlas_self_construction_agent_dispatch_authorizations');
         Schema::dropIfExists('atlas_ledger_events');
 
         parent::tearDown();
@@ -40,7 +40,7 @@ class AtlasAiSelfConstructionAgentDispatchExecutorReleaseAuthorizationPersistenc
         $this->assertFalse($result['dispatch_allowed']);
         $this->assertFalse($result['receipt_use_mark_allowed']);
 
-        $this->assertDatabaseHas('atlas_self_construction_agent_dispatch_executor_release_authorizations', [
+        $this->assertDatabaseHas('atlas_self_construction_agent_dispatch_authorizations', [
             'authorization_key' => 'AUTH-001',
             'decision' => 'approve_release_once',
             'status' => 'persisted_pending_executor_release',
@@ -63,7 +63,7 @@ class AtlasAiSelfConstructionAgentDispatchExecutorReleaseAuthorizationPersistenc
         $this->assertTrue($first['created']);
         $this->assertFalse($second['created']);
         $this->assertSame($first['authorization_id'], $second['authorization_id']);
-        $this->assertDatabaseCount('atlas_self_construction_agent_dispatch_executor_release_authorizations', 1);
+        $this->assertDatabaseCount('atlas_self_construction_agent_dispatch_authorizations', 1);
         $this->assertDatabaseCount('atlas_ledger_events', 1);
     }
 
@@ -127,7 +127,7 @@ class AtlasAiSelfConstructionAgentDispatchExecutorReleaseAuthorizationPersistenc
 
             $this->fail('Expected ledger write failure.');
         } catch (\Throwable) {
-            $this->assertDatabaseCount('atlas_self_construction_agent_dispatch_executor_release_authorizations', 0);
+            $this->assertDatabaseCount('atlas_self_construction_agent_dispatch_authorizations', 0);
         }
     }
 

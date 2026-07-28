@@ -9,6 +9,15 @@ class AtlasSelfConstructionAgentDispatchExecutorReleaseAuthorization extends Mod
 {
     use HasUuids;
 
+    /**
+     * Explícito porque o derivado do nome da classe tem 70 caracteres, e o
+     * Postgres corta identificador em 63 — EM SILÊNCIO, sem aviso nem erro. O
+     * resultado era este model consultando uma tabela que não existe: toda
+     * query dele batia em `..._release_authorizations`, enquanto o disco tinha
+     * `..._release_authori`. Nunca escreveu, nunca leu, nunca reclamou.
+     */
+    protected $table = 'atlas_self_construction_agent_dispatch_authorizations';
+
     protected $fillable = [
         'authorization_key',
         'receipt_key',

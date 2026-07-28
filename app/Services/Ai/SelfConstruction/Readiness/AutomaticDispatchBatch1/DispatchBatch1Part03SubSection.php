@@ -892,7 +892,7 @@ final class DispatchBatch1Part03SubSection
     {
         $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
         $dispatchReceiptsTableReady = Schema::hasTable('atlas_self_construction_agent_dispatch_receipts');
-        $releaseAuthorizationsTableReady = Schema::hasTable('atlas_self_construction_agent_dispatch_executor_release_authorizations');
+        $releaseAuthorizationsTableReady = Schema::hasTable('atlas_self_construction_agent_dispatch_authorizations');
         $sandboxBindingsTableReady = Schema::hasTable('atlas_self_construction_agent_sandbox_bindings');
         $heartbeatsTableReady = Schema::hasTable('atlas_self_construction_agent_heartbeats');
         $ledgerTableReady = Schema::hasTable('atlas_ledger_events');

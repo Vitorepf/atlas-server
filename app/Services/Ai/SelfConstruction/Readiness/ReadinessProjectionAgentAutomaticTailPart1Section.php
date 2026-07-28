@@ -293,7 +293,7 @@ final class ReadinessProjectionAgentAutomaticTailPart1Section
         $driverReady = class_exists(AgentDispatchExecutorProviderStartDriver::class)
             && method_exists(AgentDispatchExecutorProviderStartDriver::class, 'startProviderOnce');
         $dispatchReceiptTableReady = Schema::hasTable('atlas_self_construction_agent_dispatch_receipts');
-        $releaseAuthorizationTableReady = Schema::hasTable('atlas_self_construction_agent_dispatch_executor_release_authorizations');
+        $releaseAuthorizationTableReady = Schema::hasTable('atlas_self_construction_agent_dispatch_authorizations');
         $sandboxBindingTableReady = Schema::hasTable('atlas_self_construction_agent_sandbox_bindings');
         $runsTableReady = Schema::hasTable('atlas_self_construction_agent_runs');
         $heartbeatsTableReady = Schema::hasTable('atlas_self_construction_agent_heartbeats');

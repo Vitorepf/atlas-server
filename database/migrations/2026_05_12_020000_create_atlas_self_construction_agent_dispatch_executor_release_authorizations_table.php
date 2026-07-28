@@ -8,11 +8,11 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (Schema::hasTable('atlas_self_construction_agent_dispatch_executor_release_authorizations')) {
+        if (Schema::hasTable('atlas_self_construction_agent_dispatch_authorizations')) {
             return;
         }
 
-        Schema::create('atlas_self_construction_agent_dispatch_executor_release_authorizations', function (Blueprint $table): void {
+        Schema::create('atlas_self_construction_agent_dispatch_authorizations', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->string('authorization_key', 180)->unique('idx_release_auth_authorization_key_unique');
             $table->string('receipt_key', 180)->index('idx_release_auth_receipt_key');
@@ -43,6 +43,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('atlas_self_construction_agent_dispatch_executor_release_authorizations');
+        Schema::dropIfExists('atlas_self_construction_agent_dispatch_authorizations');
     }
 };

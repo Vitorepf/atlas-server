@@ -51,7 +51,7 @@ final class DispatchProviderPart04SubSection
             'provider_role' => data_get($preflight, 'provider_role'),
             'packet_id' => data_get($preflight, 'packet_id'),
             'persistence_target' => [
-                'table' => 'atlas_self_construction_agent_dispatch_executor_release_authorizations',
+                'table' => 'atlas_self_construction_agent_dispatch_authorizations',
                 'record_key_column' => 'authorization_key',
                 'idempotency_column' => 'signed_receipt_hash',
                 'status_column' => 'status',
@@ -297,7 +297,7 @@ final class DispatchProviderPart04SubSection
             'implementation_files_allowed_future' => [
                 'app/Services/Ai/SelfConstruction/AgentDispatchExecutorReleaseAuthorizationPersistenceWriter.php',
                 'app/Models/AtlasSelfConstructionAgentDispatchExecutorReleaseAuthorization.php',
-                'database/migrations/*_create_atlas_self_construction_agent_dispatch_executor_release_authorizations_table.php',
+                'database/migrations/*_create_atlas_self_construction_agent_dispatch_authorizations_table.php',
                 'tests/Feature/Ai/AtlasAiSelfConstructionAgentDispatchExecutorReleaseAuthorizationPersistenceWriterTest.php',
             ],
             'contract_policy' => [
@@ -436,7 +436,7 @@ final class DispatchProviderPart04SubSection
                 'id' => 'T1',
                 'title' => 'Create executor release authorization persistence migration',
                 'type' => 'migration',
-                'allowed_files' => ['database/migrations/*_create_atlas_self_construction_agent_dispatch_executor_release_authorizations_table.php'],
+                'allowed_files' => ['database/migrations/*_create_atlas_self_construction_agent_dispatch_authorizations_table.php'],
                 'acceptance' => 'Table contains authorization key, receipt links, signer metadata, hashes, payload, status, timestamps and unique idempotency indexes.',
             ],
             [
@@ -546,7 +546,7 @@ final class DispatchProviderPart04SubSection
     {
         $authorizationModel = AtlasSelfConstructionAgentDispatchExecutorReleaseAuthorization::class;
         $writerService = AgentDispatchExecutorReleaseAuthorizationPersistenceWriter::class;
-        $authorizationTable = 'atlas_self_construction_agent_dispatch_executor_release_authorizations';
+        $authorizationTable = 'atlas_self_construction_agent_dispatch_authorizations';
         $receiptHash = strtolower(trim((string) ($options['receipt_hash'] ?? '')));
         $receiptHashIsValid = preg_match('/^[a-f0-9]{64}$/', $receiptHash) === 1;
 

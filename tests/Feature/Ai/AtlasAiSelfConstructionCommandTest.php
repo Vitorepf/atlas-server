@@ -16773,7 +16773,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
         $this->assertFalse(data_get($payload, 'dispatch_allowed'));
         $this->assertFalse(data_get($payload, 'ledger_write_allowed'));
         $this->assertFalse(data_get($payload, 'runtime_write_allowed'));
-        $this->assertSame('atlas_self_construction_agent_dispatch_executor_release_authorizations', data_get($payload, 'dispatch_executor_release_authorization_persistence_template.persistence_target.table'));
+        $this->assertSame('atlas_self_construction_agent_dispatch_authorizations', data_get($payload, 'dispatch_executor_release_authorization_persistence_template.persistence_target.table'));
         $this->assertContains('unique_signed_receipt_hash', data_get($payload, 'dispatch_executor_release_authorization_persistence_template.required_atomic_guards'));
         $this->assertFalse(data_get($payload, 'dispatch_executor_release_authorization_persistence_template.persistence_policy.authorization_persistence_allowed_here'));
         $this->assertContains('agent_dispatch_executor_release_authorization_persistence_template_does_not_write_ledger', data_get($payload, 'non_execution_guarantees'));
@@ -21512,7 +21512,7 @@ class AtlasAiSelfConstructionCommandTest extends TestCase
     {
         $this->ensureAgentControlPlaneTables();
 
-        if (! Schema::hasTable('atlas_self_construction_agent_dispatch_executor_release_authorizations')) {
+        if (! Schema::hasTable('atlas_self_construction_agent_dispatch_authorizations')) {
             (require database_path('migrations/2026_05_12_020000_create_atlas_self_construction_agent_dispatch_executor_release_authorizations_table.php'))->up();
         }
 

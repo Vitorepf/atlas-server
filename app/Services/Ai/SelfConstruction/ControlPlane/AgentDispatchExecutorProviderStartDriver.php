@@ -34,7 +34,7 @@ class AgentDispatchExecutorProviderStartDriver
      */
     private const REQUIRED_TABLES = [
         'atlas_self_construction_agent_dispatch_receipts',
-        'atlas_self_construction_agent_dispatch_executor_release_authorizations',
+        'atlas_self_construction_agent_dispatch_authorizations',
         'atlas_self_construction_agent_sandbox_bindings',
         'atlas_self_construction_agent_runs',
         'atlas_self_construction_agent_heartbeats',
