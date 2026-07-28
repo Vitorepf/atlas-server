@@ -62,6 +62,31 @@ class DreyfusOverlayRepository
      * @param  array<int,string>  $evidenceRefs
      * @return array<string,mixed>
      */
+    /**
+     * Quando o conceito volta. Era `$level >= 4 ? 30 : 14` — uma curva PLANA nos tres
+     * primeiros estagios: um conceito que o operador acabou de ERRAR voltava no mesmo
+     * prazo de um que ele quase domina.
+     *
+     * Isso inverte o proprio ponto da repeticao espacada. O intervalo tem de acompanhar
+     * o dominio: curto onde a memoria ainda cai (e onde a revisao rende mais), longo onde
+     * ela ja segura (e onde revisar cedo so gasta o tempo do operador). Catorze dias sobre
+     * um conceito recem-errado nao e revisao, e reapresentacao — ele chega la sem nada
+     * para lembrar, e o sistema mede esquecimento em vez de retencao.
+     *
+     * A curva expande por estagio, e o estagio ja desce sozinho quando ele erra: errar
+     * puxa o conceito para tras E o traz de volta antes, com uma mudanca so.
+     */
+    public static function intervaloDeRevisao(int $level): int
+    {
+        return match (max(1, min(5, $level))) {
+            1 => 1,
+            2 => 3,
+            3 => 7,
+            4 => 21,
+            default => 45,
+        };
+    }
+
     public function upsert(
         string $knowledgeNodeId,
         string $domain,
@@ -97,7 +122,7 @@ class DreyfusOverlayRepository
                 'evidence_refs' => json_encode(array_values(array_unique($evidenceRefs)), JSON_THROW_ON_ERROR),
                 'last_updated_via' => $lastUpdatedVia,
                 'last_validated_at' => $now,
-                'next_validation_at' => $now->copy()->addDays($level >= 4 ? 30 : 14),
+                'next_validation_at' => $now->copy()->addDays(self::intervaloDeRevisao($level)),
                 'updated_at' => $now,
                 'created_at' => $exists ? null : $now,
             ], fn (mixed $value): bool => $value !== null)
