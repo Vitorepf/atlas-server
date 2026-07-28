@@ -83,13 +83,22 @@ class OperatorLearningRuntimeCaptureService
             // Não é silêncio inventado: é recusa a atribuir ao operador um texto
             // que ninguém disse ser dele. O recibo torna a lacuna CONTÁVEL, para
             // a superfície que falta aparecer como número e não como sumiço.
-            return [
+            //
+            // O recibo era MONTADO e devolvido, e ninguém o gravava: `attachReceipt` só
+            // era chamado no caminho de sucesso, e o único caller
+            // (`AiGatewayService::captureOperatorLearningFromTrace`) descarta o retorno.
+            // A lacuna que este bloco existe para tornar contável não aparecia em lugar
+            // nenhum — nem no trace, nem no contador de falhas, que só conta `failed`.
+            // Uma recusa que não deixa marca é indistinguível de uma captura que nunca
+            // foi tentada, e é justamente a diferença entre "falta a superfície" e
+            // "está tudo bem".
+            return $this->comRecibo($trace, [
                 'schema_version' => 'atlas.operator_learning_runtime_capture.v1',
                 'status' => 'skipped',
                 'reason' => 'operator_text_not_declared',
                 'trace_id' => (string) $trace->id,
                 'source_type' => (string) $trace->source_type,
-            ];
+            ]);
         }
         $input = $declared;
         $availability = $this->runtimeCaptureAvailability($trace, $options);
@@ -101,16 +110,20 @@ class OperatorLearningRuntimeCaptureService
                     'missing_tables' => $availability['missing_tables'],
                 ]);
 
-                return [
+                return $this->comRecibo($trace, [
                     'schema_version' => 'atlas.operator_learning_runtime_capture.v1',
                     'status' => 'failed',
                     'reason' => 'missing_operator_tables',
                     'trace_id' => (string) $trace->id,
                     'missing_tables' => $availability['missing_tables'],
                     'failure_count' => $failureCount,
-                ];
+                ]);
             }
 
+            // Sem recibo de propósito: `chat_capture_disabled` e o gate de source type
+            // não são LACUNA, são "este trace nunca foi candidato". Marcar todo trace de
+            // agente/sistema encheria a metadata da maioria absoluta das interações com
+            // um aviso que não descreve defeito nenhum.
             return null;
         }
 
@@ -270,6 +283,33 @@ class OperatorLearningRuntimeCaptureService
     private function receipt(array $result): array
     {
         return OperatorLearningRuntimeCaptureSupport::receipt($result);
+    }
+
+    /**
+     * Grava o recibo no trace e o devolve. Existe para que uma recusa deixe MARCA no
+     * mesmo lugar onde a captura bem-sucedida deixa — o caller descarta o retorno, entao
+     * o valor devolvido nunca foi observabilidade de verdade.
+     *
+     * Nunca deixa a recusa virar exceção: se o próprio trace não puder ser atualizado, o
+     * recibo ainda volta. Perder a marca é ruim; derrubar a interação do operador por
+     * causa da marca seria pior.
+     *
+     * @param  array<string,mixed>  $receipt
+     * @return array<string,mixed>
+     */
+    private function comRecibo(AiTrace $trace, array $receipt): array
+    {
+        try {
+            $this->attachReceipt($trace, $receipt);
+        } catch (\Throwable $e) {
+            Log::warning('operator_learning_receipt_attach_failed', [
+                'trace_id' => (string) $trace->id,
+                'reason' => $receipt['reason'] ?? null,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return $receipt;
     }
 
     /**
