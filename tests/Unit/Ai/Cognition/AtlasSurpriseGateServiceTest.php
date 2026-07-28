@@ -92,8 +92,18 @@ final class AtlasSurpriseGateServiceTest extends TestCase
             ['text' => 'ATLAS-LEARNING: mitochondria powerhouse ribosome flagellum biology://cell'],
         ];
 
+        // `newInstanceWithoutConstructor()` pulava o construtor para alcancar o metodo
+        // privado `distil()`. Funcionava enquanto `distil()` nao tocasse dependencia
+        // injetada — e parou de funcionar quando ele passou a chamar
+        // `$this->injectionBoundaryClassifier` (linha 490 do service). O erro era
+        // "Typed property ... must not be accessed before initialization": o teste
+        // quebrou por causa da PROPRIA tecnica, nao do comportamento sob teste.
+        //
+        // O container resolve as quatro dependencias, entao nao ha motivo para burlar o
+        // construtor. A reflexao fica so no que ela e mesmo necessaria: alcancar o metodo
+        // privado.
+        $svc = app(AtlasOpenBrainSessionCaptureService::class);
         $ref = new ReflectionClass(AtlasOpenBrainSessionCaptureService::class);
-        $svc = $ref->newInstanceWithoutConstructor();
         $distil = $ref->getMethod('distil');
         $distil->setAccessible(true);
         /** @var array{prediction:string,learnings:list<array{summary:string,claim:string}>} $d */
