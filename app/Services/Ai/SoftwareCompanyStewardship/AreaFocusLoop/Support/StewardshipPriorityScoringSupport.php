@@ -379,7 +379,10 @@ final class StewardshipPriorityScoringSupport
             str_contains($value, 'scheduler') || str_contains($value, '24h') => '24h_scheduler',
             str_contains($value, 'product_mode') || str_contains($value, 'controls') || str_contains($value, 'receipt') => 'product_mode_controls',
             str_contains($value, 'provider') => 'provider_routing',
-            str_contains($value, 'ui') || str_contains($value, 'cosmetic') => 'ui_cosmetic',
+            // `ui` com fronteira: sem ela qualquer valor com "build", "requirements" ou
+            // portugues comum era rebaixado a `ui_cosmetic` — a categoria de MENOR
+            // prioridade. O acidente de substring despriorizava trabalho real.
+            preg_match('/\bui\b/u', $value) === 1 || str_contains($value, 'cosmetic') => 'ui_cosmetic',
             isset(self::TYPE_BASELINES[$value]) => $value,
             default => 'gap',
         };

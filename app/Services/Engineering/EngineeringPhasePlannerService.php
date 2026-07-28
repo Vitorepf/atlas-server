@@ -126,13 +126,24 @@ class EngineeringPhasePlannerService
             ->all();
     }
 
+    /**
+     * `ui` PRECISA de fronteira de palavra. Sem ela, o criterio de aceite em portugues
+     * casa por acidente em aqui · muito · construir · seguir · cuidado · requisito ·
+     * gratuito · circuito — medido: 8 de 9 frases realistas casavam, e a unica que era
+     * MESMO de interface ("ajustar a tela de login") nao casava. O classificador estava
+     * invertido na pratica.
+     *
+     * E o custo aqui e maior que um rotulo errado: `manual_qa` num sistema com zero humano
+     * no loop significa NUNCA VERIFICADO. O acidente de substring convertia criterio
+     * testavel em criterio que ninguem confere, em silencio.
+     */
     private function verificationMethod(string $text): string
     {
         $text = mb_strtolower($text);
 
         return match (true) {
             str_contains($text, 'migration') || str_contains($text, 'postgres') || str_contains($text, 'schema') => 'database_review',
-            str_contains($text, 'ui') || str_contains($text, 'tela') || str_contains($text, 'visual') || str_contains($text, 'screenshot') => 'manual_qa',
+            preg_match('/\bui\b/u', $text) === 1 || str_contains($text, 'tela') || str_contains($text, 'visual') || str_contains($text, 'screenshot') => 'manual_qa',
             default => 'test',
         };
     }

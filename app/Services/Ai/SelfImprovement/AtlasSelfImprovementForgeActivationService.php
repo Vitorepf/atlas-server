@@ -589,7 +589,7 @@ class AtlasSelfImprovementForgeActivationService
             str_contains($needle, 'rivals') || str_contains($needle, 'evaluation') => AtlasSelfImprovementStrategyPortfolioService::BUCKET_RIVALS_EVALUATION,
             str_contains($needle, 'self_construction') || str_contains($needle, 'self-construction') => AtlasSelfImprovementStrategyPortfolioService::BUCKET_SELF_CONSTRUCTION,
             str_contains($needle, 'provider') => AtlasSelfImprovementStrategyPortfolioService::BUCKET_PROVIDER_INTELLIGENCE,
-            str_contains($needle, 'cockpit') || str_contains($needle, 'operator') || str_contains($needle, 'ux') => AtlasSelfImprovementStrategyPortfolioService::BUCKET_OPERATOR_EXPERIENCE,
+            str_contains($needle, 'cockpit') || str_contains($needle, 'operator') || preg_match('/\bux\b/u', $needle) === 1 => AtlasSelfImprovementStrategyPortfolioService::BUCKET_OPERATOR_EXPERIENCE,
             str_contains($needle, 'reliability') || str_contains($needle, 'enterprise') => AtlasSelfImprovementStrategyPortfolioService::BUCKET_ENTERPRISE_RELIABILITY,
             str_contains($needle, 'doc') || str_contains($needle, 'lint') || str_contains($needle, 'typo') => AtlasSelfImprovementStrategyPortfolioService::BUCKET_QUICK_WINS,
             default => AtlasSelfImprovementStrategyPortfolioService::BUCKET_CORE_RUNTIME,

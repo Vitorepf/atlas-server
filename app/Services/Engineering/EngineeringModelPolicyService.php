@@ -319,7 +319,13 @@ class EngineeringModelPolicyService
         return match (true) {
             str_contains($haystack, 'critical') || str_contains($haystack, 'p0') || str_contains($haystack, 'pagamento') || str_contains($haystack, 'payment') || str_contains($haystack, 'security') || str_contains($haystack, 'migration') => 'critical',
             str_contains($haystack, 'database') || str_contains($haystack, 'auth') || str_contains($haystack, 'infra') || str_contains($haystack, 'release') || $task->priority === 'high' => 'high',
-            str_contains($haystack, 'ui') || str_contains($haystack, 'frontend') || str_contains($haystack, 'api') => 'medium',
+            // `ui` e `api` com fronteira de palavra. O haystack aqui e JSON de titulo,
+            // descricao, contrato e blueprint — e portanto carrega tanto portugues quanto
+            // NOMES DE CHAVE. Sem fronteira, 'ui' casa em "requirements", "build" e
+            // "guidelines"; 'api' casa em "rapida" e "capital". Como quase todo contrato
+            // tem alguma dessas, o tier ficava preso em `medium` por acidente lexico, e o
+            // ramo `low` era efetivamente inalcancavel.
+            preg_match('/\bui\b/u', $haystack) === 1 || str_contains($haystack, 'frontend') || preg_match('/\bapi\b/u', $haystack) === 1 => 'medium',
             default => 'low',
         };
     }

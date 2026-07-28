@@ -65,11 +65,29 @@ final class StewardshipPriorityScoringSupportTest extends TestCase
             'Host must import StewardshipPriorityScoringSupport',
         );
 
+        // A assercao antiga exigia os QUATRO metodos no host. Tres deles — band, listValue,
+        // files — migraram para `StewardshipPriorityBacklogMaterializationSupport` numa
+        // SEGUNDA extracao, e o teste nao acompanhou: ficou vermelho cobrando do host uma
+        // chamada que passou a viver ao lado.
+        //
+        // O invariante que ele existe para proteger nao e "o host chama X", e "a extracao
+        // nao deixou metodo ORFAO". Amarrar a prova a um caminho fixo transforma toda
+        // reorganizacao legitima em falha — e teste que reprova por motivo errado vira
+        // ruido de fundo, que e o que esconde a falha de verdade.
+        $this->assertStringContainsString(
+            'StewardshipPriorityScoringSupport::scoreItem',
+            $hostSrc,
+            'O host continua sendo quem pontua — se isto sair, a extracao virou mudanca de comportamento',
+        );
+
+        $modulo = glob($root.'/app/Services/Ai/SoftwareCompanyStewardship/AreaFocusLoop/{,Support/}*.php', GLOB_BRACE) ?: [];
+        $fonteDoModulo = implode("\n", array_map(static fn (string $f): string => (string) file_get_contents($f), $modulo));
+
         foreach (['scoreItem', 'band', 'listValue', 'files'] as $method) {
             $this->assertStringContainsString(
                 'StewardshipPriorityScoringSupport::'.$method,
-                $hostSrc,
-                "Host must call Support::{$method}",
+                $fonteDoModulo,
+                "Support::{$method} ficou sem chamador em todo o modulo — a extracao orfanou o metodo",
             );
         }
 

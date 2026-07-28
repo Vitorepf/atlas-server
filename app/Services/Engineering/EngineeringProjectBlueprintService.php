@@ -341,7 +341,11 @@ class EngineeringProjectBlueprintService
         $text = mb_strtolower($project->title.' '.$project->description.' '.$project->goal.' '.$project->desired_outcome);
 
         return [
-            'screens' => str_contains($text, 'app') || str_contains($text, 'ui') || str_contains($text, 'tela') ? [[
+            // `ui` com fronteira: sem ela, "construir", "requisito" ou "muito" no texto do
+            // projeto fabricavam uma tela que ninguem pediu, e o blueprint saia com
+            // superficie inventada. `app` fica por substring de proposito — "aplicativo"
+            // e "app" sao o mesmo pedido.
+            'screens' => str_contains($text, 'app') || preg_match('/\bui\b/u', $text) === 1 || str_contains($text, 'tela') ? [[
                 'id' => 'screen_project_engineering',
                 'name' => 'Fluxo operacional de engenharia',
                 'route' => '/projects',

@@ -98,8 +98,10 @@ class AtlasProductTruthCompilerService
             $kind === 'bug' && $this->isSecuritySensitive($lower) => ['tdd', 'bdd', 'security_driven', 'risk_driven'],
             $kind === 'bug' => ['tdd', 'bdd', 'risk_driven'],
             in_array($kind, ['product', 'company'], true) => ['ddd', 'atdd', 'cdd', 'add', 'fdd', 'security_driven'],
-            str_contains($lower, 'api') || str_contains($lower, 'webhook') || str_contains($lower, 'integr') => ['cdd', 'api_first', 'tdd', 'observability_driven'],
-            str_contains($lower, 'tela') || str_contains($lower, 'ux') || str_contains($lower, 'mobile') => ['ux_driven', 'pdd', 'atdd', 'bdd'],
+            // `api` com fronteira: casava dentro de "rapida" e "capital", e uma frase
+            // como "resposta rapida" passava a exigir disciplina de api_first.
+            preg_match('/\bapi\b/u', $lower) === 1 || str_contains($lower, 'webhook') || str_contains($lower, 'integr') => ['cdd', 'api_first', 'tdd', 'observability_driven'],
+            str_contains($lower, 'tela') || preg_match('/\bux\b/u', $lower) === 1 || str_contains($lower, 'mobile') => ['ux_driven', 'pdd', 'atdd', 'bdd'],
             str_contains($lower, 'banco') || str_contains($lower, 'schema') || str_contains($lower, 'sync') => ['dbdd', 'data_driven', 'tdd', 'observability_driven'],
             str_contains($lower, 'performance') || str_contains($lower, 'lento') || str_contains($lower, 'index') => ['performance_driven', 'observability_driven', 'add', 'tdd'],
             default => ['atdd', 'tdd', 'risk_driven'],
@@ -184,7 +186,7 @@ class AtlasProductTruthCompilerService
     private function contractMap(string $lower, array $intent): array
     {
         $needsContract = in_array((string) $intent['kind'], ['product', 'company', 'automation'], true)
-            || str_contains($lower, 'api')
+            || preg_match('/\bapi\b/u', $lower) === 1
             || str_contains($lower, 'webhook')
             || str_contains($lower, 'integr');
 

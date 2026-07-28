@@ -35,7 +35,10 @@ final class ForgeSpecialistWorkcellRouterService
             $route = 'repair_debug';
         } elseif (str_contains($text, 'doc') || str_contains($text, 'cartografia')) {
             $route = 'documentation';
-        } elseif (str_contains($text, 'frontend') || str_contains($text, 'mobile') || str_contains($text, 'ui')) {
+        // `ui` com fronteira de palavra: sem ela, "construir", "requisito", "muito" e
+            // "seguir" mandavam a task para o especialista de superficie. O texto de task
+            // neste repo e portugues, entao o desvio era a regra, nao a excecao.
+        } elseif (str_contains($text, 'frontend') || str_contains($text, 'mobile') || preg_match('/\bui\b/u', $text) === 1) {
             $route = 'surface_ui';
         } elseif (str_contains($text, 'security') || str_contains($text, 'segur')) {
             $route = 'security_review';
