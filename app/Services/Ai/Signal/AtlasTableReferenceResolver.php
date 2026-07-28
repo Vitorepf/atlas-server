@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Signal;
 
+use Illuminate\Database\Eloquent\Model;
+use ReflectionClass;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -89,6 +91,16 @@ final class AtlasTableReferenceResolver
             $hits[$table][$file] = true;
         }
 
+        // O dono invisível para uma busca de texto: um Model do Eloquent SEM
+        // `$table` deriva o nome da classe, então a string nunca aparece em
+        // arquivo nenhum. Das 21 tabelas que a busca dava como sem dono, 15
+        // tinham exatamente isso — endereço existia, o instrumento é que não
+        // alcançava. Perguntar ao próprio Laravel é exato; adivinhar a
+        // pluralização a partir do nome do arquivo não seria.
+        foreach ($this->modelOwners($tables) as $table => $file) {
+            $hits[$table][$file] = true;
+        }
+
         $references = [];
         $migrationOnly = [];
         $unreferenced = [];
@@ -115,6 +127,39 @@ final class AtlasTableReferenceResolver
             'migration_only' => $migrationOnly,
             'unreferenced' => $unreferenced,
         ];
+    }
+
+    /**
+     * table => arquivo do Model que a resolve, perguntando ao Eloquent.
+     *
+     * @param  list<string>  $tables
+     * @return array<string,string>
+     */
+    private function modelOwners(array $tables): array
+    {
+        $wanted = array_flip($tables);
+        $owners = [];
+
+        foreach (glob(app_path('Models/*.php')) ?: [] as $file) {
+            $class = 'App\\Models\\'.basename($file, '.php');
+            if (! class_exists($class)) {
+                continue;
+            }
+            try {
+                $reflection = new ReflectionClass($class);
+                if ($reflection->isAbstract() || ! $reflection->isSubclassOf(Model::class)) {
+                    continue;
+                }
+                $table = (new $class)->getTable();
+            } catch (Throwable) {
+                continue;
+            }
+            if (isset($wanted[$table]) && ! isset($owners[$table])) {
+                $owners[$table] = 'app/Models/'.basename($file);
+            }
+        }
+
+        return $owners;
     }
 
     /**

@@ -97,6 +97,29 @@ final class AtlasTableReferenceResolverTest extends TestCase
         self::assertSame(['jobs'], $out['unreferenced']);
     }
 
+    public function test_a_model_owns_its_table_even_when_the_name_appears_nowhere(): void
+    {
+        // O dono invisível para uma busca de texto: um Model sem `$table` deriva
+        // o nome da classe, então a string não existe em arquivo nenhum. Era o
+        // caso de 15 das 21 tabelas que a busca dava como órfãs — o endereço
+        // existia, o instrumento é que não alcançava.
+        $out = (new AtlasTableReferenceResolver)->resolve(['atlas_plans']);
+
+        self::assertContains('app/Models/AtlasPlan.php', $out['references']['atlas_plans'] ?? []);
+        self::assertNotContains('atlas_plans', $out['unreferenced']);
+
+        // E o Eloquent é PERGUNTADO, não imitado. `AtlasToolPolicy` resolve
+        // `atlas_tool_policies`; uma pluralização caseira daria `..._policys` e o
+        // dono sumiria. O repo tem 8 modelos assim — e quem declara `$table`
+        // explícito é achado pela busca de texto de qualquer jeito, então é o
+        // plural irregular que separa perguntar de adivinhar.
+        $irregular = (new AtlasTableReferenceResolver)->resolve(['atlas_tool_policies']);
+        self::assertContains(
+            'app/Models/AtlasToolPolicy.php',
+            $irregular['references']['atlas_tool_policies'] ?? [],
+        );
+    }
+
     public function test_a_name_that_is_not_an_identifier_never_reaches_the_search(): void
     {
         // Um "nome" com metacaracteres viraria regex arbitrária dentro do rg, e o
