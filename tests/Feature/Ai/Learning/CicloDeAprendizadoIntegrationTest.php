@@ -124,6 +124,48 @@ final class CicloDeAprendizadoIntegrationTest extends TestCase
         $this->assertNotNull($promocao['proxima_revisao'], 'a repeticao espacada ganha relogio');
     }
 
+    public function test_o_estagio_provado_no_review_e_lido_pelo_planejador_que_ja_existia(): void
+    {
+        // `atlas:study <topic>` (anterior a esta obra) resolve o estagio Dreyfus por
+        // `nodeIdForTopic($topic)` = sha1 do topico. `atlas:study:example` cria a carta com
+        // `topic: <termo do vocabulario>`, e `atlas:study:review` escreve o overlay nesse
+        // mesmo no. Ou seja: os dois compoem, sem que nenhum saiba do outro.
+        //
+        // A costura inteira e uma STRING virando hash. Trocar o topico usado na criacao da
+        // carta — de "C-bet" para o dominio, por exemplo — desligaria a composicao em
+        // silencio: os dois comandos continuariam funcionando, cada um sobre um no
+        // diferente, e o operador veria estagio 1 no planejador depois de ter provado
+        // transferencia no review.
+        $corpus = tempnam(sys_get_temp_dir(), 'vocab').'.json';
+        file_put_contents($corpus, json_encode([['termo' => 'C-bet', 'definicao' => 'aposta de continuidade.']], JSON_UNESCAPED_UNICODE));
+        $this->rodar('atlas:study:vocab', ['--import' => $corpus, '--domain' => 'poker']);
+        @unlink($corpus);
+
+        $this->rodar('atlas:study:log', [
+            '--spot' => 'flop A72 rainbow',
+            '--decision' => 'aposta 33%',
+            '--why' => 'vantagem de range em board seco',
+            '--term' => 'C-bet',
+        ]);
+        $this->rodar('atlas:study:example', ['--domain' => 'poker']);
+
+        $carta = DB::table('worked_examples')->firstOrFail();
+        $noDaCarta = (string) $carta->knowledge_node_id;
+
+        $this->rodar('atlas:study:review', [
+            '--grade' => (string) $carta->id, '--mode' => 'transfer', '--correct' => true,
+        ]);
+
+        $overlay = DB::table('dreyfus_overlays')->where('domain', 'poker')->firstOrFail();
+
+        $this->assertSame($noDaCarta, (string) $overlay->knowledge_node_id, 'o review tem de escrever no no da carta');
+        $this->assertSame(2, (int) $overlay->current_level);
+
+        // E o no e derivavel do TERMO — que e por onde o planejador chega nele.
+        $noDoTermo = app(\App\Services\Ai\Learning\Dreyfus\DreyfusOverlayRepository::class)->nodeIdForTopic('C-bet');
+        $this->assertSame($noDaCarta, $noDoTermo, 'o planejador e o laco de revisao tem de cair no MESMO no');
+    }
+
     public function test_ancora_falsa_para_o_ciclo_no_primeiro_elo(): void
     {
         // Sem verbete importado, a decisao ancorada e RECUSADA — e nada a jusante existe.
