@@ -25,7 +25,17 @@ final class AtlasSignalInvariantScanner
 {
     public const SCHEMA = 'atlas.signal.invariants.v1';
 
-    private const NO_CALL_GRAPH = 'nao derivavel sem grafo de chamadas: atlas_engineering_code_symbols indexa simbolo e caminho, nao arestas de chamada — heuristica aqui seria achado fabricado';
+    /**
+     * O grafo de chamadas DEIXOU de ser a peça que falta — e continua não dando.
+     *
+     * Depois de destravar o build de símbolos, o runtime resolve 205.568 arestas
+     * de chamada método→método. Elas não respondem nenhuma das duas perguntas:
+     * "quem ESCREVE esta tabela" e "quem LÊ este campo" dependem de atribuição
+     * de escrita, e o alvo de um `DB::table('x')->insert(...)` é um LITERAL de
+     * argumento, não a ponta de uma aresta. Quem for atrás disto amanhã não
+     * deve gastar o dia reconstruindo o call graph: ele já existe e não basta.
+     */
+    private const NO_CALL_GRAPH = 'nao derivavel sem atribuicao de ESCRITA: quem escreve uma tabela / le um campo nao e aresta de chamada — o alvo e literal de argumento, e o call graph (205k arestas) nao o alcanca; heuristica aqui seria achado fabricado';
 
     public function __construct(
         private readonly AtlasTableCensusService $census,

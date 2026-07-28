@@ -157,10 +157,26 @@ class CodeGraphSymbolBuilder
 
         $input = ['files' => $files];
         $receipt = CodeGraphRuntimeInvoker::mintReceipt($op, $input, 'atlas-kernel:code-graph-call-edges');
-        $result = app(CodeGraphRuntimeInvoker::class)->invoke($op, $input, [], $receipt);
+        // O default do invocador são 30s, e o callgraph tipado leva ~43s sobre os
+        // ~13k arquivos deste repo: passava do tempo, virava `runtime_unavailable`
+        // e o grafo de chamadas ficava em ZERO — lido como "o runtime não está
+        // pronto" durante meses. 300s é o teto que o próprio invocador impõe
+        // (min($raw, 300)); é dele o limite, não deste chamador.
+        $result = app(CodeGraphRuntimeInvoker::class)->invoke($op, $input, ['timeout_seconds' => 300], $receipt);
 
         if (($result['status'] ?? null) !== CodeGraphRuntimeInvoker::STATUS_SUCCEEDED) {
-            return ['edges' => [], 'stats' => ['files' => count($files), 'mode' => $mode, 'status' => 'runtime_unavailable']];
+            // O MOTIVO viaja. Sem ele, flag desligada, python ausente e tempo
+            // estourado eram a mesma palavra na saída — e a palavra sugeria a
+            // causa errada.
+            $reason = (string) (data_get($result, 'findings.0.error') ?? data_get($result, 'findings.0.reason') ?? 'unknown');
+
+            return ['edges' => [], 'stats' => [
+                'files' => count($files),
+                'mode' => $mode,
+                'status' => str_starts_with($reason, 'runtime_timeout_after_') ? 'runtime_timeout' : 'runtime_unavailable',
+                'reason' => $reason,
+                'runtime_status' => (string) ($result['status'] ?? 'unknown'),
+            ]];
         }
 
         $payload = $result['artifacts'][0]['result'] ?? [];

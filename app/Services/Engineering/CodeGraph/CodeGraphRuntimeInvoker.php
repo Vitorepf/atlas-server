@@ -4,6 +4,7 @@ namespace App\Services\Engineering\CodeGraph;
 
 use Illuminate\Support\Facades\File;
 use Symfony\Component\Process\ExecutableFinder;
+use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 use Throwable;
 
@@ -119,7 +120,23 @@ class CodeGraphRuntimeInvoker
             ['PYTHONPATH' => base_path(self::RUNTIME_ROOT)],
         );
         $process->setTimeout($timeout);
-        $process->run();
+        try {
+            $process->run();
+        } catch (ProcessTimedOutException) {
+            // Estourar o tempo é um fato DIFERENTE de "o runtime não está aí", e
+            // até aqui os dois chegavam ao chamador como a mesma coisa: o
+            // callgraph tipado precisa de ~43s, morria nos 30s do default, e o
+            // build reportava `runtime_unavailable` — a leitura errada ("o
+            // runtime não existe") escondeu por meses um trabalho que só
+            // precisava de mais alguns segundos.
+            try {
+                File::delete($manifestPath);
+            } catch (Throwable) {
+                // Best-effort cleanup.
+            }
+
+            return $this->failed($op, 'runtime_timeout_after_'.$timeout.'s', null, $payload);
+        }
 
         $decoded = json_decode($process->getOutput(), true);
         $ok = $process->isSuccessful()
