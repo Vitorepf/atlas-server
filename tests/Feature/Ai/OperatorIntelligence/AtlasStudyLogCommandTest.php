@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Ai\OperatorIntelligence;
 
 use App\Models\OperatorLearningSignal;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Tests\Concerns\CreatesOperatorIntelligenceTables;
@@ -146,6 +147,45 @@ final class AtlasStudyLogCommandTest extends TestCase
         // parece ligado ao vocabulario e nao esta, e a mentira so aparece meses depois,
         // quando o operador procura "todo principio sobre X" e volta vazio.
         $this->assertSame(0, OperatorLearningSignal::query()->count());
+    }
+
+    public function test_recusa_de_ancora_sugere_o_verbete_proximo_em_vez_de_so_barrar(): void
+    {
+        $this->verbete('C-bet', 'aposta de continuidade.');
+        $this->verbete('Squeeze', 'reaumento sobre um aumento ja pago.');
+        $this->verbete('Fold', 'desistir da mao.');
+
+        Artisan::call('atlas:study:log', [
+            '--spot' => 'x', '--decision' => 'y', '--why' => 'z',
+            '--term' => 'cbet', '--json' => true,
+        ]);
+        $saida = (array) json_decode(trim(Artisan::output()), true);
+
+        // A recusa fail-closed esta certa; recusar SEM ajudar transforma a guarda em muro.
+        // Medido no corpus real: `cbet`, `c bet`, `3-bet`, `squeze` — grafias que um jogador
+        // escreve sem pensar — eram barradas sem uma pista de qual era o termo. Guarda cara
+        // de atravessar deixa de ser atravessada: ele para de ancorar, e o vocabulario volta
+        // a ser um PDF.
+        $this->assertFalse($saida['ok']);
+        $this->assertContains('C-bet', $saida['voce_quis_dizer']);
+    }
+
+    public function test_a_sugestao_nao_despeja_o_vocabulario_inteiro(): void
+    {
+        $this->verbete('C-bet', 'aposta de continuidade.');
+        $this->verbete('Squeeze', 'reaumento sobre um aumento ja pago.');
+        $this->verbete('Fold', 'desistir da mao.');
+
+        Artisan::call('atlas:study:log', [
+            '--spot' => 'x', '--decision' => 'y', '--why' => 'z',
+            '--term' => 'squeze', '--json' => true,
+        ]);
+        $saida = (array) json_decode(trim(Artisan::output()), true);
+
+        // Sugerir tudo e o mesmo que nao sugerir nada. O teto de distancia e proporcional ao
+        // tamanho, entao "squeze"->"Squeeze" entra e "Fold" fica de fora — apesar de "Fold"
+        // ter distancia pequena em valor absoluto de quase qualquer palavra curta.
+        $this->assertSame(['Squeeze'], $saida['voce_quis_dizer']);
     }
 
     public function test_ancora_valida_viaja_no_sinal_ja_resolvida(): void

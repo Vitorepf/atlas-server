@@ -137,6 +137,7 @@ class AtlasStudyLogCommand extends Command
                 return $this->recusa('unknown_vocabulary_term', [
                     'term' => $termo,
                     'domain' => $dominio,
+                    'voce_quis_dizer' => $this->parecidos($termo, $dominio),
                     'hint' => 'importe o corpus com `atlas:study:vocab --import=` ou procure o termo certo com `--search=`',
                     'why_it_matters' => 'ancora nao verificada e decoracao: o principio parece ligado ao vocabulario e nao esta',
                 ]);
@@ -181,6 +182,50 @@ class AtlasStudyLogCommand extends Command
             'confidence_kind' => $confidence,
             'vocabulary_term' => $verbete?->term,
         ]);
+    }
+
+    /**
+     * "Voce quis dizer" — os verbetes mais proximos do que ele digitou.
+     *
+     * A recusa fail-closed esta certa (ancora nao verificada e decoracao), mas recusar SEM
+     * ajudar transforma a guarda em muro. Medido no corpus real: `cbet`, `c bet`, `3-bet`,
+     * `squeze` — todas grafias que um jogador escreve sem pensar — eram recusadas sem uma
+     * pista de qual era o termo certo, e o operador teria de sair do fluxo para procurar.
+     * Guarda que custa caro para atravessar deixa de ser atravessada: ele para de ancorar,
+     * e o vocabulario volta a ser um PDF.
+     *
+     * Levenshtein sobre a forma NORMALIZADA (caixa e acento ja dobrados), teto proporcional
+     * ao tamanho — assim "squeze"→"squeeze" entra e "fold"→"flop" nao, mesmo com distancia
+     * pequena em valor absoluto.
+     *
+     * @return list<string>
+     */
+    private function parecidos(string $termo, string $dominio): array
+    {
+        $alvo = AtlasStudyVocabCommand::normalizar($termo);
+        if ($alvo === '') {
+            return [];
+        }
+
+        $teto = max(2, (int) floor(mb_strlen($alvo) / 3));
+        $candidatos = [];
+
+        foreach (DB::table('atlas_study_vocabulary')->where('domain', $dominio)->get(['term', 'term_normalized']) as $linha) {
+            $chave = (string) $linha->term_normalized;
+            // Substring conta como pertinho: quem digita "bet" quer ver "C-bet" e "Blocking
+            // Bet", e a distancia de edicao entre eles e grande.
+            $distancia = str_contains($chave, $alvo) || str_contains($alvo, $chave)
+                ? 0
+                : levenshtein($alvo, $chave);
+
+            if ($distancia <= $teto) {
+                $candidatos[] = ['termo' => (string) $linha->term, 'd' => $distancia];
+            }
+        }
+
+        usort($candidatos, static fn (array $a, array $b): int => [$a['d'], mb_strlen($a['termo'])] <=> [$b['d'], mb_strlen($b['termo'])]);
+
+        return array_slice(array_column($candidatos, 'termo'), 0, 5);
     }
 
     /**
