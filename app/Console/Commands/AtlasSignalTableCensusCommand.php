@@ -8,6 +8,7 @@ use App\Console\Concerns\EmitsCanonicalJson;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainCapabilityGapTaskChainCompiler;
 use App\Services\Ai\Signal\AtlasSignalInvariantGapAdapter;
 use App\Services\Ai\Signal\AtlasTableCensusService;
+use App\Services\Ai\Signal\AtlasTableReferenceResolver;
 use Illuminate\Console\Command;
 
 /**
@@ -87,10 +88,20 @@ class AtlasSignalTableCensusCommand extends Command
             $empty = array_slice($empty, 0, $limit);
         }
 
-        $findings = array_map(
-            static fn (string $table): array => ['class' => 'table_without_owner', 'subject' => $table],
-            array_values($empty),
-        );
+        // O endereço da lacuna. Sem ele todo nó saía not_muscle_ready: o
+        // compilador nunca inventa alvo, e uma tabela vazia não diz sozinha quem
+        // deveria enchê-la. Quem sabe é o código que já cita aquele nome.
+        $refs = app(AtlasTableReferenceResolver::class)->resolve(array_values($empty));
+
+        $findings = [];
+        foreach (array_values($empty) as $table) {
+            $hint = $refs['references'][$table] ?? [];
+            $findings[] = array_filter([
+                'class' => 'table_without_owner',
+                'subject' => $table,
+                'allowed_files_hint' => $hint !== [] ? $hint : null,
+            ], static fn (mixed $v): bool => $v !== null);
+        }
 
         $adapted = app(AtlasSignalInvariantGapAdapter::class)->toGaps($findings);
         $compiled = app(AtlasExternalBrainCapabilityGapTaskChainCompiler::class)->compile($adapted);
@@ -107,6 +118,14 @@ class AtlasSignalTableCensusCommand extends Command
                 static fn (array $n): bool => (bool) data_get($n, 'muscle_ready_spec_contract.not_muscle_ready', false),
             )),
             'skipped' => $adapted['skipped'],
+            'findings_with_hint' => count(array_filter($findings, static fn (array $f): bool => ($f['allowed_files_hint'] ?? []) !== [])),
+            'reference_lookup_available' => $refs['available'],
+            'reference_lookup_reason' => $refs['reason'],
+            // Dois achados que NÃO são falha do censo: a tabela existe só na
+            // migration que a criou, ou não é citada em lugar nenhum. Cada uma é
+            // uma forma construída e nunca reivindicada.
+            'tables_defined_but_never_cited' => count($refs['migration_only']),
+            'tables_cited_by_nobody' => count($refs['unreferenced']),
             'chain_nodes' => count($compiled['chain']),
             'chain_value_score' => $compiled['chain_value_score'],
             'gap_chains' => $compiled['gap_chains'],
@@ -126,11 +145,17 @@ class AtlasSignalTableCensusCommand extends Command
         }
 
         $this->info(sprintf(
-            '%d achado(s) → %d nó(s) de task · chain_value_score=%s · %d nó(s) sem alvo concreto (not_muscle_ready)',
+            '%d achado(s) (%d com alvo) → %d nó(s) · chain_value_score=%s · %d sem alvo concreto',
             $payload['findings_in'],
+            $payload['findings_with_hint'],
             $payload['chain_nodes'],
             $payload['chain_value_score'],
             $payload['not_muscle_ready_nodes'],
+        ));
+        $this->line(sprintf(
+            '  %d tabela(s) só na migration que a criou · %d citada(s) por ninguém',
+            $payload['tables_defined_but_never_cited'],
+            $payload['tables_cited_by_nobody'],
         ));
 
         return self::SUCCESS;
