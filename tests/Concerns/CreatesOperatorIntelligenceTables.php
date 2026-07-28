@@ -109,11 +109,63 @@ trait CreatesOperatorIntelligenceTables
             $table->json('metadata')->nullable();
             $table->timestamps();
         });
+
+        // As duas que faltavam. `OperatorLearningRuntimeCaptureService::REQUIRED_TABLES`
+        // exige OITO tabelas; este trait criava SEIS. O efeito nao era um erro visivel:
+        // a captura respondia `missing_operator_tables` e devolvia sem gravar, entao todo
+        // teste que dependia de captura pelo gateway ficava vermelho por um motivo que
+        // nao era o assunto dele — e a suite vermelha virou mascara para regressao nova.
+        Schema::create('operator_pattern_detections', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('operator_id', 120)->index();
+            $table->string('pattern_id', 80);
+            $table->string('kind', 40);
+            $table->string('taxonomy_item_id', 16)->nullable();
+            $table->text('summary');
+            $table->string('signature', 255);
+            $table->unsignedInteger('occurrence_count')->default(0);
+            $table->unsignedSmallInteger('window_days')->default(28);
+            $table->float('confidence')->default(0.0);
+            $table->string('privacy_class', 20)->default('normal');
+            $table->string('proposal_target', 20)->default('mission');
+            $table->json('cadence')->nullable();
+            $table->json('evidence');
+            $table->string('status', 24)->default('detected');
+            $table->string('proposed_skill_task_id')->nullable();
+            $table->string('proposed_mission_id')->nullable();
+            $table->timestamps();
+
+            $table->unique(['operator_id', 'pattern_id']);
+            $table->index(['operator_id', 'status']);
+        });
+
+        Schema::create('operator_skill_proposals', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('operator_id', 120)->index();
+            $table->string('pattern_id', 80);
+            $table->string('detection_id')->nullable();
+            $table->string('slug', 160);
+            $table->string('title');
+            $table->text('description');
+            $table->string('status', 24)->default('staged');
+            $table->text('staging_path');
+            $table->text('promoted_path')->nullable();
+            $table->float('confidence')->default(0.0);
+            $table->string('privacy_class', 20)->default('normal');
+            $table->json('evidence')->nullable();
+            $table->timestamp('promoted_at')->nullable();
+            $table->timestamps();
+
+            $table->unique(['operator_id', 'pattern_id']);
+            $table->index(['operator_id', 'status']);
+        });
     }
 
     protected function dropOperatorIntelligenceTables(): void
     {
         foreach ([
+            'operator_skill_proposals',
+            'operator_pattern_detections',
             'operator_profile_snapshots',
             'operator_profile_feedback_events',
             'operator_profile_policy_rules',

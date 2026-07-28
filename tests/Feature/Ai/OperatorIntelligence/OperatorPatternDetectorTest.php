@@ -103,14 +103,35 @@ final class OperatorPatternDetectorTest extends TestCase
         $this->assertSame([], $this->detector()->detect('op'));
     }
 
-    public function test_dedups_on_rerun(): void
+    public function test_rerun_nao_duplica_a_linha_e_o_que_encerra_a_elegibilidade_e_o_STATUS(): void
     {
         for ($i = 0; $i < 3; $i++) {
             $this->seedSignal('op', 'OP-073', 'Prefiro respostas curtas.');
         }
 
-        $this->assertCount(1, $this->detector()->detect('op'));
-        $this->assertSame([], $this->detector()->detect('op'), 'a re-run must not re-detect the same recurrence');
+        $primeira = $this->detector()->detect('op');
+        $this->assertCount(1, $primeira);
+
+        // O contrato ANTIGO deste teste era "re-run devolve []". Ele foi superado em
+        // 0f52d5b32 e a assercao ficou 7 semanas para tras, vermelha. A razao da mudanca
+        // esta no proprio detector: devolver so as linhas CRIADAS nesta chamada fazia a
+        // linha virar o beco sem saida — um --dry-run, um crash entre detectar e propor,
+        // ou qualquer run anterior as pontes gravava status=detected, e todo run seguinte
+        // achava a linha existente e a pulava PARA SEMPRE. O padrao nunca chegava ao
+        // operador.
+        //
+        // O invariante que importa nao e "nao redetecta", e "nao duplica e nao repropoe".
+        // Quem encerra a elegibilidade e o STATUS, nao a idade da linha.
+        $segunda = $this->detector()->detect('op');
+        $this->assertCount(1, $segunda, 're-run continua elegivel enquanto NUNCA foi proposto');
+        $this->assertSame($primeira[0]->id, $segunda[0]->id, 'e a MESMA linha — dedupe por (operator_id, pattern_id)');
+        $this->assertSame(1, OperatorPatternDetection::query()->count(), 're-run nao pode criar linha nova');
+
+        // Assim que a ponte propoe, a linha sai da fila e nao volta.
+        $segunda[0]->forceFill(['status' => OperatorPatternDetection::STATUS_PROPOSED])->save();
+
+        $this->assertSame([], $this->detector()->detect('op'), 'padrao ja proposto nunca e reproposto');
+        $this->assertSame(1, OperatorPatternDetection::query()->count());
     }
 
     public function test_temporal_cadence_requires_taxonomy_coherence(): void

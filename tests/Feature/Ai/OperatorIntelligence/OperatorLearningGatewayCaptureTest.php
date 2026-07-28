@@ -53,6 +53,11 @@ final class OperatorLearningGatewayCaptureTest extends TestCase
                     'app_surface' => 'atlas_cli',
                     'atlas_workflow_mode' => 'dev',
                     'operator_id' => 'vitor',
+                    // Exigido desde 0f52d5b32. Antes dele o captor lia o PROMPT MONTADO, e
+                    // o detector aprendeu o preambulo de subagente como se fosse padrao do
+                    // operador. A lei que ficou: a superficie declara quais palavras sao
+                    // dele, ou nao ha captura.
+                    'operator_text' => 'Da próxima vez, prefiro respostas curtas quando eu pedir status.',
                 ],
             ],
         );
