@@ -20,18 +20,34 @@ final class OperatorLearningClassifySupport
     }
 
     /**
-     * Casa TERMO INTEIRO, dobrando acento. E a mesma correcao de `inferPrivacy`, aplicada
-     * ao segundo lugar onde o defeito morava.
+     * Casa PALAVRA INTEIRA contra um padrao que ja declara a propria flexao.
      *
-     * `$radical = true` prende so a fronteira da ESQUERDA, porque alguns alvos sao radicais
-     * truncados de proposito: 'autonom' precisa pegar "autonomia" e "autonomo", 'bloque'
-     * pega "bloquear" e "bloqueio". Prender a direita neles quebraria o que funcionava.
+     * Fronteira dura dos dois lados nao serve para portugues: `\bresposta\b` NAO casa
+     * "respostas", e o `str_contains` original casava — por acidente, mas casava. Trocar um
+     * pelo outro sem declarar a flexao troca um falso positivo por um falso negativo.
+     * Medido: "prefiro respostas curtas" caiu de COL-156 para OP-124.
+     *
+     * Por isso cada alvo traz a propria forma: `curt[oa]s?` pega curto/curta/curtos/curtas
+     * e nao pega "curtir"; `long[oa]s?` nao pega "longe"; `autonom\w*` pega a familia
+     * inteira de propositio.
      */
-    private static function contemTermo(string $textoDobrado, string $termo, bool $radical = false): bool
+    private static function casa(string $textoDobrado, string $padrao): bool
     {
-        $fim = $radical ? '' : '\\b';
+        return preg_match('/\\b(?:'.$padrao.')\\b/u', $textoDobrado) === 1;
+    }
 
-        return preg_match('/\\b'.preg_quote($termo, '/').$fim.'/u', $textoDobrado) === 1;
+    /**
+     * @param  list<string>  $padroes
+     */
+    private static function casaAlgum(string $textoDobrado, array $padroes): bool
+    {
+        foreach ($padroes as $padrao) {
+            if (self::casa($textoDobrado, $padrao)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public static function normalizeTaxonomy(string $taxonomy, string $claim): string
@@ -48,23 +64,16 @@ final class OperatorLearningClassifySupport
         // que e como o operador escreve. Um lado inventava rotulo, o outro perdia o certo.
         $texto = self::semAcento(Str::lower($claim));
 
-        if (self::contemTermo($texto, 'autonom', radical: true)
-            || self::contemTermo($texto, 'approval')
-            || self::contemTermo($texto, 'aprov', radical: true)) {
+        if (self::casaAlgum($texto, ['autonom\w*', 'approval', 'aprov\w*'])) {
             return 'COL-157';
         }
-        if (self::contemTermo($texto, 'curto')
-            || self::contemTermo($texto, 'longo')
-            || self::contemTermo($texto, 'tom')
-            || self::contemTermo($texto, 'resposta')) {
+        if (self::casaAlgum($texto, ['curt[oa]s?', 'long[oa]s?', 'tons?', 'respostas?'])) {
             return 'COL-156';
         }
-        if (self::contemTermo($texto, 'gosto') || self::contemTermo($texto, 'prefiro')) {
+        if (self::casaAlgum($texto, ['gost[oa]', 'prefiro'])) {
             return 'OP-124';
         }
-        if (self::contemTermo($texto, 'nunca')
-            || self::contemTermo($texto, 'nao mexa')
-            || self::contemTermo($texto, 'bloque', radical: true)) {
+        if (self::casaAlgum($texto, ['nunca', 'nao mexa', 'bloque\w*'])) {
             return 'OP-140';
         }
 
@@ -76,7 +85,7 @@ final class OperatorLearningClassifySupport
         // Mesmo defeito, mesmo conserto: aqui o custo de errar e maior, porque
         // `operator_boundary` e o rotulo de LIMITE — o que o operador proibiu.
         $texto = self::semAcento(Str::lower($claim));
-        if (self::contemTermo($texto, 'nunca') || self::contemTermo($texto, 'nao mexa')) {
+        if (self::casaAlgum($texto, ['nunca', 'nao mexa'])) {
             return 'operator_boundary';
         }
         if (str_starts_with($taxonomy, 'COL-')) {

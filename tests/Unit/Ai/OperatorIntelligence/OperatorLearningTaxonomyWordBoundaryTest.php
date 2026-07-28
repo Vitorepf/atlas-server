@@ -80,6 +80,57 @@ final class OperatorLearningTaxonomyWordBoundaryTest extends TestCase
         );
     }
 
+    /**
+     * @return array<string,array{0:string}>
+     */
+    public static function flexoesQueOPortuguesExige(): array
+    {
+        return [
+            'plural' => ['prefiro respostas curtas quando eu pedir status'],
+            'plural e feminino' => ['nao gosto de respostas longas'],
+            'feminino singular' => ['prefiro entrega curta'],
+            'plural de tom' => ['quero tons mais informais'],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('flexoesQueOPortuguesExige')]
+    public function flexao_de_plural_e_genero_continua_casando(string $claim): void
+    {
+        // A ARMADILHA que esta rede existe para fechar: trocar `str_contains` por fronteira
+        // dura dos DOIS lados conserta o falso positivo e cria um falso negativo, porque
+        // `\bresposta\b` nao casa "respostas". O `str_contains` casava — por acidente, mas
+        // casava. Medido no momento em que aconteceu: "prefiro respostas curtas" caiu de
+        // COL-156 para OP-124, e nenhum teste existente pegou, porque a unica suite que
+        // cobria essa frase ja estava vermelha por outro motivo.
+        $this->assertSame(
+            'COL-156',
+            OperatorLearningClassifySupport::normalizeTaxonomy('', $claim),
+            'fronteira de palavra nao pode custar a flexao — portugues flexiona'
+        );
+    }
+
+    /**
+     * @return array<string,array{0:string}>
+     */
+    public static function palavrasVizinhasQueNaoPodemCasar(): array
+    {
+        return [
+            'curtir nao e curto' => ['quero curtir a folga amanha'],
+            'longe nao e longo' => ['ele mora longe daqui'],
+            'gostoso nao e gosto' => ['o cafe estava gostoso hoje'],
+        ];
+    }
+
+    #[Test]
+    #[DataProvider('palavrasVizinhasQueNaoPodemCasar')]
+    public function flexao_declarada_nao_abre_a_porta_para_a_palavra_vizinha(string $claim): void
+    {
+        // O preco de aceitar flexao seria voltar ao substring. `curt[oa]s?` pega
+        // curto/curta/curtos/curtas e para em "curtir"; `long[oa]s?` para em "longe".
+        $this->assertSame('OP-071', OperatorLearningClassifySupport::normalizeTaxonomy('', $claim));
+    }
+
     #[Test]
     public function radical_truncado_continua_pegando_a_familia_inteira(): void
     {
